@@ -92,7 +92,7 @@ is deliberate: the console never shows a number it cannot trace to stored NASA o
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| "API offline" pill | Backend not running or wrong port | Start `uvicorn` on 8100; check `VITE_PROXY_TARGET` |
+| "API offline" pill | Backend not running or wrong port | Start `uvicorn` on 8200; check `VITE_PROXY_TARGET` |
 | Empty tables in Settings | API unreachable or migration not applied | Run `alembic upgrade head` |
 | "No NASA data" | Expected before Phase 2, or no `FIRMS_MAP_KEY` | Set the key in `backend/.env` / root `.env` |
-| Port already in use | Another service on 8000/5173 | Use 8100 for the API; Vite is pinned to 5173 |
+| Port already in use | Another service on 8000/5273 | Use 8200 for the API; Vite is pinned to 5273 |

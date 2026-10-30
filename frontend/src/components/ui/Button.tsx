@@ -5,16 +5,17 @@ type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md";
 
 const VARIANTS: Record<Variant, string> = {
-  primary:
-    "bg-fire-medium text-[#1a1006] hover:bg-fire-low border border-fire-medium/60 font-semibold",
-  secondary: "bg-raised text-ink border border-line hover:border-faint/70 hover:bg-raised/80",
-  ghost: "text-muted hover:text-ink hover:bg-raised/70 border border-transparent",
-  danger: "bg-danger/10 text-danger border border-danger/40 hover:bg-danger/20",
+  primary: "btn-primary",
+  secondary: "btn-glass",
+  ghost:
+    "inline-flex items-center justify-center gap-2 rounded-full px-3 py-1.5 text-xs font-normal text-muted transition-colors duration-150 hover:text-ink",
+  danger:
+    "inline-flex items-center justify-center gap-2 rounded-full border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger transition-colors duration-150 hover:bg-danger/10",
 };
 
 const SIZES: Record<Size, string> = {
-  sm: "h-7 px-2.5 text-xs gap-1.5",
-  md: "h-9 px-3.5 text-sm gap-2",
+  sm: "h-7 px-3 text-2xs",
+  md: "h-9 px-4",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -35,8 +36,7 @@ export function Button({
     <button
       type={type}
       className={clsx(
-        "inline-flex select-none items-center justify-center rounded-md transition-colors",
-        "disabled:cursor-not-allowed disabled:opacity-45",
+        "select-none disabled:cursor-not-allowed disabled:opacity-40",
         VARIANTS[variant],
         SIZES[size],
         className,

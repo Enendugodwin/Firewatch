@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, CheckCircle2, CircleDashed, KeyRound } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDashed, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { ModuleScaffold } from "@/components/ui/ModuleScaffold";
@@ -12,7 +12,7 @@ import { useUiStore } from "@/store/ui";
 
 type StageState = "done" | "active" | "blocked" | "pending";
 
-const STAGE_STYLE: Record<StageState, { tone: "ok" | "info" | "warn" | "neutral"; label: string }> = {
+const STAGE_LABEL: Record<StageState, { tone: "ok" | "info" | "warn" | "neutral"; label: string }> = {
   done: { tone: "ok", label: "Ready" },
   active: { tone: "info", label: "In progress" },
   blocked: { tone: "warn", label: "Blocked" },
@@ -89,13 +89,13 @@ export function OverviewPage() {
         "A completed ingestion run, so statistics are computed from stored observations.",
       ]}
       extra={
-        <div className="mb-4 space-y-4">
+        <div className="mb-[12px] space-y-[12px]">
           {isError ? (
-            <div className="flex items-start gap-2.5 rounded-md border border-danger/40 bg-danger/10 px-3.5 py-3">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
-              <div className="text-xs leading-relaxed text-danger">
+            <div className="flex items-start gap-2.5 rounded-card border border-danger/25 bg-danger/[0.06] px-[18px] py-[14px]">
+              <AlertTriangle className="mt-[2px] size-4 shrink-0 text-danger" aria-hidden />
+              <div className="text-xs font-light leading-relaxed text-danger">
                 <p className="font-medium">The API is not reachable.</p>
-                <p className="mt-0.5 text-danger/80">
+                <p className="mt-[2px] text-danger/80">
                   {error instanceof Error ? error.message : "Unknown error."} Every figure on this
                   page is withheld rather than guessed.
                 </p>
@@ -103,7 +103,7 @@ export function OverviewPage() {
             </div>
           ) : null}
 
-          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-[10px] sm:grid-cols-2 xl:grid-cols-4">
             <StatTile
               label="Detections in period"
               value={isLoading ? "…" : "—"}
@@ -128,7 +128,6 @@ export function OverviewPage() {
               label="Sources registered"
               value={isLoading ? "…" : String(status?.data.sources_registered ?? "—")}
               hint="NASA FIRMS products in the catalogue"
-              tone="info"
             />
           </div>
 
@@ -138,24 +137,24 @@ export function OverviewPage() {
             actions={<Badge tone="warn">no data yet</Badge>}
             bodyClassName="p-0"
           >
-            <ul className="divide-y divide-line/60">
+            <ul>
               {stages.map((stage) => {
-                const style = STAGE_STYLE[stage.state];
+                const style = STAGE_LABEL[stage.state];
                 return (
                   <li
                     key={stage.name}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5"
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line/[0.06] px-[22px] py-[11px] last:border-0"
                   >
                     {stage.state === "done" ? (
-                      <CheckCircle2 className="size-3.5 shrink-0 text-ok" aria-hidden />
+                      <CheckCircle2 className="size-3.5 shrink-0 text-accent" aria-hidden />
                     ) : stage.state === "blocked" ? (
                       <KeyRound className="size-3.5 shrink-0 text-warn" aria-hidden />
                     ) : (
                       <CircleDashed className="size-3.5 shrink-0 text-faint" aria-hidden />
                     )}
-                    <span className="text-xs font-medium text-ink">{stage.name}</span>
+                    <span className="text-xs text-ink">{stage.name}</span>
                     <span className="font-mono text-3xs text-faint">{stage.phase}</span>
-                    <span className="w-full text-2xs leading-relaxed text-muted sm:ml-6 sm:w-auto sm:flex-1">
+                    <span className="w-full text-2xs font-light leading-relaxed text-muted sm:ml-[26px] sm:w-auto sm:flex-1">
                       {stage.detail}
                     </span>
                     <Badge tone={style.tone}>{style.label}</Badge>
@@ -165,27 +164,29 @@ export function OverviewPage() {
             </ul>
           </Panel>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-[12px] lg:grid-cols-2">
             <Panel
               title="Selected period"
               subtitle="Shared across every module once queries are live."
             >
-              <dl className="grid grid-cols-2 gap-3 text-xs">
+              <dl className="grid grid-cols-2 gap-x-[18px] gap-y-[14px]">
                 <div>
                   <dt className="label">Start (UTC)</dt>
-                  <dd className="mono-value mt-1">{dateRange.start}</dd>
+                  <dd className="mt-[6px] font-mono text-[13px] text-ink">{dateRange.start}</dd>
                 </div>
                 <div>
                   <dt className="label">End (UTC)</dt>
-                  <dd className="mono-value mt-1">{dateRange.end}</dd>
+                  <dd className="mt-[6px] font-mono text-[13px] text-ink">{dateRange.end}</dd>
                 </div>
                 <div>
                   <dt className="label">Preset</dt>
-                  <dd className="mt-1 text-muted">{dateRange.preset}</dd>
+                  <dd className="mt-[6px] text-xs font-light capitalize text-muted">
+                    {dateRange.preset}
+                  </dd>
                 </div>
                 <div>
                   <dt className="label">API uptime</dt>
-                  <dd className="mono-value mt-1">
+                  <dd className="mt-[6px] font-mono text-[13px] text-ink">
                     {status ? formatUptime(status.uptime_seconds) : "—"}
                   </dd>
                 </div>
@@ -196,35 +197,34 @@ export function OverviewPage() {
               title="Data ingestion status"
               subtitle="Separate indicators so a refreshing map is never mistaken for a live feed."
               actions={
-                <span className="inline-flex items-center gap-1.5 text-2xs text-muted">
+                <span className="inline-flex items-center gap-1.5 text-2xs font-light text-muted">
                   <StatusDot tone={status?.database.connected ? "ok" : "danger"} />
                   {status?.database.connected ? "database reachable" : "database down"}
                 </span>
               }
             >
-              <dl className="space-y-2 text-xs">
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-faint">Last NRT retrieval</dt>
-                  <dd className="font-mono text-muted">
+              <dl className="divide-y divide-line/[0.06]">
+                <div className="flex items-center justify-between gap-3 py-[7px]">
+                  <dt className="text-2xs font-light text-faint">Last NRT retrieval</dt>
+                  <dd className="font-mono text-2xs text-muted">
                     {formatDateTimeUtc(status?.data.last_ingested_at ?? null)}
                   </dd>
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-faint">Latest observation</dt>
-                  <dd className="font-mono text-muted">
+                <div className="flex items-center justify-between gap-3 py-[7px]">
+                  <dt className="text-2xs font-light text-faint">Latest observation</dt>
+                  <dd className="font-mono text-2xs text-muted">
                     {formatDateTimeUtc(status?.data.last_observation_at ?? null)}
                   </dd>
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-faint">Observations stored</dt>
-                  <dd className="font-mono text-muted">
+                <div className="flex items-center justify-between gap-3 py-[7px]">
+                  <dt className="text-2xs font-light text-faint">Observations stored</dt>
+                  <dd className="font-mono text-2xs text-muted">
                     {status?.data.observations_stored ?? "—"}
                   </dd>
                 </div>
               </dl>
-              <p className="mt-2.5 border-t border-line/60 pt-2 text-2xs leading-relaxed text-faint">
-                {status?.data.freshness_reason ??
-                  "Freshness is unknown until the API responds."}
+              <p className="mt-[10px] border-t border-line/[0.06] pt-[10px] text-2xs font-light leading-relaxed text-faint">
+                {status?.data.freshness_reason ?? "Freshness is unknown until the API responds."}
               </p>
             </Panel>
           </div>
@@ -241,24 +241,21 @@ export function OverviewPage() {
             action={
               <Link
                 to="/settings"
-                className="inline-flex items-center gap-1.5 text-xs text-geo hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-light text-accent transition-colors duration-150 hover:text-ink"
               >
                 Inspect sources and configuration
-                <ArrowRight className="size-3" aria-hidden />
+                <ArrowUpRight className="size-3" aria-hidden />
               </Link>
             }
           />
         </div>
       }
     >
-      <Panel
-        title="What this module delivers"
-        subtitle={overviewModule?.phase ?? "Phase 4"}
-      >
-        <ul className="space-y-2">
+      <Panel title="What this module delivers" subtitle={overviewModule?.phase ?? "Phase 4"}>
+        <ul className="space-y-[10px]">
           {(overviewModule?.planned ?? []).map((item) => (
-            <li key={item} className="flex gap-2.5 text-xs leading-relaxed text-muted">
-              <span className="mt-1.5 size-1 shrink-0 rounded-full bg-fire-medium/70" />
+            <li key={item} className="flex gap-3 text-xs font-light leading-relaxed text-muted">
+              <span className="mt-[7px] size-1 shrink-0 rounded-full bg-accent/60" />
               {item}
             </li>
           ))}

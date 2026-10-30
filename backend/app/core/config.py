@@ -37,7 +37,10 @@ class Settings(BaseSettings):
     # --- security ------------------------------------------------------------
     # NoDecode: CORS_ORIGINS is accepted as a comma-separated list *or* JSON.
     cors_origins: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
+        default_factory=lambda: [
+            "http://localhost:5273",
+            "http://127.0.0.1:5273",
+        ]
     )
     docs_enabled: bool = True
 

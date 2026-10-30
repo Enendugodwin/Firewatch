@@ -1,5 +1,5 @@
 # Start the FIREWATCH X development servers (Windows PowerShell).
-# API on :8100, frontend on :5173. Both windows stay attached to this terminal.
+# API on :8200, frontend on :5273. Both windows stay attached to this terminal.
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 
@@ -14,8 +14,8 @@ uv run alembic upgrade head
 uv run python -m scripts.seed_sources
 Pop-Location
 
-Write-Host "Starting API on http://127.0.0.1:8100" -ForegroundColor Cyan
-Start-Process -FilePath "uv" -ArgumentList "run","uvicorn","app.main:app","--reload","--port","8100" -WorkingDirectory (Join-Path $root "backend")
+Write-Host "Starting API on http://127.0.0.1:8200" -ForegroundColor Cyan
+Start-Process -FilePath "uv" -ArgumentList "run","uvicorn","app.main:app","--reload","--port","8200" -WorkingDirectory (Join-Path $root "backend")
 
 if (-not (Test-Path (Join-Path $root "frontend/node_modules"))) {
     Write-Host "Installing frontend dependencies..." -ForegroundColor Cyan
@@ -24,6 +24,6 @@ if (-not (Test-Path (Join-Path $root "frontend/node_modules"))) {
     Pop-Location
 }
 
-Write-Host "Starting frontend on http://localhost:5173" -ForegroundColor Cyan
+Write-Host "Starting frontend on http://localhost:5273" -ForegroundColor Cyan
 Push-Location (Join-Path $root "frontend")
 npm run dev

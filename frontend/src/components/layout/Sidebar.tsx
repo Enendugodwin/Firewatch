@@ -14,48 +14,58 @@ const STATUS_TONE: Record<ModuleStatus, "ok" | "info" | "neutral"> = {
   scaffolded: "neutral",
 };
 
-function Logo({ compact }: { compact: boolean }) {
-  return (
-    <div className={clsx("flex items-center", compact ? "justify-center" : "gap-2.5")}>
+function Wordmark({ compact }: { compact: boolean }) {
+  if (compact) {
+    return (
       <span
         aria-hidden
-        className="flex size-8 shrink-0 items-center justify-center rounded-md border border-fire-medium/40 bg-fire-medium/10"
+        className="flex size-9 items-center justify-center rounded-full border border-line/10 bg-line/[0.03]"
       >
-        <Flame className="size-4 text-fire-medium" />
+        <Flame className="size-[15px] text-accent" />
       </span>
-      {!compact ? (
-        <span className="min-w-0 leading-none">
-          <span className="block truncate text-sm font-semibold tracking-[0.14em] text-ink">
-            FIREWATCH <span className="text-fire-medium">X</span>
-          </span>
-          <span className="mt-1 block truncate text-3xs uppercase tracking-[0.12em] text-faint">
-            Fire intelligence
-          </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-[11px]">
+      <span
+        aria-hidden
+        className="flex size-9 shrink-0 items-center justify-center rounded-full border border-line/10 bg-line/[0.03]"
+      >
+        <Flame className="size-[15px] text-accent" />
+      </span>
+      <span className="min-w-0 leading-none">
+        <span className="block truncate font-display text-[19px] tracking-[0.01em] text-ink">
+          Firewatch <span className="text-accent">X</span>
         </span>
-      ) : null}
+        <span className="mt-[5px] block truncate text-3xs uppercase tracking-[0.2em] text-faint">
+          Fire intelligence
+        </span>
+      </span>
     </div>
   );
 }
 
-function PhaseProgress() {
+function DeliveryMeter() {
   const { data } = useModules();
   const modules = data ?? [];
   const total = modules.length || 11;
   const ready = modules.filter((module) => module.status === "ready").length;
+  const progress = Math.max(Math.round((ready / total) * 100), 3);
 
   return (
-    <div className="mx-2 mt-2 rounded-md border border-line/70 bg-canvas/50 p-3">
-      <div className="flex items-center justify-between">
+    <div className="mx-[10px] mb-[10px] rounded-card border border-line/[0.07] bg-line/[0.02] px-[14px] py-[12px]">
+      <div className="flex items-baseline justify-between">
         <span className="label">Delivery</span>
         <span className="font-mono text-3xs text-muted">Phase 1 / 9</span>
       </div>
-      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-line/70">
+      <div className="mt-[9px] h-[2px] w-full overflow-hidden rounded-full bg-line/10">
         <div
-          className="h-full rounded-full bg-fire-medium transition-[width] duration-500"
-          style={{ width: `${Math.max(Math.round((ready / total) * 100), 4)}%` }}
+          className="h-full rounded-full bg-accent/80 transition-[width] duration-1000 ease-orbital"
+          style={{ width: `${progress}%` }}
         />
       </div>
-      <p className="mt-2 text-3xs leading-relaxed text-faint">
+      <p className="mt-[9px] text-3xs font-light leading-relaxed text-faint">
         {ready} of {total} modules operational. NASA ingestion starts in Phase 2.
       </p>
     </div>
@@ -79,32 +89,31 @@ export function Sidebar() {
         aria-hidden
         onClick={() => setSidebarOpen(false)}
         className={clsx(
-          "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity lg:hidden",
+          "fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-150 lg:hidden",
           drawerOpen ? "opacity-100" : "pointer-events-none opacity-0",
         )}
       />
 
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-50 flex w-[16.5rem] shrink-0 flex-col border-r border-line/80 bg-sidebar",
-          "transition-[transform,width] duration-200 lg:sticky lg:top-0 lg:z-0 lg:h-screen lg:translate-x-0",
+          "glass fixed inset-y-0 left-0 z-50 flex w-[16.5rem] shrink-0 flex-col border-y-0 border-l-0",
+          "transition-transform duration-150 lg:sticky lg:top-0 lg:z-0 lg:h-screen lg:translate-x-0",
           drawerOpen ? "translate-x-0" : "-translate-x-full",
           collapsedPref ? "lg:w-[4.5rem]" : "lg:w-[16.5rem]",
         )}
       >
-        {/* Mobile always shows the expanded drawer; `collapsed` applies from lg up. */}
         <div
           className={clsx(
-            "flex items-center gap-2 px-3 pb-3 pt-4",
+            "flex items-center gap-2 px-[14px] pb-[14px] pt-[18px]",
             collapsedPref ? "justify-between lg:flex-col lg:justify-center" : "justify-between",
           )}
         >
           <div className={clsx("min-w-0", collapsedPref && "lg:hidden")}>
-            <Logo compact={false} />
+            <Wordmark compact={false} />
           </div>
           {collapsedPref ? (
             <div className="hidden lg:block">
-              <Logo compact />
+              <Wordmark compact />
             </div>
           ) : null}
 
@@ -113,7 +122,7 @@ export function Sidebar() {
               type="button"
               onClick={() => setSidebarOpen(false)}
               aria-label="Close navigation"
-              className="rounded p-1.5 text-faint hover:bg-raised hover:text-ink lg:hidden"
+              className="rounded-full p-1.5 text-faint transition-colors duration-150 hover:bg-line/[0.06] hover:text-ink lg:hidden"
             >
               <X className="size-4" aria-hidden />
             </button>
@@ -122,7 +131,7 @@ export function Sidebar() {
               onClick={toggleCollapsed}
               aria-label={collapsedPref ? "Expand navigation" : "Collapse navigation"}
               title={collapsedPref ? "Expand navigation" : "Collapse navigation"}
-              className="hidden rounded p-1.5 text-faint hover:bg-raised hover:text-ink lg:block"
+              className="hidden rounded-full p-1.5 text-faint transition-colors duration-150 hover:bg-line/[0.06] hover:text-ink lg:block"
             >
               {collapsedPref ? (
                 <ChevronsRight className="size-4" aria-hidden />
@@ -133,13 +142,13 @@ export function Sidebar() {
           </div>
         </div>
 
-        <nav aria-label="Primary navigation" className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+        <nav aria-label="Primary navigation" className="min-h-0 flex-1 overflow-y-auto px-[10px] pb-2">
           {NAV_SECTIONS.map((section) => (
-            <div key={section.title} className="mb-3">
-              <div className={clsx("px-2.5 pb-1.5 pt-2", collapsedPref && "lg:hidden")}>
+            <div key={section.title} className="mb-[14px]">
+              <div className={clsx("px-[10px] pb-[6px] pt-[6px]", collapsedPref && "lg:hidden")}>
                 <span className="label">{section.title}</span>
               </div>
-              <ul className="space-y-0.5">
+              <ul className="space-y-[1px]">
                 {section.items.map((item) => {
                   const Icon = item.icon;
                   const status = statusFor(item.key);
@@ -163,25 +172,32 @@ export function Sidebar() {
                             <span className="relative shrink-0">
                               <Icon
                                 className={clsx(
-                                  "size-4",
-                                  isActive ? "text-fire-medium" : "text-faint",
+                                  "nav-icon size-[15px]",
+                                  isActive ? "text-accent" : "text-faint",
                                 )}
                                 aria-hidden
                               />
                               {collapsedPref ? (
-                                <span className="absolute -right-1.5 -top-1 lg:block">
-                                  <StatusDot tone={STATUS_TONE[status]} className="size-1" />
+                                <span className="absolute -right-[3px] -top-[2px] hidden lg:block">
+                                  <StatusDot tone={STATUS_TONE[status]} className="size-[4px]" />
                                 </span>
                               ) : null}
                             </span>
-                            <span className={clsx("flex-1 truncate", collapsedPref && "lg:hidden")}>
+                            <span
+                              className={clsx(
+                                "flex-1 truncate tracking-[0.01em]",
+                                collapsedPref && "lg:hidden",
+                              )}
+                            >
                               {item.label}
                             </span>
                             <span className={clsx(collapsedPref && "lg:hidden")}>
-                              <StatusDot
-                                tone={STATUS_TONE[status]}
-                                label={`${item.label}: ${status}`}
-                              />
+                              {status === "scaffolded" ? null : (
+                                <StatusDot
+                                  tone={STATUS_TONE[status]}
+                                  label={`${item.label}: ${status}`}
+                                />
+                              )}
                             </span>
                           </>
                         )}
@@ -195,18 +211,18 @@ export function Sidebar() {
         </nav>
 
         <div className={clsx(collapsedPref && "lg:hidden")}>
-          <PhaseProgress />
+          <DeliveryMeter />
         </div>
 
         <div
           className={clsx(
-            "mt-2 border-t border-line/70 px-3.5 py-3",
+            "border-t border-line/[0.07] px-[16px] py-[14px]",
             collapsedPref && "lg:hidden",
           )}
         >
-          <p className="text-3xs leading-relaxed text-faint">
-            Observations: NASA FIRMS (MODIS, VIIRS SNPP / NOAA-20 / NOAA-21). Detections are
-            thermal anomalies, not confirmed wildfires.
+          <p className="text-3xs font-light leading-relaxed text-faint">
+            Observations: NASA FIRMS (MODIS, VIIRS SNPP / NOAA-20 / NOAA-21). Detections are thermal
+            anomalies, not confirmed wildfires.
           </p>
         </div>
       </aside>

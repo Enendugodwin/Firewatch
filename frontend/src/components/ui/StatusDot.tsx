@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 import type { Tone } from "./Badge";
 
 const DOT_CLASSES: Record<Tone, string> = {
-  neutral: "bg-faint",
-  info: "bg-geo",
-  ok: "bg-ok",
+  neutral: "bg-line/30",
+  info: "bg-azure",
+  ok: "bg-accent",
   warn: "bg-warn",
   danger: "bg-danger",
   fire: "bg-fire-medium",
@@ -28,12 +28,18 @@ export function StatusDot({
       role={label ? "img" : undefined}
       aria-label={label}
       className={clsx(
-        "inline-block size-1.5 shrink-0 rounded-full",
+        "relative inline-block size-[5px] shrink-0 rounded-full",
         DOT_CLASSES[tone],
-        pulse && "animate-pulse-ring",
         className,
       )}
-    />
+    >
+      {pulse ? (
+        <span
+          aria-hidden
+          className={clsx("absolute inset-0 animate-breathe rounded-full", DOT_CLASSES[tone])}
+        />
+      ) : null}
+    </span>
   );
 }
 

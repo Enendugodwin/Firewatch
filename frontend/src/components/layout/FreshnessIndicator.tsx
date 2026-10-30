@@ -12,7 +12,7 @@ export function FreshnessIndicator() {
 
   if (isLoading) {
     return (
-      <span className="inline-flex h-8 items-center gap-2 rounded-md border border-line/70 px-2.5 text-2xs text-faint">
+      <span className="inline-flex h-8 items-center gap-2 rounded-full border border-line/10 px-[10px] text-2xs font-light text-faint">
         <StatusDot tone="neutral" />
         checking
       </span>
@@ -21,7 +21,7 @@ export function FreshnessIndicator() {
 
   if (isError || !data) {
     return (
-      <span className="inline-flex h-8 items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-2.5 text-2xs text-danger">
+      <span className="inline-flex h-8 items-center gap-2 rounded-full border border-danger/30 px-[10px] text-2xs font-medium text-danger">
         <StatusDot tone="danger" />
         API offline
       </span>
@@ -36,19 +36,22 @@ export function FreshnessIndicator() {
 
   const toneClass =
     freshness.tone === "ok"
-      ? "border-ok/40 bg-ok/10 text-ok"
+      ? "border-accent/30 text-accent"
       : freshness.tone === "warn"
-        ? "border-warn/40 bg-warn/10 text-warn"
+        ? "border-warn/30 text-warn"
         : freshness.tone === "danger"
-          ? "border-danger/40 bg-danger/10 text-danger"
+          ? "border-danger/30 text-danger"
           : freshness.tone === "info"
-            ? "border-geo/40 bg-geo/10 text-geo"
-            : "border-line bg-raised/50 text-muted";
+            ? "border-azure/30 text-azure"
+            : "border-line/10 text-muted";
+
+  const dotTone =
+    freshness.tone === "ok" ? "ok" : freshness.tone === "warn" ? "warn" : "neutral";
 
   return (
     <Popover
-      label="Data freshness"
-      widthClass="w-80"
+      label="Data freshness details"
+      widthClass="w-[20rem]"
       trigger={({ open, toggle, id }) => (
         <button
           type="button"
@@ -56,35 +59,33 @@ export function FreshnessIndicator() {
           onClick={toggle}
           aria-expanded={open}
           aria-haspopup="dialog"
+          aria-label="Data freshness"
           title={freshness.detail}
-          className={`inline-flex h-8 items-center gap-2 rounded-md border px-2.5 text-2xs font-medium ${toneClass}`}
+          className={`inline-flex h-8 items-center gap-2 rounded-full border bg-line/[0.02] px-[10px] text-2xs font-medium transition-colors duration-150 hover:bg-line/[0.05] ${toneClass}`}
         >
-          <StatusDot
-            tone={freshness.tone === "ok" ? "ok" : freshness.tone === "warn" ? "warn" : "neutral"}
-            pulse={freshness.tone === "ok"}
-          />
+          <StatusDot tone={dotTone} pulse={freshness.tone === "ok"} />
           <span className="hidden sm:inline">{freshness.label}</span>
           <span className="sm:hidden">data</span>
         </button>
       )}
     >
       {() => (
-        <div className="p-3.5">
-          <div className="mb-2 flex items-center justify-between">
+        <div className="p-[16px]">
+          <div className="mb-[10px] flex items-center justify-between">
             <span className="label">Data freshness</span>
             <Badge tone="warn">not live</Badge>
           </div>
-          <p className="text-xs leading-relaxed text-muted">{freshness.detail}</p>
+          <p className="text-xs font-light leading-relaxed text-muted">{freshness.detail}</p>
 
-          <dl className="mt-3 space-y-2 border-t border-line/70 pt-3 text-2xs">
+          <dl className="mt-[12px] space-y-[8px] border-t border-line/[0.07] pt-[12px] text-2xs">
             <div className="flex items-center justify-between gap-3">
-              <dt className="inline-flex items-center gap-1.5 text-faint">
+              <dt className="inline-flex items-center gap-1.5 font-light text-faint">
                 <Satellite className="size-3" aria-hidden /> Sources registered
               </dt>
               <dd className="font-mono text-ink">{data.data.sources_registered}</dd>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <dt className="inline-flex items-center gap-1.5 text-faint">
+              <dt className="inline-flex items-center gap-1.5 font-light text-faint">
                 <Radio className="size-3" aria-hidden /> FIRMS key
               </dt>
               <dd>
@@ -96,7 +97,7 @@ export function FreshnessIndicator() {
               </dd>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <dt className="inline-flex items-center gap-1.5 text-faint">
+              <dt className="inline-flex items-center gap-1.5 font-light text-faint">
                 <Database className="size-3" aria-hidden /> Database
               </dt>
               <dd className="inline-flex items-center gap-1.5 text-ink">
@@ -105,21 +106,20 @@ export function FreshnessIndicator() {
               </dd>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-faint">Last ingestion</dt>
+              <dt className="font-light text-faint">Last ingestion</dt>
               <dd className="font-mono text-muted">
                 {formatDateTimeUtc(data.data.last_ingested_at)}
               </dd>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-faint">API uptime</dt>
+              <dt className="font-light text-faint">API uptime</dt>
               <dd className="font-mono text-muted">{formatUptime(data.uptime_seconds)}</dd>
             </div>
           </dl>
 
-          <p className="mt-3 flex items-start gap-1.5 border-t border-line/70 pt-2.5 text-2xs leading-relaxed text-faint">
-            <AlertTriangle className="mt-0.5 size-3 shrink-0 text-warn" aria-hidden />
-            A refreshing map is not a live feed. Freshness is derived from stored observations,
-            not from page reloads.
+          <p className="mt-[12px] flex items-start gap-1.5 border-t border-line/[0.07] pt-[10px] text-2xs font-light leading-relaxed text-faint">
+            <AlertTriangle className="mt-[2px] size-3 shrink-0 text-warn" aria-hidden />A refreshing
+            map is not a live feed. Freshness is derived from stored observations, not page reloads.
           </p>
         </div>
       )}

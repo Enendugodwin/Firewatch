@@ -41,14 +41,14 @@ Requires **Python 3.11+**, **[uv](https://docs.astral.sh/uv/)**, **Node 20+**.
 cp .env.example .env          # optional: set FIRMS_MAP_KEY if you have one
 python scripts/bootstrap.py   # prerequisites, migrations, source seed
 
-# terminal 1 — API on :8100
-cd backend && uv sync --group dev && uv run uvicorn app.main:app --reload --port 8100
+# terminal 1 — API on :8200
+cd backend && uv sync --group dev && uv run uvicorn app.main:app --reload --port 8200
 
-# terminal 2 — console on :5173
+# terminal 2 — console on :5273
 cd frontend && npm install && npm run dev
 ```
 
-Open <http://localhost:5173>. API docs: <http://127.0.0.1:8100/api/docs>.
+Open <http://localhost:5273>. API docs: <http://127.0.0.1:8200/api/docs>.
 
 Windows helper: `powershell -ExecutionPolicy Bypass -File scripts/dev.ps1`.
 
@@ -62,8 +62,8 @@ cp .env.example .env          # set POSTGRES_PASSWORD and FIRMS_MAP_KEY
 docker compose up --build
 ```
 
-- Console: <http://localhost:8080>
-- API: <http://localhost:8100>
+- Console: <http://localhost:8088>
+- API: <http://localhost:8200>
 - PostGIS: `localhost:5433`
 
 The `api` and `worker` containers share one image; the API runs migrations and the seed on boot.
@@ -113,11 +113,18 @@ ingestion phase.
 
 ## Design language
 
-Dark-first satellite-intelligence palette from the product specification: canvas `#080D16`,
-sidebar `#0C1421`, panels `#111C2C`, borders `#253449`, ink `#F1F5F9`, muted `#94A3B8`; fire
-activity in amber/orange/red (`#FACC15` / `#FB923C` / `#EF4444`), geography in cyan `#38BDF8`,
-healthy state in green `#22C55E`. Inter for interface text, JetBrains Mono for measurements.
-A high-contrast theme remaps the surface tokens.
+**Orbital Intelligence** — a near-black field (`#131315`) with deep-navy glass surfaces
+(`#0B101D`), hairline white borders inside a gradient edge shell, and one restrained green accent
+(`#60D58B`). Display type is Newsreader; interface copy is light-weight Inter; measurements,
+coordinates and source codes are JetBrains Mono. Fire severity keeps its own semantic scale
+(amber `#FACC15`, orange `#FB923C`, red `#EF4444`) so colour never confuses chrome with hazard.
+
+A perspective grid field sits behind the console — green hairlines on black, breathing slowly and
+drifting with the pointer, faded into the chrome at the edges. Radii stay in the 7/8/11/12/pill
+family; motion is limited to 150 ms colour transitions and a 4 s ambient pulse, and is disabled
+under `prefers-reduced-motion`. A high-contrast theme remaps the surface tokens only.
+
+Full specification and component recipes: [docs/design.md](docs/design.md).
 
 ## Roadmap
 

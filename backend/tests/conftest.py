@@ -22,7 +22,7 @@ os.environ.update(
         "LOG_JSON": "false",
         "LOG_LEVEL": "WARNING",
         "FIRMS_MAP_KEY": "",
-        "CORS_ORIGINS": "http://localhost:5173",
+        "CORS_ORIGINS": "http://localhost:5273",
     }
 )
 

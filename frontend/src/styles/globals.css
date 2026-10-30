@@ -3,56 +3,65 @@
 @tailwind utilities;
 
 /*
- * Surface tokens. Components only ever reference these variables, so the
- * high-contrast variant is a pure token remap (no component branching).
+ * Orbital Intelligence tokens.
+ * Background #131315, surface #0B101D, ink #FFFFFF, muted #8C9099,
+ * accent #60D58B, secondary #72A5F9, tertiary #62D5DD.
  */
 @layer base {
   :root,
   .theme-dark {
-    --fw-canvas: 8 13 22; /* #080D16 */
-    --fw-sidebar: 12 20 33; /* #0C1421 */
-    --fw-panel: 17 28 44; /* #111C2C */
-    --fw-raised: 23 36 55;
-    --fw-line: 37 52 73; /* #253449 */
-    --fw-ink: 241 245 249; /* #F1F5F9 */
-    --fw-muted: 148 163 184; /* #94A3B8 */
-    --fw-faint: 100 116 139;
+    --fw-bg: 19 19 21;
+    --fw-surface: 11 16 29;
+    --fw-raised: 20 26 43;
+    --fw-line: 255 255 255;
+    --fw-ink: 255 255 255;
+    --fw-muted: 140 144 153;
+    --fw-faint: 103 108 121;
+    --fw-accent: 96 213 139;
+    --fw-azure: 114 165 249;
+    --fw-cyan: 98 213 221;
     color-scheme: dark;
   }
 
+  /* Higher-contrast variant: same material system, stronger hairlines and text. */
   .theme-contrast {
-    --fw-canvas: 3 6 11;
-    --fw-sidebar: 6 10 18;
-    --fw-panel: 10 17 28;
-    --fw-raised: 16 26 41;
-    --fw-line: 60 82 112;
+    --fw-bg: 8 8 10;
+    --fw-surface: 6 10 20;
+    --fw-raised: 16 23 38;
     --fw-ink: 255 255 255;
-    --fw-muted: 178 193 214;
-    --fw-faint: 130 148 175;
-    color-scheme: dark;
+    --fw-muted: 176 182 194;
+    --fw-faint: 132 139 152;
+    --fw-accent: 126 235 163;
+    --fw-azure: 148 188 255;
   }
 
   * {
-    border-color: rgb(var(--fw-line) / 0.7);
+    border-color: rgb(var(--fw-line) / 0.08);
   }
 
   html {
     -webkit-text-size-adjust: 100%;
+    background: rgb(var(--fw-bg));
   }
 
   body {
-    @apply bg-canvas font-sans text-ink antialiased;
+    @apply bg-canvas font-sans font-light text-ink antialiased;
     font-variant-numeric: tabular-nums;
     min-height: 100vh;
   }
 
-  /* Focus is always visible: this is an analytical tool, not a brochure. */
+  h1,
+  h2,
+  h3 {
+    font-weight: 400;
+  }
+
   :focus-visible {
-    @apply outline-none ring-2 ring-geo/70 ring-offset-2 ring-offset-canvas;
+    @apply outline-none ring-1 ring-accent/70 ring-offset-2 ring-offset-canvas;
   }
 
   ::selection {
-    @apply bg-geo/30 text-ink;
+    @apply bg-accent/25 text-ink;
   }
 
   ::-webkit-scrollbar {
@@ -63,13 +72,13 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgb(var(--fw-line));
-    border-radius: 999px;
-    border: 2px solid transparent;
+    background: rgb(var(--fw-line) / 0.12);
+    border-radius: 9999px;
+    border: 3px solid transparent;
     background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgb(var(--fw-faint));
+    background: rgb(var(--fw-line) / 0.22);
     background-clip: content-box;
   }
 
@@ -85,33 +94,79 @@
 }
 
 @layer components {
-  .panel {
-    @apply rounded-panel border border-line/80 bg-panel/80;
+  /*
+   * Glass surface: the material choice. Borders, blur and shadow only reinforce
+   * it. Used by the sidebar, header, cards and popovers so the page reads as one
+   * system.
+   */
+  .glass {
+    background-color: rgb(var(--fw-surface) / 0.62);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgb(var(--fw-line) / 0.08);
+  }
+
+  .glass-soft {
+    background-color: rgb(var(--fw-surface) / 0.4);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+  }
+
+  /* Gradient border shell: 1px gradient wrapper with an inset content surface. */
+  .shell {
+    border-radius: 12px;
+    padding: 1px;
+    background-image: linear-gradient(
+      to bottom right,
+      rgb(var(--fw-line) / 0.14),
+      rgb(var(--fw-line) / 0.03),
+      rgb(0 0 0 / 0)
+    );
+  }
+
+  .shell-inner {
+    border-radius: 11px;
+    background-color: rgb(var(--fw-surface) / 0.92);
+    border: 1px solid rgb(var(--fw-line) / 0.04);
+    overflow: hidden;
   }
 
   .hairline {
-    @apply border-line/70;
+    border-color: rgb(var(--fw-line) / 0.08);
   }
 
   .label {
-    @apply text-3xs font-medium uppercase tracking-[0.14em] text-faint;
+    @apply text-3xs font-medium uppercase tracking-[0.16em] text-faint;
   }
 
-  .mono-value {
+  .measure {
     @apply font-mono text-sm tabular-nums text-ink;
   }
 
+  /* Navigation: quiet by default, one green cue when active. */
   .nav-item {
-    @apply relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted transition-colors;
+    @apply relative flex items-center gap-[10px] rounded-control px-[10px] py-[7px] text-[13px] font-light text-muted transition-colors duration-150;
   }
   .nav-item:hover {
-    @apply bg-raised/60 text-ink;
+    @apply bg-line/[0.04] text-ink;
   }
   .nav-item-active {
-    @apply bg-raised text-ink;
+    @apply bg-line/[0.06] text-ink;
   }
-  .nav-item-active::before {
-    content: "";
-    @apply absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-r bg-fire-medium;
+  .nav-item-active .nav-icon {
+    @apply text-accent;
+  }
+
+  /* Primary action: off-white pill, near-black label (never green-on-green). */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-[#FAFAFA] px-4 py-2 text-xs font-medium text-[#05070F] transition-colors duration-150 hover:bg-white disabled:opacity-40;
+  }
+
+  .btn-glass {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line/10 bg-line/[0.04] px-4 py-2 text-xs font-medium text-muted transition-colors duration-150 hover:border-line/20 hover:text-ink;
+  }
+
+  .divider {
+    @apply h-px w-full bg-line/[0.07];
   }
 }

@@ -85,9 +85,9 @@ These routes exist so the contract is fixed before implementation. All currently
 ## Example requests
 
 ```bash
-curl -s http://127.0.0.1:8100/api/v1/system/status | jq '.data'
-curl -s -i http://127.0.0.1:8100/ready
-curl -s http://127.0.0.1:8100/api/v1/fires | jq '.error.details.planned_for_phase'   # "Phase 2"
+curl -s http://127.0.0.1:8200/api/v1/system/status | jq '.data'
+curl -s -i http://127.0.0.1:8200/ready
+curl -s http://127.0.0.1:8200/api/v1/fires | jq '.error.details.planned_for_phase'   # "Phase 2"
 ```
 
 Planned query shapes once implemented (from the specification):

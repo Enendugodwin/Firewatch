@@ -67,8 +67,7 @@ function buildNotices(status: ReturnType<typeof useSystemStatus>["data"]): Notic
   notices.push({
     id: "phase",
     title: `Phase ${status.phase} — ${status.phase_name}`,
-    detail:
-      "Foundation is built. NASA integration, harmonization and the burning calendar follow.",
+    detail: "Foundation is built. NASA integration, harmonization and the burning calendar follow.",
     tone: "neutral",
     to: "/settings",
   });
@@ -84,7 +83,7 @@ export function NotificationsMenu() {
   return (
     <Popover
       label="Notifications"
-      widthClass="w-80"
+      widthClass="w-[20rem]"
       trigger={({ open, toggle, id }) => (
         <button
           type="button"
@@ -93,15 +92,15 @@ export function NotificationsMenu() {
           aria-expanded={open}
           aria-haspopup="dialog"
           aria-label={`Notifications (${notices.length})`}
-          className="relative inline-flex size-8 items-center justify-center rounded-md border border-line bg-raised/50 text-muted transition-colors hover:text-ink"
+          className="relative inline-flex size-8 items-center justify-center rounded-full border border-line/10 bg-line/[0.03] text-muted transition-colors duration-150 hover:border-line/20 hover:text-ink"
         >
           {actionable.length > 0 ? (
-            <BellRing className="size-4" aria-hidden />
+            <BellRing className="size-[15px]" aria-hidden />
           ) : (
-            <Bell className="size-4" aria-hidden />
+            <Bell className="size-[15px]" aria-hidden />
           )}
           {notices.length > 0 ? (
-            <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full border border-panel bg-fire-medium font-mono text-3xs font-semibold text-[#1a1006]">
+            <span className="absolute -right-[3px] -top-[3px] flex size-[15px] items-center justify-center rounded-full bg-accent font-mono text-[9px] font-semibold text-[#05070F]">
               {notices.length}
             </span>
           ) : null}
@@ -110,23 +109,25 @@ export function NotificationsMenu() {
     >
       {(close) => (
         <div>
-          <div className="flex items-center justify-between border-b border-line/70 px-3.5 py-2.5">
+          <div className="flex items-center justify-between border-b border-line/[0.07] px-[14px] py-[11px]">
             <span className="label">System notices</span>
             <Badge tone="neutral">{notices.length}</Badge>
           </div>
-          <ul className="max-h-72 divide-y divide-line/50 overflow-y-auto">
+          <ul className="max-h-[18rem] overflow-y-auto">
             {notices.map((notice) => (
-              <li key={notice.id}>
+              <li key={notice.id} className="border-b border-line/[0.05] last:border-0">
                 <Link
                   to={notice.to ?? "/settings"}
                   onClick={close}
-                  className="block px-3.5 py-2.5 hover:bg-raised/50"
+                  className="block px-[14px] py-[11px] transition-colors duration-150 hover:bg-line/[0.04]"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-medium text-ink">{notice.title}</span>
+                    <span className="text-xs text-ink">{notice.title}</span>
                     <Badge tone={notice.tone}>{notice.tone === "danger" ? "error" : notice.tone}</Badge>
                   </div>
-                  <p className="mt-1 text-2xs leading-relaxed text-muted">{notice.detail}</p>
+                  <p className="mt-1 text-2xs font-light leading-relaxed text-muted">
+                    {notice.detail}
+                  </p>
                 </Link>
               </li>
             ))}

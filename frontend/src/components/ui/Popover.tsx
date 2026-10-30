@@ -3,15 +3,14 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 /**
- * Minimal accessible popover: click-outside and Escape to dismiss, focus stays
- * with the trigger. Not a full menu primitive — just enough for the header
- * controls, with no extra dependency.
+ * Minimal accessible popover: click-outside and Escape to dismiss. Styled as a
+ * glass card so overlays belong to the same material system as panels.
  */
 export function Popover({
   trigger,
   children,
   align = "right",
-  widthClass = "w-72",
+  widthClass = "w-80",
   label,
 }: {
   trigger: (state: { open: boolean; toggle: () => void; id: string }) => ReactNode;
@@ -52,12 +51,14 @@ export function Popover({
           id={id}
           aria-label={label}
           className={clsx(
-            "absolute top-[calc(100%+0.5rem)] z-50 animate-fade-in rounded-panel border border-line bg-panel shadow-pop",
-            widthClass,
+            "absolute top-[calc(100%+10px)] z-50 animate-fade-up rounded-card shadow-lift",
             align === "right" ? "right-0" : "left-0",
+            widthClass,
           )}
         >
-          {children(() => setOpen(false))}
+          <div className="rounded-card border border-line/[0.1] bg-panel shadow-lift">
+            {children(() => setOpen(false))}
+          </div>
         </div>
       ) : null}
     </div>

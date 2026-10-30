@@ -23,10 +23,10 @@ uv sync --group dev
 cp ../.env.example .env          # then edit DATABASE_URL / FIRMS_MAP_KEY
 uv run alembic upgrade head
 uv run python -m scripts.seed_sources
-uv run uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8200
 ```
 
-API documentation: <http://localhost:8000/api/docs>
+API documentation: <http://localhost:8200/api/docs>
 
 ## Tests
 

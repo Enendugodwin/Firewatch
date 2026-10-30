@@ -63,7 +63,7 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-start justify-center bg-black/60 px-4 pt-[12vh] backdrop-blur-sm"
+      className="fixed inset-0 z-[80] flex items-start justify-center bg-black/70 px-4 pt-[14vh] backdrop-blur-sm"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) setOpen(false);
@@ -73,64 +73,76 @@ export function CommandPalette() {
         role="dialog"
         aria-modal="true"
         aria-label="Jump to a module"
-        className="w-full max-w-xl overflow-hidden rounded-panel border border-line bg-panel shadow-pop"
+        className="w-full max-w-xl animate-fade-up rounded-shell p-px shadow-lift"
+        style={{
+          backgroundImage:
+            "linear-gradient(to bottom right, rgb(255 255 255 / 0.18), rgb(255 255 255 / 0.04), transparent)",
+        }}
       >
-        <div className="flex items-center gap-2.5 border-b border-line/70 px-3.5 py-3">
-          <Search className="size-4 shrink-0 text-faint" aria-hidden />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Jump to a module — try “calendar” or “anomaly”"
-            aria-label="Search modules"
-            aria-activedescendant={results[activeIndex] ? `cmd-${results[activeIndex].key}` : undefined}
-            className="w-full bg-transparent text-sm text-ink placeholder:text-faint focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Close search"
-            className="rounded p-1 text-faint hover:bg-raised hover:text-ink"
-          >
-            <X className="size-3.5" aria-hidden />
-          </button>
-        </div>
+        <div className="overflow-hidden rounded-card border border-line/[0.06] bg-panel">
+          <div className="flex items-center gap-[10px] border-b border-line/[0.07] px-4 py-[13px]">
+            <Search className="size-4 shrink-0 text-faint" aria-hidden />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Jump to a module — try “calendar” or “anomaly”"
+              aria-label="Search modules"
+              aria-activedescendant={
+                results[activeIndex] ? `cmd-${results[activeIndex].key}` : undefined
+              }
+              className="w-full bg-transparent text-[13px] font-light text-ink placeholder:text-faint focus:outline-none focus-visible:ring-0"
+            />
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close search"
+              className="rounded-full p-1 text-faint transition-colors duration-150 hover:bg-line/[0.06] hover:text-ink"
+            >
+              <X className="size-3.5" aria-hidden />
+            </button>
+          </div>
 
-        <ul role="listbox" className="max-h-[24rem] overflow-y-auto p-1.5">
-          {results.length === 0 ? (
-            <li className="px-3 py-6 text-center text-xs text-faint">
-              No module matches “{query}”.
-            </li>
-          ) : (
-            results.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <li
-                  key={item.key}
-                  id={`cmd-${item.key}`}
-                  role="option"
-                  aria-selected={index === activeIndex}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    go(item.to);
-                  }}
-                  className={`flex cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 text-sm ${
-                    index === activeIndex ? "bg-raised text-ink" : "text-muted"
-                  }`}
-                >
-                  <Icon className="size-4 shrink-0 text-faint" aria-hidden />
-                  <span className="flex-1 truncate">{item.label}</span>
-                  <span className="hidden text-2xs text-faint sm:inline">{item.group}</span>
-                  {index === activeIndex ? (
-                    <CornerDownLeft className="size-3 shrink-0 text-faint" aria-hidden />
-                  ) : null}
-                </li>
-              );
-            })
-          )}
-        </ul>
+          <ul role="listbox" className="max-h-[24rem] overflow-y-auto p-[6px]">
+            {results.length === 0 ? (
+              <li className="px-3 py-8 text-center text-xs font-light text-faint">
+                No module matches “{query}”.
+              </li>
+            ) : (
+              results.map((item, index) => {
+                const Icon = item.icon;
+                const active = index === activeIndex;
+                return (
+                  <li
+                    key={item.key}
+                    id={`cmd-${item.key}`}
+                    role="option"
+                    aria-selected={active}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      go(item.to);
+                    }}
+                    className={`flex cursor-pointer items-center gap-[10px] rounded-control px-[10px] py-[9px] text-[13px] font-light transition-colors duration-150 ${
+                      active ? "bg-line/[0.06] text-ink" : "text-muted"
+                    }`}
+                  >
+                    <Icon
+                      className={`size-[15px] shrink-0 ${active ? "text-accent" : "text-faint"}`}
+                      aria-hidden
+                    />
+                    <span className="flex-1 truncate">{item.label}</span>
+                    <span className="hidden text-2xs text-faint sm:inline">{item.group}</span>
+                    {active ? (
+                      <CornerDownLeft className="size-3 shrink-0 text-faint" aria-hidden />
+                    ) : null}
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
       </div>
     </div>
   );

@@ -5,13 +5,13 @@
 ```bash
 cp .env.example .env
 python scripts/bootstrap.py
-cd backend  && uv sync --group dev && uv run uvicorn app.main:app --reload --port 8100
+cd backend  && uv sync --group dev && uv run uvicorn app.main:app --reload --port 8200
 cd frontend && npm install && npm run dev
 ```
 
-The Vite dev server proxies `/api` and `/health` to `http://127.0.0.1:8100`
+The Vite dev server proxies `/api` and `/health` to `http://127.0.0.1:8200`
 (`VITE_PROXY_TARGET` overrides this). Port **8000 is commonly occupied** on this workstation, which
-is why 8100 is the default.
+is why 8200 is the default.
 
 ## Containers
 
@@ -24,9 +24,9 @@ docker compose up --build
 | --- | --- | --- | --- |
 | `db` | `postgis/postgis:16-3.4` | 5433 → 5432 | Named volume `postgres-data` |
 | `redis` | `redis:7-alpine` | 6380 → 6379 | No persistence; queues only |
-| `api` | `backend/docker/Dockerfile` | 8100 → 8000 | Runs migrations + source seed on boot |
+| `api` | `backend/docker/Dockerfile` | 8200 → 8000 | Runs migrations + source seed on boot |
 | `worker` | same image | — | `celery -A app.workers.celery_app` |
-| `web` | `frontend/Dockerfile` | 8080 → 80 | nginx serving the SPA, proxying `/api` |
+| `web` | `frontend/Dockerfile` | 8088 → 80 | nginx serving the SPA, proxying `/api` |
 
 Health checks: API `/ready` (database aware), db `pg_isready`, redis `PING`, web `/healthz`.
 `api` waits for healthy `db` and `redis`; `worker` and `web` wait for a healthy `api`.
@@ -47,7 +47,7 @@ All backend settings come from environment variables (`backend/app/core/config.p
 | `ENVIRONMENT` | `local` | `production` disables nothing automatically — configure hardening |
 | `DATABASE_URL` | SQLite file | Must be `postgresql+psycopg://…` for PostGIS capability |
 | `REDIS_URL` | `redis://localhost:6379/0` | Broker + result backend |
-| `CORS_ORIGINS` | localhost:5173 | Comma-separated or JSON array |
+| `CORS_ORIGINS` | localhost:5273 | Comma-separated or JSON array |
 | `FIRMS_MAP_KEY` | empty | **Required for any real observation** |
 | `LOG_JSON` | `true` | Structured logs for aggregation |
 

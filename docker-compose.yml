@@ -38,13 +38,13 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-firewatch}:${POSTGRES_PASSWORD:-firewatch}@db:5432/${POSTGRES_DB:-firewatch}
       REDIS_URL: redis://redis:6379/0
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8088,http://127.0.0.1:8088}
       FIRMS_MAP_KEY: ${FIRMS_MAP_KEY:-}
       FIRMS_BASE_URL: ${FIRMS_BASE_URL:-https://firms.modaps.eosdis.nasa.gov/api}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_JSON: "true"
     ports:
-      - "${API_PORT:-8100}:8000"
+      - "${API_PORT:-8200}:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -73,7 +73,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "${WEB_PORT:-8080}:80"
+      - "${WEB_PORT:-8088}:80"
     depends_on:
       api:
         condition: service_healthy
