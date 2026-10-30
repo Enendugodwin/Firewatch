@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Surface tokens. Components only ever reference these variables, so the
+ * high-contrast variant is a pure token remap (no component branching).
+ */
+@layer base {
+  :root,
+  .theme-dark {
+    --fw-canvas: 8 13 22; /* #080D16 */
+    --fw-sidebar: 12 20 33; /* #0C1421 */
+    --fw-panel: 17 28 44; /* #111C2C */
+    --fw-raised: 23 36 55;
+    --fw-line: 37 52 73; /* #253449 */
+    --fw-ink: 241 245 249; /* #F1F5F9 */
+    --fw-muted: 148 163 184; /* #94A3B8 */
+    --fw-faint: 100 116 139;
+    color-scheme: dark;
+  }
+
+  .theme-contrast {
+    --fw-canvas: 3 6 11;
+    --fw-sidebar: 6 10 18;
+    --fw-panel: 10 17 28;
+    --fw-raised: 16 26 41;
+    --fw-line: 60 82 112;
+    --fw-ink: 255 255 255;
+    --fw-muted: 178 193 214;
+    --fw-faint: 130 148 175;
+    color-scheme: dark;
+  }
+
+  * {
+    border-color: rgb(var(--fw-line) / 0.7);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+    font-variant-numeric: tabular-nums;
+    min-height: 100vh;
+  }
+
+  /* Focus is always visible: this is an analytical tool, not a brochure. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-geo/70 ring-offset-2 ring-offset-canvas;
+  }
+
+  ::selection {
+    @apply bg-geo/30 text-ink;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--fw-line));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--fw-faint));
+    background-clip: content-box;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-panel border border-line/80 bg-panel/80;
+  }
+
+  .hairline {
+    @apply border-line/70;
+  }
+
+  .label {
+    @apply text-3xs font-medium uppercase tracking-[0.14em] text-faint;
+  }
+
+  .mono-value {
+    @apply font-mono text-sm tabular-nums text-ink;
+  }
+
+  .nav-item {
+    @apply relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted transition-colors;
+  }
+  .nav-item:hover {
+    @apply bg-raised/60 text-ink;
+  }
+  .nav-item-active {
+    @apply bg-raised text-ink;
+  }
+  .nav-item-active::before {
+    content: "";
+    @apply absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-r bg-fire-medium;
+  }
+}

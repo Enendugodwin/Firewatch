@@ -1,0 +1,7 @@
+# Ensure LF endings in the container so shell scripts and Python stay portable.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.woff2 binary
+*.woff binary

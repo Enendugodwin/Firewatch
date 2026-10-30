@@ -1,0 +1,83 @@
+name: firewatch-x
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-firewatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-firewatch}
+      POSTGRES_DB: ${POSTGRES_DB:-firewatch}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-firewatch} -d ${POSTGRES_DB:-firewatch}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-firewatch}:${POSTGRES_PASSWORD:-firewatch}@db:5432/${POSTGRES_DB:-firewatch}
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      FIRMS_MAP_KEY: ${FIRMS_MAP_KEY:-}
+      FIRMS_BASE_URL: ${FIRMS_BASE_URL:-https://firms.modaps.eosdis.nasa.gov/api}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_JSON: "true"
+    ports:
+      - "${API_PORT:-8100}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile
+    command: ["celery", "-A", "app.workers.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-firewatch}:${POSTGRES_PASSWORD:-firewatch}@db:5432/${POSTGRES_DB:-firewatch}
+      REDIS_URL: redis://redis:6379/0
+      FIRMS_MAP_KEY: ${FIRMS_MAP_KEY:-}
+      LOG_JSON: "true"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

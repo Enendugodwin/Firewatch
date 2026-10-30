@@ -1,0 +1,44 @@
+# --- secrets and local state (never commit) --------------------------------
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+firewatch.db
+
+# --- python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+dist/
+build/
+
+# --- node ------------------------------------------------------------------
+node_modules/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
+
+# --- editors and OS --------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# --- runtime output --------------------------------------------------------
+*.log
+logs/
+artifacts/
+reports/generated/
