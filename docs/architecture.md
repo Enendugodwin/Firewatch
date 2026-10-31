@@ -92,6 +92,13 @@ masquerade as one fire.
 `lat,lon` parsing, so geographic search needs no API key and no third-party geocoder. Results are
 navigation aids, not authoritative boundaries.
 
+**Themes are one contract, four looks.** `components/map/mapStyle.ts` holds the theme table:
+field colour, basemap paint, detection palette, sensor outlines, cell opacity and heat ramp. A theme
+change re-applies paint to existing layers instead of rebuilding the style, so switching never
+refetches data. Bright themes use deep detection colours and thick white outlines; the dark theme
+keeps the luminous palette. Bright earth is the default because the signal stays legible in
+daylight and on projectors.
+
 **The basemap is optional and attributed.** An OSM raster layer is heavily desaturated and
 darkened to sit inside the orbital palette; turning it off leaves a pure dark field with the data.
 Tile failures degrade to the dark canvas rather than breaking the map.

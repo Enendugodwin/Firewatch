@@ -17,6 +17,13 @@ export const FIRE_COLORS = {
   high: "#EF4444",
 } as const;
 
+/** Any palette with three severity stops (map themes provide their own). */
+export interface FireColors {
+  low: string;
+  medium: string;
+  high: string;
+}
+
 export const SENSOR_COLORS = {
   MODIS: "#72A5F9",
   VIIRS: "#60D58B",
@@ -26,15 +33,15 @@ export function useAggregate(zoom: number): boolean {
   return zoom < AGGREGATE_ZOOM;
 }
 
-export function frpColorExpression(): unknown[] {
+export function frpColorExpression(colors: FireColors = FIRE_COLORS): unknown[] {
   return [
     "step",
     ["coalesce", ["get", "frp_mw"], 0],
-    FIRE_COLORS.low,
+    colors.low,
     5,
-    FIRE_COLORS.medium,
+    colors.medium,
     20,
-    FIRE_COLORS.high,
+    colors.high,
   ];
 }
 
@@ -76,15 +83,31 @@ export function cellRadiusExpression(): unknown[] {
  * Cells are counts, so they are coloured by density rather than by a single
  * detection's FRP - otherwise one intense detection recolours an entire cell.
  */
-export function cellColorExpression(): unknown[] {
+export function cellColorExpression(colors: FireColors = FIRE_COLORS): unknown[] {
+  return ["step", ["get", "count"], colors.low, 250, colors.medium, 1500, colors.high];
+}
+
+/** Heatmap ramp for a theme; alpha stops keep the basemap visible. */
+export function heatColorExpression(theme: {
+  low: string;
+  mid: string;
+  high: string;
+  top: string;
+}): unknown[] {
   return [
-    "step",
-    ["get", "count"],
-    FIRE_COLORS.low,
-    250,
-    FIRE_COLORS.medium,
-    1500,
-    FIRE_COLORS.high,
+    "interpolate",
+    ["linear"],
+    ["heatmap-density"],
+    0,
+    "rgba(0,0,0,0)",
+    0.2,
+    theme.low,
+    0.55,
+    theme.mid,
+    0.85,
+    theme.high,
+    1,
+    theme.top,
   ];
 }
 

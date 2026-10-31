@@ -29,7 +29,7 @@ exposes all of it through a dark analytical console.
 | Availability: coverage-window parsing (observed vs before/after coverage, never "zero") | Working |
 | Harmonization: `S = wₜT + wₛG + w_fF`, probable/possible/rejected with full evidence | Working |
 | Event grouping: spatiotemporal DBSCAN, per-event provenance and FRP aggregates | Working |
-| Map: MapLibre globe, viewport aggregation, FRP/confidence/day-night filters, inspection | Working |
+| Map: MapLibre globe, four themes, viewport aggregation, FRP/confidence/day-night filters | Working |
 | APIs: `/fires`, `/fires/aggregate`, `/geo/search`, `/harmonization/*`, `/admin/ingestion/*` | Working |
 | Console: overview aggregates, sensor-intelligence workspace, ingestion console | Working |
 | Design system, shell, command palette, freshness, synthetic-data labelling | Working |
@@ -80,8 +80,8 @@ everywhere it appears. Clear it with `python -m scripts.clear_synthetic`.
    inspectable observation ids, and estimated events with extent and FRP aggregates.
 3. **Global Fire Map**: pan and zoom. Zoomed-out views request gridded counts (never the whole
    dataset); past zoom 6 the map requests individual detections. Filter by sensor, minimum FRP,
-   confidence and day/night; search a country, city or `lat,lon`; click a detection to inspect its
-   full provenance.
+   confidence and day/night; pick a theme (Daylight, Terrain, Paper, Orbital); search a country,
+   city or `lat,lon`; click a detection to inspect its full provenance.
 4. **Re-run associations** recomputes for the period selected in the header and records an
    `algorithm_run` with its scope and parameters.
 
@@ -112,7 +112,7 @@ Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 
 ```bash
 cd backend  && uv run pytest       # 115 tests
-cd frontend && npm test            # 22 tests
+cd frontend && npm test            # 25 tests
 
 cd backend  && uv run ruff check . && uv run mypy app
 cd frontend && npm run typecheck

@@ -9,16 +9,65 @@ import {
   cellRadiusExpression,
   cellsToFeatureCollection,
   frpColorExpression,
+  heatColorExpression,
   pointRadiusExpression,
 } from "./fireLayers";
+import type { MapTheme, MapThemeId } from "./mapStyle";
 import {
   BASEMAP_LAYER,
-  BASEMAP_LAYER_SPEC,
   BASEMAP_SOURCE,
   EMPTY_COLLECTION,
+  MAP_THEMES,
+  buildBasemapLayer,
   buildBasemapSource,
   buildMapStyle,
 } from "./mapStyle";
+
+/** Applies a theme's field, basemap and fire palettes to an initialised map. */
+export function applyMapTheme(map: MapLibreMap, theme: MapTheme): void {
+  map.setPaintProperty("background", "background-color", theme.background);
+
+  if (map.getLayer(BASEMAP_LAYER)) {
+    const paint = buildBasemapLayer(theme).paint as Record<string, unknown>;
+    for (const [key, value] of Object.entries(paint)) {
+      map.setPaintProperty(BASEMAP_LAYER, key, value);
+    }
+  }
+
+  if (map.getLayer("fire-heat")) {
+    map.setPaintProperty("fire-heat", "heatmap-color", heatColorExpression(theme.heat));
+    map.setPaintProperty("fire-heat", "heatmap-opacity", theme.heat.opacity);
+    map.setPaintProperty("fire-heat", "heatmap-intensity", [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      1,
+      theme.heat.intensity * 0.5,
+      8,
+      theme.heat.intensity,
+    ]);
+  }
+
+  if (map.getLayer("fire-cells")) {
+    map.setPaintProperty("fire-cells", "circle-color", cellColorExpression(theme.fire));
+    map.setPaintProperty("fire-cells", "circle-opacity", theme.cellOpacity);
+    map.setPaintProperty("fire-cells", "circle-stroke-color", theme.stroke);
+    map.setPaintProperty("fire-cells", "circle-stroke-width", theme.strokeWidth);
+  }
+
+  if (map.getLayer("fires-points")) {
+    map.setPaintProperty("fires-points", "circle-color", frpColorExpression(theme.fire));
+    map.setPaintProperty("fires-points", "circle-stroke-color", [
+      "match",
+      ["get", "sensor"],
+      "MODIS",
+      theme.sensor.MODIS,
+      "VIIRS",
+      theme.sensor.VIIRS,
+      theme.stroke,
+    ]);
+  }
+}
 
 export interface FireMapHandle {
   flyTo(longitude: number, latitude: number, zoom?: number): void;
@@ -29,6 +78,7 @@ interface FireMapCanvasProps {
   cells: FireCell[];
   heat: boolean;
   basemap: boolean;
+  theme: MapThemeId;
   onMoveEnd: (view: { bbox: Bounds; zoom: number }) => void;
   onSelectPoint: (id: string) => void;
   onSelectCell: (cell: FireCell) => void;
@@ -40,6 +90,7 @@ export function FireMapCanvas({
   cells,
   heat,
   basemap,
+  theme,
   onMoveEnd,
   onSelectPoint,
   onSelectCell,
@@ -49,11 +100,11 @@ export function FireMapCanvas({
   const mapRef = useRef<MapLibreMap | null>(null);
   const loadedRef = useRef(false);
   const handlers = useRef({ onMoveEnd, onSelectPoint, onSelectCell });
-  const latest = useRef({ points, cells, heat, basemap });
+  const latest = useRef({ points, cells, heat, basemap, theme });
 
   useEffect(() => {
-    latest.current = { points, cells, heat, basemap };
-  }, [points, cells, heat, basemap]);
+    latest.current = { points, cells, heat, basemap, theme };
+  }, [points, cells, heat, basemap, theme]);
 
   // Keep latest callbacks without re-creating the map.
   useEffect(() => {
@@ -103,7 +154,7 @@ export function FireMapCanvas({
       loadedRef.current = true;
 
       map.addSource(BASEMAP_SOURCE, buildBasemapSource());
-      map.addLayer(BASEMAP_LAYER_SPEC);
+      map.addLayer(buildBasemapLayer(MAP_THEMES[latest.current.theme]));
 
       map.addSource("fires", {
         type: "geojson",
@@ -219,6 +270,7 @@ export function FireMapCanvas({
       );
       map.setLayoutProperty("fire-heat", "visibility", latest.current.heat ? "visible" : "none");
       map.setLayoutProperty(BASEMAP_LAYER, "visibility", latest.current.basemap ? "visible" : "none");
+      applyMapTheme(map, MAP_THEMES[latest.current.theme]);
 
       for (const layer of ["fire-hits", "fire-cells"]) {
         map.on("mouseenter", layer, () => {
@@ -274,6 +326,12 @@ export function FireMapCanvas({
     if (!map.getLayer(BASEMAP_LAYER)) return;
     map.setLayoutProperty(BASEMAP_LAYER, "visibility", basemap ? "visible" : "none");
   }, [basemap]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    applyMapTheme(map, MAP_THEMES[theme]);
+  }, [theme]);
 
   return (
     <div className="absolute inset-0">

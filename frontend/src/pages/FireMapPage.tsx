@@ -11,6 +11,7 @@ import {
   type MapFiltersState,
 } from "@/components/map/MapFilters";
 import { AGGREGATE_ZOOM, POINT_LIMIT, emptyFeatures, useAggregate } from "@/components/map/fireLayers";
+import { MAP_THEMES } from "@/components/map/mapStyle";
 import { findNavItemByKey } from "@/config/nav";
 import { useModules, useSystemStatus } from "@/lib/queries";
 import {
@@ -286,6 +287,7 @@ export function FireMapPage() {
             cells={cells}
             heat={filters.heat}
             basemap={filters.basemap}
+            theme={filters.theme}
             onMoveEnd={setView}
             onSelectPoint={setSelectedId}
             onSelectCell={(cell) =>
@@ -336,10 +338,18 @@ export function FireMapPage() {
               </div>
               <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-full border border-line/[0.1] bg-panel/90 px-3 py-1.5 text-3xs font-light text-faint backdrop-blur-glass">
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-[#72A5F9]" /> MODIS outline
+                  <span
+                    className="size-1.5 rounded-full"
+                    style={{ backgroundColor: MAP_THEMES[filters.theme].sensor.MODIS }}
+                  />{" "}
+                  MODIS outline
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-[#60D58B]" /> VIIRS outline
+                  <span
+                    className="size-1.5 rounded-full"
+                    style={{ backgroundColor: MAP_THEMES[filters.theme].sensor.VIIRS }}
+                  />{" "}
+                  VIIRS outline
                 </span>
                 <span className="hidden sm:inline">
                   {meta.aggregated ? "Colour = density" : "Colour = FRP"}

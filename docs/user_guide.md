@@ -102,6 +102,10 @@ The map is the Phase 4 workspace.
   which mode you are in and how many detections are in view.
 - **Colour** encodes FRP (yellow → orange → red). Dot outlines identify the sensor: blue for MODIS,
   green for VIIRS. Cells are coloured by detection density.
+- **Themes**: *Daylight* (default, bright earth), *Terrain* (warm sepia land), *Paper* (near-white,
+  for screenshots and print) and *Orbital* (dark field for night work). A theme changes the field,
+  the basemap tone, the detection palette and the sensor outlines together, so contrast holds in
+  every mode.
 - **Filters**: MODIS/VIIRS toggles, minimum FRP, confidence floor, day/night, optional density
   heatmap, optional basemap.
 - **Search**: type a country, a city or `lat,lon` and press Enter to fly there. The list offers

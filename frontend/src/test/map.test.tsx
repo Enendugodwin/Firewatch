@@ -13,6 +13,7 @@ import {
 } from "@/components/map/fireLayers";
 import type { FireCell } from "@/lib/mapApi";
 import type { Observation } from "@/types/api";
+import { DEFAULT_THEME, MAP_THEMES, THEME_ORDER, buildBasemapLayer, buildMapStyle } from "@/components/map/mapStyle";
 
 // MapLibre needs WebGL; the layer/expression logic above is pure and the page is
 // verified with a stub map so the UI contract can be tested without a GPU.
@@ -28,6 +29,12 @@ vi.mock("maplibre-gl", () => {
       return this;
     }
     addLayer() {
+      return this;
+    }
+    getLayer(id: string) {
+      return { id };
+    }
+    setPaintProperty() {
       return this;
     }
     getSource() {
@@ -146,6 +153,31 @@ describe("map layer helpers", () => {
     expect(expression).toContain("#EF4444");
   });
 
+  it("recolours detections for brighter themes", () => {
+    const light = JSON.stringify(frpColorExpression(MAP_THEMES.daylight.fire));
+    const dark = JSON.stringify(frpColorExpression(MAP_THEMES.orbital.fire));
+
+    expect(light).toContain("#B91C1C");
+    expect(light).not.toContain("#FACC15");
+    expect(dark).toContain("#FACC15");
+  });
+
+  it("defaults to the bright daylight theme and keeps a dark option", () => {
+    expect(DEFAULT_THEME).toBe("daylight");
+    expect(THEME_ORDER).toContain("orbital");
+
+    const lightBasemap = buildBasemapLayer(MAP_THEMES.daylight).paint as Record<string, unknown>;
+    const darkBasemap = buildBasemapLayer(MAP_THEMES.orbital).paint as Record<string, unknown>;
+
+    expect(lightBasemap["raster-opacity"]).toBe(1);
+    expect(lightBasemap["raster-brightness-max"]).toBe(1);
+    expect(darkBasemap["raster-brightness-max"]).toBeLessThan(0.5);
+    expect(buildMapStyle(MAP_THEMES.daylight).layers[0]).toMatchObject({
+      id: "background",
+      paint: { "background-color": MAP_THEMES.daylight.background },
+    });
+  });
+
   it("counts sensors in the current feature set", () => {
     const totals = sensorTotals([
       {
@@ -205,11 +237,33 @@ describe("fire map page", () => {
 
     expect(await screen.findByText(/layers & filters/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/search the map/i)).toBeInTheDocument();
+    // Bright earth is the default; the dark theme remains one click away.
+    expect(screen.getByRole("button", { name: /daylight/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /orbital/i })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
 
     await waitFor(() => {
       expect(screen.getByText(/420 detections/i)).toBeInTheDocument();
     });
     expect(screen.getAllByText(/aggregated/i).length).toBeGreaterThan(0);
+  });
+
+  it("switches map themes from the layer panel", async () => {
+    renderApp("/map");
+
+    const orbital = await screen.findByRole("button", { name: /orbital/i });
+    fireEvent.click(orbital);
+
+    expect(orbital).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /daylight/i })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
   it("searches the gazetteer and jumps to the best match", async () => {

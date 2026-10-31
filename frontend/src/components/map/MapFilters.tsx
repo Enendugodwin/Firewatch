@@ -1,8 +1,10 @@
 import { SlidersHorizontal } from "lucide-react";
 
-import { FIRE_COLORS, SENSOR_COLORS } from "./fireLayers";
+import type { MapThemeId } from "./mapStyle";
+import { DEFAULT_THEME, MAP_THEMES, THEME_ORDER } from "./mapStyle";
 
 export interface MapFiltersState {
+  theme: MapThemeId;
   modis: boolean;
   viirs: boolean;
   minFrp: number;
@@ -14,6 +16,7 @@ export interface MapFiltersState {
 }
 
 export const DEFAULT_FILTERS: MapFiltersState = {
+  theme: DEFAULT_THEME,
   modis: true,
   viirs: true,
   minFrp: 0,
@@ -81,12 +84,45 @@ export function MapFilters({
         </button>
       </div>
 
-      <div className="space-y-[2px] border-b border-line/[0.07] pb-[10px]">
+      <div className="border-b border-line/[0.07] pb-[10px]">
+        <span className={label}>Map theme</span>
+        <div className="mt-[6px] grid grid-cols-2 gap-[5px]">
+          {THEME_ORDER.map((id) => {
+            const theme = MAP_THEMES[id];
+            const active = filters.theme === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={active}
+                title={theme.hint}
+                onClick={() => patch({ theme: id })}
+                className={`flex items-center gap-[6px] rounded-control border px-[6px] py-[5px] text-3xs transition-colors duration-150 ${
+                  active
+                    ? "border-line/25 bg-line/[0.07] text-ink"
+                    : "border-line/10 text-muted hover:border-line/20 hover:text-ink"
+                }`}
+              >
+                <span
+                  className="size-3 shrink-0 rounded-[3px] border border-line/20"
+                  style={{
+                    background: `linear-gradient(135deg, ${theme.swatch[0]} 0%, ${theme.swatch[1]} 100%)`,
+                  }}
+                  aria-hidden
+                />
+                {theme.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-[2px] border-b border-line/[0.07] pb-[10px] pt-[10px]">
         <Checkbox checked={filters.modis} onChange={(modis) => patch({ modis })}>
           <span className="inline-flex items-center gap-1.5">
             <span
               className="size-1.5 rounded-full"
-              style={{ backgroundColor: SENSOR_COLORS.MODIS }}
+              style={{ backgroundColor: MAP_THEMES[filters.theme].sensor.MODIS }}
             />
             MODIS
           </span>
@@ -95,7 +131,7 @@ export function MapFilters({
           <span className="inline-flex items-center gap-1.5">
             <span
               className="size-1.5 rounded-full"
-              style={{ backgroundColor: SENSOR_COLORS.VIIRS }}
+              style={{ backgroundColor: MAP_THEMES[filters.theme].sensor.VIIRS }}
             />
             VIIRS
           </span>
@@ -171,7 +207,7 @@ export function MapFilters({
           <span key={tone} className="inline-flex items-center gap-1 text-3xs text-faint">
             <span
               className="size-1.5 rounded-full"
-              style={{ backgroundColor: FIRE_COLORS[tone] }}
+              style={{ backgroundColor: MAP_THEMES[filters.theme].fire[tone] }}
             />
             {tone}
           </span>
