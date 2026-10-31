@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import csv
+import io
+from collections.abc import Iterator
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
@@ -29,6 +33,7 @@ from app.schemas.observations import (
 )
 from app.services import events as events_service
 from app.services import harmonization as harmonization_service
+from app.services.normalization import satellite_label
 from app.services.observation_queries import (
     BBox,
     event_stats,
@@ -44,7 +49,7 @@ def _brief(observation: FireObservation) -> ObservationBrief:
         id=str(observation.id),
         source_code=observation.source_code,
         sensor=observation.sensor,
-        satellite=observation.satellite,
+        satellite=satellite_label(observation.satellite) or observation.satellite,
         latitude=observation.latitude,
         longitude=observation.longitude,
         acquired_at=observation.acquired_at,
@@ -128,6 +133,111 @@ def list_matches(
     ).all()
     return MatchPage(
         items=[_match_out(row) for row in rows], total=int(total), limit=limit, offset=offset
+    )
+
+
+CSV_COLUMNS = [
+    "match_id",
+    "status",
+    "association_score",
+    "temporal_delta_seconds",
+    "spatial_distance_m",
+    "footprint_overlap",
+    "a_id",
+    "a_sensor",
+    "a_satellite",
+    "a_acquired_at",
+    "a_latitude",
+    "a_longitude",
+    "a_frp_mw",
+    "a_confidence",
+    "b_id",
+    "b_sensor",
+    "b_satellite",
+    "b_acquired_at",
+    "b_latitude",
+    "b_longitude",
+    "b_frp_mw",
+    "b_confidence",
+    "algorithm_version",
+    "created_at",
+]
+
+
+@router.get(
+    "/matches.csv",
+    summary="Matches as CSV (same filters as /matches)",
+    response_class=StreamingResponse,
+)
+def export_matches(
+    status: str | None = Query(None, pattern="^(probable|possible|rejected)$"),
+    min_score: float | None = Query(None, ge=0, le=1),
+    limit: int = Query(50000, ge=1, le=200000),
+    session: Session = Depends(get_session),
+) -> StreamingResponse:
+    """
+    Stream the matched pairs as CSV. Filters match ``/matches`` so an export is
+    always the same set the screen shows; every row carries both observations'
+    provenance so the file is self-describing.
+    """
+    stmt = select(ObservationMatch)
+    if status:
+        stmt = stmt.where(ObservationMatch.match_status == status)
+    if min_score is not None:
+        stmt = stmt.where(ObservationMatch.association_score >= min_score)
+    stmt = stmt.order_by(ObservationMatch.association_score.desc()).limit(limit)
+
+    rows = session.scalars(stmt).all()
+
+    def generate() -> Iterator[str]:
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(CSV_COLUMNS)
+        yield buffer.getvalue()
+        buffer.seek(0)
+        buffer.truncate(0)
+
+        for row in rows:
+            a = row.observation_a
+            b = row.observation_b
+            writer.writerow(
+                [
+                    str(row.id),
+                    row.match_status,
+                    row.association_score,
+                    row.temporal_delta_seconds,
+                    round(row.spatial_distance_m, 2),
+                    None if row.footprint_overlap is None else round(row.footprint_overlap, 4),
+                    str(a.id),
+                    a.sensor,
+                    satellite_label(a.satellite) or a.satellite,
+                    a.acquired_at.isoformat(),
+                    a.latitude,
+                    a.longitude,
+                    a.frp_mw,
+                    a.confidence_category,
+                    str(b.id),
+                    b.sensor,
+                    satellite_label(b.satellite) or b.satellite,
+                    b.acquired_at.isoformat(),
+                    b.latitude,
+                    b.longitude,
+                    b.frp_mw,
+                    b.confidence_category,
+                    row.algorithm_version,
+                    row.created_at.isoformat() if row.created_at else None,
+                ]
+            )
+            yield buffer.getvalue()
+            buffer.seek(0)
+            buffer.truncate(0)
+
+    suffix = f"-{status}" if status else ""
+    filename = f"firewatch-matches{suffix}.csv"
+    return StreamingResponse(
+        generate(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

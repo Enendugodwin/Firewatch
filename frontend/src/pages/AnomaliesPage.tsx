@@ -12,6 +12,7 @@ import { useUiStore } from "@/store/ui";
 
 const SEVERITY_TONE: Record<AnomalySeverity, "neutral" | "info" | "warn" | "danger"> = {
   normal: "neutral",
+  below_baseline: "neutral",
   moderate: "info",
   high: "warn",
   critical: "danger",
@@ -87,6 +88,18 @@ export function AnomaliesPage() {
             </div>
           </div>
         </Panel>
+      ) : null}
+
+      {data && !insufficient && data.method.baseline_source === "within_window" ? (
+        <div className="mb-4 flex items-start gap-2 rounded-card border border-azure/25 bg-azure/[0.05] px-[14px] py-[10px]">
+          <Radar className="mt-[1px] size-3.5 shrink-0 text-azure" aria-hidden />
+          <p className="text-2xs font-light leading-relaxed text-muted">
+            <span className="text-ink">Short-history baseline.</span> There are not yet enough
+            earlier days for a preceding-history baseline, so each day is compared with the other
+            observed days in this window. Treat these flags as provisional; ingesting more days
+            switches the engine to the stronger baseline automatically.
+          </p>
+        </div>
       ) : null}
 
       {data && !insufficient ? (

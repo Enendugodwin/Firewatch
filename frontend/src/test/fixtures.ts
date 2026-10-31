@@ -357,6 +357,8 @@ const INSUFFICIENT_ANOMALIES: AnomaliesResponse = {
     metric: "detections",
     mad_to_sigma: 1.4826,
     comparison: "preceding observed days, gaps excluded",
+    baseline_source: "preceding",
+    min_window_days: 4,
   },
   baseline: null,
   points: [],
@@ -437,6 +439,52 @@ export function installFetchMock(options: MockOptions = {}) {
     if (url.includes("/api/v1/harmonization/matches")) return json(matches);
     if (url.includes("/api/v1/harmonization/events")) return json(events);
     if (url.includes("/api/v1/harmonization/jobs")) return json([]);
+    if (url.includes("/api/v1/admin/ingestion/run-all")) {
+      return json({
+        start_date: "2026-10-30",
+        end_date: "2026-10-31",
+        sources_requested: 2,
+        sources_succeeded: 2,
+        sources_failed: 0,
+        records_received: 40,
+        records_inserted: 40,
+        records_rejected: 0,
+        results: [
+          {
+            run_id: "run-1",
+            source_code: "MODIS_NRT",
+            status: "succeeded",
+            records_received: 20,
+            records_inserted: 20,
+            records_rejected: 0,
+            partitions_completed: 1,
+            partitions_skipped: 0,
+            rejections: {},
+            errors: [],
+            is_synthetic: false,
+            harmonization: null,
+            events: null,
+          },
+          {
+            run_id: "run-2",
+            source_code: "VIIRS_SNPP_NRT",
+            status: "succeeded",
+            records_received: 20,
+            records_inserted: 20,
+            records_rejected: 0,
+            partitions_completed: 1,
+            partitions_skipped: 0,
+            rejections: {},
+            errors: [],
+            is_synthetic: false,
+            harmonization: null,
+            events: null,
+          },
+        ],
+        harmonization: null,
+        events: null,
+      });
+    }
     if (url.includes("/api/v1/admin/ingestion/jobs")) return json([]);
     if (url.includes("/api/v1/admin/ingestion/sources")) return json(SOURCE_HEALTH);
     return json({ error: { code: "not_found", message: "unmocked", details: {} } }, 404);

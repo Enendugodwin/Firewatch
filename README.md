@@ -32,8 +32,10 @@ exposes all of it through a dark analytical console.
 | Map: MapLibre globe, four themes, viewport aggregation, FRP/confidence/day-night filters | Working |
 | Calendar: day/week/month/year buckets, coverage states, drill-down to detections | Working |
 | Query (Intelligence): time window, region, sensor/satellite, FRP/confidence scope | Working |
+| Ingestion: single-source windows and one-click all-source runs | Working |
+| Export: matches as CSV with both observations' provenance | Working |
 | Analytics: daily trend, rankings, sensor/confidence/day-night breakdowns | Working |
-| Anomalies: robust-z scoring with baseline guard (refuses without history) | Working |
+| Anomalies: robust-z scoring, MAD → σ fallback, short-history window baseline | Working |
 | APIs: `/fires`, `/fires/aggregate`, `/calendar`, `/analytics/summary`, `/anomalies` | Working |
 | Console: overview aggregates, sensor-intelligence workspace, ingestion console | Working |
 | Design system, shell, command palette, freshness, synthetic-data labelling | Working |
@@ -115,8 +117,8 @@ Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 ## Tests
 
 ```bash
-cd backend  && uv run pytest       # 142 tests
-cd frontend && npm test            # 43 tests
+cd backend  && uv run pytest       # 147 tests
+cd frontend && npm test            # 46 tests
 
 cd backend  && uv run ruff check . && uv run mypy app
 cd frontend && npm run typecheck

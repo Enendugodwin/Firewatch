@@ -40,6 +40,37 @@ class IngestResponse(BaseModel):
     events: dict[str, Any] | None = None
 
 
+class IngestAllRequest(BaseModel):
+    """Ingest the same window for every registered product in one call."""
+
+    start_date: date
+    end_date: date
+    tile: str | None = None
+    bbox: str | None = Field(
+        default=None, description="Custom area as west,south,east,north (overrides tile)"
+    )
+    source_codes: list[str] | None = Field(
+        default=None,
+        description="Restrict to these products; omit to run every registered product",
+    )
+    run_harmonization: bool = True
+    run_events: bool = True
+
+
+class IngestAllResponse(BaseModel):
+    start_date: date
+    end_date: date
+    sources_requested: int
+    sources_succeeded: int
+    sources_failed: int
+    records_received: int
+    records_inserted: int
+    records_rejected: int
+    results: list[IngestResponse] = Field(default_factory=list)
+    harmonization: dict[str, Any] | None = None
+    events: dict[str, Any] | None = None
+
+
 class IngestionRunOut(BaseModel):
     id: str
     source_code: str | None

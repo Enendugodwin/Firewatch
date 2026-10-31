@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/ModuleStatus";
 import { Panel, StatTile } from "@/components/ui/Panel";
+import { Download } from "lucide-react";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { SyntheticBanner } from "@/components/ui/SyntheticBanner";
 import { AssociationScore } from "@/components/ui/AssociationScore";
@@ -310,6 +311,7 @@ export function HarmonizationPage() {
               subtitle="Candidate pairs from different sensor families within the time and distance windows."
               bodyClassName="p-0"
               actions={
+                <div className="flex items-center gap-[6px]">
                 <div className="flex gap-[2px]">
                   {STATUS_TABS.map((tab) => (
                     <button
@@ -325,6 +327,18 @@ export function HarmonizationPage() {
                       {tab.label}
                     </button>
                   ))}
+                </div>
+                <a
+                  href={`/api/v1/harmonization/matches.csv${
+                    statusFilter === "all" ? "" : `?status=${statusFilter}`
+                  }`}
+                  download
+                  className="btn-glass inline-flex items-center gap-1.5 px-2.5 py-[4px] text-3xs"
+                  title="Download the current filter as CSV"
+                >
+                  <Download className="size-3" aria-hidden />
+                  Export CSV
+                </a>
                 </div>
               }
             >

@@ -75,6 +75,11 @@ class AnomalyMethod(BaseModel):
     metric: str
     mad_to_sigma: float
     comparison: str
+    baseline_source: str = Field(
+        default="preceding",
+        description="preceding: earlier observed days; within_window: short-history fallback",
+    )
+    min_window_days: int = 4
 
 
 class AnomalyBaseline(BaseModel):
@@ -90,7 +95,9 @@ class AnomalyPoint(BaseModel):
     expected: float
     deviation: float
     robust_z: float | None = None
-    severity: Literal["normal", "moderate", "high", "critical", "unknown_scale"]
+    severity: Literal[
+        "normal", "below_baseline", "moderate", "high", "critical", "unknown_scale"
+    ]
     explanation: str | None = None
 
 

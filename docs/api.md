@@ -122,14 +122,18 @@ as `/fires` (`bbox`, `sensor`, `satellite`, `min_frp`, `daynight`, `min_confiden
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/analytics/summary` | Required `start_date`/`end_date`; totals, daily series, top cells, breakdowns |
-| GET | `/anomalies` | Required `start_date`/`end_date`; robust-z scoring with an explicit history guard |
+| GET | `/anomalies` | Required `start_date`/`end_date`; robust-z scoring with a short-history fallback |
+| GET | `/harmonization/matches.csv` | CSV export of matches with both observations' provenance |
+| POST | `/admin/ingestion/run-all` | Same window for every registered source, one result per source |
 
 `/analytics/summary` returns every day in the range (zeros included), the peak day, rankings on a
 fixed 2° grid (cells, never countries), sensor/confidence/day-night splits and satellite/product
 counts. `/anomalies` compares each observed day with the median of the preceding
-`baseline_days` observed days and scores the deviation as `(x − median) / (1.4826 × MAD)`. When
-fewer than `min_baseline_days` observed days exist it returns `status: insufficient_history` with
-`requirements` instead of flagging anything.
+`baseline_days` observed days and scores the deviation as `(x − median) / (1.4826 × MAD)`.
+If MAD is zero the standard deviation is used as the scale. When there is not enough preceding
+history the engine falls back to a leave-one-out baseline over the evaluated window
+(`method.baseline_source = within_window`, needs `min_window_days`, default 4) and says so;
+with too few days even for that it returns `status: insufficient_history` and `requirements`.
 
 ### Harmonization
 

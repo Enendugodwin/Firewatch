@@ -80,7 +80,10 @@ through 2026-08-31 while `MODIS_NRT` covered 2026-10-30, so a recent date is gen
 | Series | Every day in the range present; zero days explicit |
 | Rankings | 2° cells ranked by detections, labelled as cells not countries |
 | Breakdowns | Confidence, day/night and satellite counts each sum to the totals |
-| Baseline guard | With 3 days of history the engine returns `insufficient_history` (0/14 baseline days) |
+| Baseline guard | Below the short-history minimum the engine returns `insufficient_history` with counts |
+| Short-history mode | 5 observed days with no prior history score, labelled `within_window` |
+| Zero-dispersion fallback | When MAD is 0 the standard deviation is used as the scale |
+| Below-baseline days | Large negative z is reported as `below_baseline`, never as a fire anomaly |
 | Spike detection | Seeded 40-day baseline + 10× day flags exactly that day (severity high/critical) |
 | Gap handling | Baseline excludes days without availability rather than counting them as zero |
 | Query cost | Analytics summary reduced from ~4.6 s to ~1.2 s after removing wide subqueries |

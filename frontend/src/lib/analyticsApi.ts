@@ -49,7 +49,13 @@ export interface AnalyticsResponse {
   notes: string[];
 }
 
-export type AnomalySeverity = "normal" | "moderate" | "high" | "critical" | "unknown_scale";
+export type AnomalySeverity =
+  | "normal"
+  | "below_baseline"
+  | "moderate"
+  | "high"
+  | "critical"
+  | "unknown_scale";
 
 export interface AnomalyPoint {
   date: string;
@@ -72,6 +78,8 @@ export interface AnomaliesResponse {
     metric: string;
     mad_to_sigma: number;
     comparison: string;
+    baseline_source: "preceding" | "within_window";
+    min_window_days: number;
   };
   baseline: { days: number; median: number; mad: number; scale: number } | null;
   points: AnomalyPoint[];

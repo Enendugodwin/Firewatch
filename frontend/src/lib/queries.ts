@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import type {
   AlgorithmRunOut,
+  IngestAllResponse,
   DashboardOverview,
   FireEventOut,
   HarmonizationSummary,
@@ -132,6 +133,9 @@ export function useRunHarmonization() {
       void queryClient.invalidateQueries({ queryKey: ["harmonization"] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.systemStatus });
       void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+      void queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      void queryClient.invalidateQueries({ queryKey: ["anomalies"] });
+      void queryClient.invalidateQueries({ queryKey: ["calendar"] });
     },
   });
 }
@@ -145,6 +149,15 @@ export interface IngestPayload {
   run_events?: boolean;
 }
 
+export interface IngestAllPayload {
+  start_date: string;
+  end_date: string;
+  tile?: string;
+  source_codes?: string[];
+  run_harmonization?: boolean;
+  run_events?: boolean;
+}
+
 export function useRunIngestion() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -154,12 +167,25 @@ export function useRunIngestion() {
         body: JSON.stringify(payload),
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.ingestionRuns });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.sourceHealth });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.sources });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.systemStatus });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
-      void queryClient.invalidateQueries({ queryKey: ["harmonization"] });
+      // Ingestion changes almost every derived view (map, calendar, analytics,
+      // anomalies, query, sources), so refresh the whole cache rather than a
+      // hand-picked subset that silently goes stale.
+      void queryClient.invalidateQueries();
+    },
+  });
+}
+
+/** Ingest the same window for every registered source in one call. */
+export function useRunAllIngestion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: IngestAllPayload) =>
+      apiFetch<IngestAllResponse>("/api/v1/admin/ingestion/run-all", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries();
     },
   });
 }

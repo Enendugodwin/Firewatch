@@ -84,6 +84,33 @@ def test_insufficient_history_is_reported_not_faked(
     assert "will not score" in body["requirements"]["note"]
 
 
+def test_short_history_falls_back_to_a_window_baseline(
+    client: TestClient,
+) -> None:
+    """Five observed days with no prior history still score, and say how."""
+    start = date(2027, 3, 1)
+    days = [
+        (start + timedelta(days=offset), count)
+        for offset, count in enumerate([5, 6, 5, 5, 40])
+    ]
+    _seed("VIIRS", "VIIRS_SNPP_NRT", "N", days)
+
+    body = client.get(
+        "/api/v1/anomalies",
+        params={"start_date": days[0][0].isoformat(), "end_date": days[-1][0].isoformat()},
+    ).json()
+
+    assert body["status"] == "ok"
+    assert body["method"]["baseline_source"] == "within_window"
+    assert body["evaluated_days"] == 5
+    flagged = body["anomalies"]
+    assert len(flagged) == 1
+    assert flagged[0]["date"] == days[-1][0].isoformat()
+    assert flagged[0]["observed"] == 40
+    assert "other" in (flagged[0]["explanation"] or "").lower()
+    assert any("Short-history mode" in note for note in body["notes"])
+
+
 def test_spike_is_flagged_against_its_own_history(client: TestClient) -> None:
     start = date(2026, 11, 1)
     seed = _history(start, 5)
@@ -164,9 +191,11 @@ def test_robust_baseline_ignores_a_single_outlier() -> None:
     values = [5.0] * 20 + [500.0]
     baseline = robust_baseline(values)
 
+    # The outlier cannot move the median; MAD stays 0 and the scale falls back to
+    # the standard deviation so a spike is still measurable.
     assert baseline.median == 5.0
     assert baseline.mad == 0.0
-    assert baseline.scale == 0.0
+    assert baseline.scale > 0
     assert severity_for(3.2) == "moderate"
     assert severity_for(4.1) == "high"
     assert severity_for(5.5) == "critical"

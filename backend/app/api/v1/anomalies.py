@@ -13,6 +13,7 @@ from app.schemas.analytics import AnomaliesResponse
 from app.services.anomalies import (
     DEFAULT_BASELINE_DAYS,
     DEFAULT_MIN_BASELINE_DAYS,
+    DEFAULT_MIN_WINDOW_DAYS,
     DEFAULT_Z_THRESHOLD,
     detect_anomalies,
 )
@@ -28,6 +29,7 @@ def list_anomalies(
     end_date: date = Query(..., description="Last evaluated day (UTC)"),
     baseline_days: int = Query(DEFAULT_BASELINE_DAYS, ge=1, le=365),
     min_baseline_days: int = Query(DEFAULT_MIN_BASELINE_DAYS, ge=2, le=365),
+    min_window_days: int = Query(DEFAULT_MIN_WINDOW_DAYS, ge=3, le=365),
     z_threshold: float = Query(DEFAULT_Z_THRESHOLD, ge=1, le=20),
     metric: str = Query("detections", pattern="^(detections|frp)$"),
     bbox: str | None = Query(None, description="west,south,east,north"),
@@ -63,6 +65,7 @@ def list_anomalies(
         end=end_date,
         baseline_days=baseline_days,
         min_baseline_days=min_baseline_days,
+        min_window_days=min_window_days,
         z_threshold=z_threshold,
         metric=metric,
     )

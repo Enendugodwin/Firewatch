@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, Check, KeyRound, Play, X } from "lucide-react";
+import { AlertTriangle, Check, KeyRound, Layers, Play, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +9,8 @@ import { StatusDot } from "@/components/ui/StatusDot";
 import { ApiError } from "@/lib/api";
 import {
   useIngestionRuns,
+  useModules,
+  useRunAllIngestion,
   useRunIngestion,
   useSourceHealth,
   useSources,
@@ -40,6 +42,7 @@ function IngestionConsole() {
   const { data: status } = useSystemStatus();
   const { data: sources } = useSources();
   const runIngestion = useRunIngestion();
+  const runAll = useRunAllIngestion();
 
   const today = formatUtcDate();
   const [sourceCode, setSourceCode] = useState("VIIRS_SNPP_NRT");
@@ -47,7 +50,8 @@ function IngestionConsole() {
   const [endDate, setEndDate] = useState(today);
 
   const configured = status?.data.firms_configured ?? false;
-  const error = runIngestion.error;
+  const busy = runIngestion.isPending || runAll.isPending;
+  const error = runIngestion.error ?? runAll.error;
 
   return (
     <Panel
@@ -94,10 +98,10 @@ function IngestionConsole() {
             className="mt-[5px] w-full rounded-control border border-line/10 bg-canvas/60 px-2 py-[7px] font-mono text-2xs text-ink"
           />
         </label>
-        <div className="flex items-end">
+        <div className="flex flex-wrap items-end gap-2">
           <Button
             variant="primary"
-            disabled={runIngestion.isPending || !configured}
+            disabled={busy || !configured}
             title={configured ? "Retrieve this window" : "Set FIRMS_MAP_KEY first"}
             onClick={() =>
               runIngestion.mutate({
@@ -106,10 +110,27 @@ function IngestionConsole() {
                 end_date: endDate,
               })
             }
-            className="w-full sm:w-auto"
           >
             <Play className="size-3" aria-hidden />
             {runIngestion.isPending ? "Retrieving…" : "Run window"}
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={busy || !configured}
+            title={
+              configured
+                ? "Run this window for every registered product"
+                : "Set FIRMS_MAP_KEY first"
+            }
+            onClick={() =>
+              runAll.mutate({
+                start_date: startDate,
+                end_date: endDate,
+              })
+            }
+          >
+            <Layers className="size-3" aria-hidden />
+            {runAll.isPending ? "Running all…" : "Run all sources"}
           </Button>
         </div>
       </div>
@@ -142,6 +163,38 @@ function IngestionConsole() {
         </div>
       ) : null}
 
+      {runAll.data ? (
+        <div className="mt-[10px] rounded-control border border-accent/20 bg-accent/[0.04] px-[12px] py-[9px] text-2xs font-light leading-relaxed text-muted">
+          <p className="text-ink">
+            {runAll.data.sources_succeeded} of {runAll.data.sources_requested} sources ingested
+            {runAll.data.sources_failed > 0 ? ` · ${runAll.data.sources_failed} failed` : ""}
+          </p>
+          <p className="mt-[4px]">
+            received {formatCount(runAll.data.records_received)}, inserted{" "}
+            {formatCount(runAll.data.records_inserted)}, rejected{" "}
+            {formatCount(runAll.data.records_rejected)}
+          </p>
+          <ul className="mt-[6px] space-y-[2px]">
+            {runAll.data.results.map((result) => (
+              <li key={result.source_code} className="flex items-center justify-between gap-3">
+                <span className="font-mono text-3xs">{result.source_code}</span>
+                <span
+                  className={
+                    result.status === "failed"
+                      ? "font-mono text-3xs text-danger"
+                      : "font-mono text-3xs text-faint"
+                  }
+                >
+                  {result.status === "failed"
+                    ? result.errors[0]?.slice(0, 60) || "failed"
+                    : `+${formatCount(result.records_inserted)}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {runIngestion.data ? (
         <div className="mt-[10px] rounded-control border border-accent/20 bg-accent/[0.04] px-[12px] py-[9px] text-2xs font-light leading-relaxed text-muted">
           <span className="text-ink">
@@ -160,6 +213,8 @@ function IngestionConsole() {
 
 export function SettingsPage() {
   const { data: status, isError } = useSystemStatus();
+  const { data: modules } = useModules();
+  const module = modules?.find((item) => item.key === "settings");
   const { data: sources } = useSources();
   const { data: health } = useSourceHealth();
   const { data: runs } = useIngestionRuns();
@@ -197,8 +252,8 @@ export function SettingsPage() {
         eyebrow="Firewatch X / System"
         title="Settings & Administration"
         description="Configuration, ingestion control, data-source registry and capability truth for this deployment."
-        status="in_progress"
-        phase="Phase 3"
+        status={module?.status ?? "in_progress"}
+        phase={module?.phase ?? "Phase 1"}
       />
 
       {isError ? (

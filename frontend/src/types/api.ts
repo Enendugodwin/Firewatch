@@ -250,6 +250,20 @@ export interface SourceHealth {
   last_error: string | null;
 }
 
+export interface IngestAllResponse {
+  start_date: string;
+  end_date: string;
+  sources_requested: number;
+  sources_succeeded: number;
+  sources_failed: number;
+  records_received: number;
+  records_inserted: number;
+  records_rejected: number;
+  results: IngestResponse[];
+  harmonization: Record<string, unknown> | null;
+  events: Record<string, unknown> | null;
+}
+
 export interface IngestResponse {
   run_id: string | null;
   source_code: string;

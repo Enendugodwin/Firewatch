@@ -166,10 +166,28 @@ Flags days that depart from their own recent history.
   1.4826 × MAD. One extreme day cannot inflate the baseline.
 - **Gaps are excluded**: days without recorded source availability never enter the baseline, so a
   missing day cannot look like a quiet one.
-- **No history, no claim**: if fewer than the minimum baseline days exist, the page shows the guard
-  (available vs required days) rather than inventing anomalies.
+- **Short history**: with fewer days than the preceding-history window needs, the engine compares
+  each day with the other observed days in the window, labels it *short-history baseline*, and
+  switches automatically once enough history exists.
+- **No history, no claim**: below the short-history minimum the page shows the guard (available vs
+  required days) rather than inventing anomalies.
 - **Severity**: moderate z ≥ 3, high z ≥ 4, critical z ≥ 5, with a plain-language explanation per
   flagged day.
+
+## Ingestion (Settings)
+
+- **Run window** retrieves one product for the selected dates.
+- **Run all sources** runs the same window for every registered product in one call, sequentially, and
+  returns one result per source. A failing product does not stop the others; its error is listed.
+- After either action every view refreshes — map, calendar, analytics, anomalies, query and the
+  source registry — because ingestion invalidates the whole cache rather than a hand-picked subset.
+
+## Exporting matches
+
+On **Sensor Intelligence → Cross-sensor associations**, *Export CSV* downloads the current filter
+(all / probable / possible / rejected) as a self-describing file: score, temporal delta, distance,
+both observations' ids, sensors, satellites, coordinates, acquisition times, FRP, confidence,
+algorithm version and creation time.
 
 ## Sensor Intelligence
 

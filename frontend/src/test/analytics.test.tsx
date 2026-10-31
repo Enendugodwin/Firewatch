@@ -60,6 +60,8 @@ const ANOMALIES_OK: AnomaliesResponse = {
     metric: "detections",
     mad_to_sigma: 1.4826,
     comparison: "preceding observed days, gaps excluded",
+    baseline_source: "preceding",
+    min_window_days: 4,
   },
   baseline: { days: 30, median: 6, mad: 1, scale: 1.48 },
   points: [],
