@@ -7,8 +7,8 @@ import time
 STARTED_AT = time.monotonic()
 
 #: Current delivery phase from the implementation plan (PART 23).
-CURRENT_PHASE = "5"
-CURRENT_PHASE_NAME = "Burning Calendar"
+CURRENT_PHASE = "6"
+CURRENT_PHASE_NAME = "Analytics & Anomalies"
 
 
 def current_phase() -> tuple[str, str]:

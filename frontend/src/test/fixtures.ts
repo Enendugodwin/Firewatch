@@ -14,6 +14,7 @@ import type {
 } from "@/types/api";
 import type { AggregateResponse } from "@/lib/mapApi";
 import type { CalendarResponse, CalendarDrilldown } from "@/lib/calendarApi";
+import type { AnalyticsResponse, AnomaliesResponse } from "@/lib/analyticsApi";
 
 export const MODULES: ModuleStatusItem[] = [
   {
@@ -259,6 +260,8 @@ export interface MockOptions {
   map?: MockMap;
   calendar?: MockCalendar;
   query?: MockQuery;
+  analytics?: AnalyticsResponse;
+  anomalies?: AnomaliesResponse;
 }
 
 const EMPTY_GEOMETRY = {
@@ -317,6 +320,57 @@ const EMPTY_DRILLDOWN: CalendarDrilldown = {
   items: [],
 };
 
+const EMPTY_ANALYTICS: AnalyticsResponse = {
+  start_date: "2026-10-29",
+  end_date: "2026-10-31",
+  totals: {
+    detections: 0,
+    modis: 0,
+    viirs: 0,
+    frp_sum_mw: 0,
+    frp_max_mw: null,
+    high_confidence: 0,
+    active_days: 0,
+    days: 3,
+    mean_daily_detections: 0,
+  },
+  series: [],
+  top_cells: [],
+  cell_degrees: 2,
+  peaks: { detections: { date: null, detections: 0 }, frp: { date: null, frp_mw: null } },
+  confidence: { high: 0, nominal: 0, low: 0, unknown: 0 },
+  daynight: { D: 0, N: 0, unknown: 0 },
+  satellites: [],
+  products: [],
+  synthetic_detections: 0,
+  notes: ["Counts are thermal detections, not fires."],
+};
+
+const INSUFFICIENT_ANOMALIES: AnomaliesResponse = {
+  status: "insufficient_history",
+  method: {
+    name: "robust_z",
+    version: "anomaly-robust-z-v1",
+    baseline_days: 30,
+    min_baseline_days: 14,
+    z_threshold: 3,
+    metric: "detections",
+    mad_to_sigma: 1.4826,
+    comparison: "preceding observed days, gaps excluded",
+  },
+  baseline: null,
+  points: [],
+  anomalies: [],
+  evaluated_days: 0,
+  observed_baseline_days: 0,
+  requirements: {
+    needed_days: 14,
+    available_days: 0,
+    note: "Ingest more history for this scope; the engine will not score anomalies without a baseline.",
+  },
+  notes: ["Days without recorded source availability are excluded, not treated as zero."],
+};
+
 const PLACE_RESULTS = {
   query: "nigeria",
   count: 1,
@@ -343,12 +397,16 @@ export function installFetchMock(options: MockOptions = {}) {
   const mapCells = options.map?.cells ?? EMPTY_CELLS;
   const mapObservation = options.map?.observation;
   const calendar = options.calendar?.calendar ?? EMPTY_CALENDAR;
+  const analytics = options.analytics ?? EMPTY_ANALYTICS;
+  const anomalies = options.anomalies ?? INSUFFICIENT_ANOMALIES;
   const observations: ObservationPage =
     options.query?.observations ?? { items: [], total: 0, limit: 200, offset: 0 };
   const calendarDrilldown = options.calendar?.drilldown ?? EMPTY_DRILLDOWN;
 
   const mock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
+    if (url.includes("/api/v1/analytics/summary")) return json(analytics);
+    if (/\/api\/v1\/anomalies(\?|$)/.test(url)) return json(anomalies);
     if (url.includes("/api/v1/calendar/drilldown")) {
       // Answer for the bucket that was actually clicked, not a fixed one.
       const requested = new URL(url, "http://localhost").searchParams.get("bucket_start");

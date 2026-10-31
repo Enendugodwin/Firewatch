@@ -82,10 +82,10 @@ export function OverviewPage() {
       state: "done",
     },
     {
-      name: "Anomaly detection",
+      name: "Analytics and anomaly detection",
       phase: "Phase 6",
-      detail: "Seasonal baselines and MAD-based deviation with explanations.",
-      state: "pending",
+      detail: "Trends, rankings, sensor breakdowns and robust-MAD anomaly scoring.",
+      state: "done",
     },
   ];
 

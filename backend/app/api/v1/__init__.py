@@ -12,6 +12,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     admin,
+    analytics,
     anomalies,
     assistant,
     auth,
@@ -33,6 +34,7 @@ api_router.include_router(fires.router)
 api_router.include_router(geo.router)
 api_router.include_router(calendar.router)
 api_router.include_router(harmonization.router)
+api_router.include_router(analytics.router)
 api_router.include_router(anomalies.router)
 api_router.include_router(regions.router)
 api_router.include_router(exposure.router)

@@ -77,7 +77,7 @@ MODULES: tuple[ModuleInfo, ...] = (
         "label": "Analytics",
         "route": "/analytics",
         "phase": "Phase 6",
-        "status": "scaffolded",
+        "status": "ready",
         "summary": "Trends, comparisons and distribution analysis.",
         "planned": [
             "Daily, weekly, monthly and annual trends",
@@ -105,7 +105,7 @@ MODULES: tuple[ModuleInfo, ...] = (
         "label": "Anomaly Detection",
         "route": "/anomalies",
         "phase": "Phase 6",
-        "status": "scaffolded",
+        "status": "ready",
         "summary": "Statistical identification of unusual fire activity.",
         "planned": [
             "Seasonal baselines and MAD-based deviation scores",

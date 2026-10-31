@@ -117,6 +117,20 @@ Every bucket in the range is returned, including empty ones, with `state`
 metrics: detections, MODIS, VIIRS, FRP sum, FRP max and high-confidence count. Filters are the same
 as `/fires` (`bbox`, `sensor`, `satellite`, `min_frp`, `daynight`, `min_confidence`, `synthetic`).
 
+### Analytics and anomalies
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/analytics/summary` | Required `start_date`/`end_date`; totals, daily series, top cells, breakdowns |
+| GET | `/anomalies` | Required `start_date`/`end_date`; robust-z scoring with an explicit history guard |
+
+`/analytics/summary` returns every day in the range (zeros included), the peak day, rankings on a
+fixed 2° grid (cells, never countries), sensor/confidence/day-night splits and satellite/product
+counts. `/anomalies` compares each observed day with the median of the preceding
+`baseline_days` observed days and scores the deviation as `(x − median) / (1.4826 × MAD)`. When
+fewer than `min_baseline_days` observed days exist it returns `status: insufficient_history` with
+`requirements` instead of flagging anything.
+
 ### Harmonization
 
 | Method | Path | Notes |

@@ -113,7 +113,7 @@ def _as_date(value: Any) -> date | None:
         return None
 
 
-def _daily_metrics(session: Session, filters: ObservationFilters) -> dict[date, dict[str, Any]]:
+def daily_metrics(session: Session, filters: ObservationFilters) -> dict[date, dict[str, Any]]:
     """
     One grouped query; the SQL date function is portable across SQLite/PostgreSQL.
 
@@ -217,7 +217,7 @@ def calendar_activity(
 ) -> dict[str, Any]:
     validate_span(start, end)
 
-    daily = _daily_metrics(session, filters)
+    daily = daily_metrics(session, filters)
     coverage = _availability(session, start, end, filters.sensor)
 
     total_detections = 0

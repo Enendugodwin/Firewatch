@@ -8,10 +8,10 @@ them per sensor family, associates observations across sensors, groups estimated
 exposes all of it through a dark analytical console.
 
 > [!IMPORTANT]
-> **Status: Phase 5 of 9 — Burning Calendar.** Ingestion, normalization, harmonization, event
-> grouping, the interactive map and the historical burning calendar are working against the live
-> NASA FIRMS API. This workstation holds ~133,000 real detections. The intelligence layers
-> (Phase 6+) remain scaffolding and say so.
+> **Status: Phase 6 of 9 — Analytics & Anomalies.** Ingestion, normalization, harmonization, event
+> grouping, the map, the burning calendar, analytics and the anomaly engine are working against the
+> live NASA FIRMS API. This workstation holds ~133,000 real detections. Regional intelligence,
+> exposure screening and the later layers remain scaffolding and say so.
 >
 > Satellite thermal anomalies are detections, not confirmed wildfires. They may be false
 > positives, may be agricultural or industrial heat, and can be hidden by cloud. Do not use this
@@ -32,10 +32,12 @@ exposes all of it through a dark analytical console.
 | Map: MapLibre globe, four themes, viewport aggregation, FRP/confidence/day-night filters | Working |
 | Calendar: day/week/month/year buckets, coverage states, drill-down to detections | Working |
 | Query (Intelligence): time window, region, sensor/satellite, FRP/confidence scope | Working |
-| APIs: `/fires`, `/fires/aggregate`, `/calendar`, `/geo/search`, `/harmonization/*` | Working |
+| Analytics: daily trend, rankings, sensor/confidence/day-night breakdowns | Working |
+| Anomalies: robust-z scoring with baseline guard (refuses without history) | Working |
+| APIs: `/fires`, `/fires/aggregate`, `/calendar`, `/analytics/summary`, `/anomalies` | Working |
 | Console: overview aggregates, sensor-intelligence workspace, ingestion console | Working |
 | Design system, shell, command palette, freshness, synthetic-data labelling | Working |
-| Anomalies, regions, exposure, reports, AI assistant, auth | Phase 6–8 |
+| Regions, exposure, reports, AI assistant, auth | Phase 6–8 |
 
 Verified live: the map serves 57 gridded cells over 87,578 detections at world zoom and switches
 to individual points when zoomed past level 6, with per-detection provenance on click.
@@ -113,8 +115,8 @@ Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 ## Tests
 
 ```bash
-cd backend  && uv run pytest       # 129 tests
-cd frontend && npm test            # 38 tests
+cd backend  && uv run pytest       # 142 tests
+cd frontend && npm test            # 43 tests
 
 cd backend  && uv run ruff check . && uv run mypy app
 cd frontend && npm run typecheck
@@ -144,8 +146,8 @@ coordinates and source codes are JetBrains Mono. Fire severity keeps its own sem
 | 3 | Harmonization, event grouping, sensor-intelligence workspace | Complete |
 | 4 | Global fire map: aggregation, filters, search, hotspot provenance | Complete |
 | 5 | Burning calendar: day/week/month/year buckets, coverage states, drill-down | Complete |
-| 6 | Analytics, baselines, anomaly engine, exposure screening | Next |
-| 7 | Reports/exports, alerts, AI assistant | Planned |
+| 6 | Analytics, rankings, robust-MAD anomaly engine | Complete |
+| 7 | Reports/exports, alerts, AI assistant | Next |
 | 8 | Validation, backtesting, performance, security hardening | Planned |
 | 9 | Production deployment and monitoring | Planned |
 

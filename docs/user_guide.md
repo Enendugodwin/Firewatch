@@ -147,6 +147,30 @@ The query workspace reads the stored detections directly.
   detection's full provenance in a dialog centred on the screen — press `Esc` or click outside to
   close. Rows are detections, not fires.
 
+## Analytics
+
+Quantitative view of the selected period, computed from the same stored detections as the map.
+
+- **Totals**: detections, active days against calendar days, FRP sum and peak, and the share of
+  high-confidence detections.
+- **Daily trend**: every day in the period, so a flat stretch is visible next to the peaks.
+- **Breakdowns**: sensor (MODIS/VIIRS), day/night and confidence, each reconciling to the totals.
+- **Rankings**: the busiest cells on a 2° grid, plus the satellites and products that produced them.
+  A cell is an area, not a country.
+
+## Anomaly Detection
+
+Flags days that depart from their own recent history.
+
+- **Method**: robust z-score against the median of the preceding observed days, scaled by
+  1.4826 × MAD. One extreme day cannot inflate the baseline.
+- **Gaps are excluded**: days without recorded source availability never enter the baseline, so a
+  missing day cannot look like a quiet one.
+- **No history, no claim**: if fewer than the minimum baseline days exist, the page shows the guard
+  (available vs required days) rather than inventing anomalies.
+- **Severity**: moderate z ≥ 3, high z ≥ 4, critical z ≥ 5, with a plain-language explanation per
+  flagged day.
+
 ## Sensor Intelligence
 
 This is the Phase 3 workspace and the technical centrepiece of the first milestones.
