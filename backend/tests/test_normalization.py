@@ -11,6 +11,7 @@ from app.services.normalization import (
     normalize_row,
     observation_fingerprint,
     parse_acquired_at,
+    satellite_label,
 )
 from app.services.sources import get_source
 
@@ -158,6 +159,28 @@ def test_non_vegetation_thermal_anomaly_is_flagged() -> None:
 
     assert observation.quality_flags["suspected_non_fire"] is True
     assert observation.quality_flags["firms_type_label"] == "other_static_land"
+
+
+def test_day_night_code_is_stored_upper_case() -> None:
+    source = get_source("VIIRS_SNPP_SP")
+    assert source is not None
+
+    observation = normalize_row({**VIIRS_ROW, "daynight": "d"}, source)
+    assert observation.daynight == "D"
+
+
+def test_firms_satellite_codes_expand_to_mission_names() -> None:
+    source = get_source("VIIRS_SNPP_SP")
+    assert source is not None
+
+    codes = {"N": "Suomi-NPP", "1": "NOAA-20", "2": "NOAA-21"}
+    for code, name in codes.items():
+        observation = normalize_row({**VIIRS_ROW, "satellite": code}, source)
+        assert satellite_label(observation.satellite) == name
+
+    # Real names and unknown values pass through unchanged.
+    assert satellite_label("Terra") == "Terra"
+    assert satellite_label(None) is None
 
 
 def test_fingerprint_is_stable_and_discriminating() -> None:

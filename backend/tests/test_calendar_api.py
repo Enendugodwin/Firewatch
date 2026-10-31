@@ -204,6 +204,41 @@ def test_drilldown_respects_filters_and_bounds(client: TestClient, loaded_fixtur
     assert all(item["sensor"] == "MODIS" for item in body["items"])
 
 
+def test_time_window_narrows_observations_and_aggregates(
+    client: TestClient, loaded_fixture: dict
+) -> None:
+    window = {"start_at": "2026-10-28T10:30:00Z", "end_at": "2026-10-28T11:00:00Z"}
+
+    everything = client.get("/api/v1/fires", params={"synthetic": "true"}).json()
+    windowed = client.get(
+        "/api/v1/fires", params={**window, "synthetic": "true"}
+    ).json()
+
+    assert 0 < windowed["total"] < everything["total"]
+    for row in windowed["items"]:
+        assert "10:30" <= row["acquired_at"][11:16] < "11:00"
+
+    calendar = client.get(
+        "/api/v1/calendar",
+        params={
+            "start_date": "2026-10-28",
+            "end_date": "2026-10-28",
+            "synthetic": "true",
+            **window,
+        },
+    ).json()
+    assert calendar["totals"]["detections"] == windowed["total"]
+
+
+def test_time_window_must_be_ordered(client: TestClient) -> None:
+    response = client.get(
+        "/api/v1/fires",
+        params={"start_at": "2026-10-28T12:00:00Z", "end_at": "2026-10-28T11:00:00Z"},
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "bad_request"
+
+
 def test_bucket_helpers_cover_the_range() -> None:
     start, end = date(2026, 1, 30), date(2026, 2, 2)
     week_buckets = buckets_between(start, end, "week")

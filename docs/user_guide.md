@@ -131,6 +131,22 @@ The calendar answers "how much burning, when?" over the stored history.
   detections show the most recent rows and say so.
 - **Scope**: counts are detections, not fires, for the period selected in the header.
 
+## Data Query (Intelligence)
+
+The query workspace reads the stored detections directly.
+
+- **Time window**: *From* / *To* (UTC) narrow the search to the minute, with presets for the last
+  24 hours, 7 days and 30 days. Leave both empty to use the header period; a window overrides it.
+- **Scope**: region (country, city or `lat,lon`), sensor, satellite, minimum FRP, confidence floor,
+  day/night and whether labelled synthetic rows are included.
+- **Apply**: nothing is fetched while you type; *Apply query* runs it, and the header states how
+  many detections match.
+- **Results**: totals (detections, MODIS/VIIRS split, FRP sum and peak, high-confidence count) come
+  from the same scoped aggregate as the calendar, so the table and the totals cannot disagree.
+- **Rows**: the 200 most recent matches; the matched total is exact. Selecting a row opens the
+  detection's full provenance in a dialog centred on the screen — press `Esc` or click outside to
+  close. Rows are detections, not fires.
+
 ## Sensor Intelligence
 
 This is the Phase 3 workspace and the technical centrepiece of the first milestones.

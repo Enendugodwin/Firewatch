@@ -26,6 +26,25 @@ MODIS_CONFIDENCE_BANDS = ((80, "high"), (30, "nominal"), (0, "low"))
 #: VIIRS confidence is categorical.
 VIIRS_CONFIDENCE = {"h": "high", "n": "nominal", "l": "low"}
 
+#: FIRMS VIIRS files carry a short satellite code, not a name. MODIS files carry
+#: the name already ("Terra"/"Aqua"), so these keys only match the coded values.
+VIIRS_SATELLITE_CODES = {
+    "N": "Suomi-NPP",
+    "1": "NOAA-20",
+    "2": "NOAA-21",
+    "SNPP": "Suomi-NPP",
+    "JPSS1": "NOAA-20",
+    "JPSS2": "NOAA-21",
+}
+
+
+def satellite_label(value: str | None) -> str | None:
+    """Expand a FIRMS satellite code to its mission name; other values pass through."""
+    if value is None:
+        return None
+    code = value.strip()
+    return VIIRS_SATELLITE_CODES.get(code.upper(), code)
+
 #: FIRMS `type`: 0 presumed vegetation fire, 1 volcano, 2 other static source,
 #: 3 offshore. Anything non-zero is a thermal anomaly that is probably not a fire.
 FIRMS_TYPE_LABELS = {
@@ -195,7 +214,7 @@ def _common(row: Mapping[str, Any], source: FirmsSource) -> dict[str, Any]:
     validate_coordinates(latitude, longitude)
 
     acquired_at = parse_acquired_at(row)
-    daynight = (_clean(row, "daynight", "day_night") or "").lower()[:1] or None
+    daynight = (_clean(row, "daynight", "day_night") or "").upper()[:1] or None
 
     scan_km = _as_float(row, "scan")
     track_km = _as_float(row, "track")
@@ -282,6 +301,8 @@ def normalize_viirs(row: Mapping[str, Any], source: FirmsSource) -> NormalizedOb
         "source_code": source.code,
         "source_product": source.code,
         "sensor": source.sensor,
+        # The stored value stays the FIRMS code (part of the record fingerprint);
+        # the API expands it for display so provenance is not misread as "N".
         "satellite": _clean(row, "satellite") or source.satellite,
         "confidence_raw": None,
         "confidence_category": category,

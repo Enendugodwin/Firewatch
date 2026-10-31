@@ -59,10 +59,13 @@ export interface CalendarDrilldown {
 
 export interface CalendarFilters {
   sensor?: "MODIS" | "VIIRS";
+  satellite?: string;
   minFrp?: number;
   minConfidence?: "low" | "nominal" | "high";
   daynight?: "D" | "N";
   synthetic?: boolean;
+  /** west,south,east,north — set by the query builder when a region is chosen. */
+  bbox?: [number, number, number, number];
 }
 
 export interface CalendarQuery extends CalendarFilters {
@@ -92,6 +95,8 @@ export function calendarParams(query: CalendarQuery, extra: Record<string, strin
     granularity: query.granularity,
   });
   if (query.sensor) params.set("sensor", query.sensor);
+  if (query.satellite) params.set("satellite", query.satellite);
+  if (query.bbox) params.set("bbox", query.bbox.map((value) => value.toFixed(4)).join(","));
   if (query.minFrp) params.set("min_frp", String(query.minFrp));
   if (query.minConfidence && query.minConfidence !== "low") {
     params.set("min_confidence", query.minConfidence);

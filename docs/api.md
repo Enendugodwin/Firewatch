@@ -101,6 +101,10 @@ Filters shared by `/fires`, `/fires/geojson` and `/fires/aggregate`: `bbox`, `st
 `end_date`, `sensor`, `satellite`, `min_frp`, `daynight`, `min_confidence` (`low|nominal|high`) and
 `synthetic`.
 
+Window: `start_at` / `end_at` take ISO 8601 timestamps (`2026-10-30T06:00:00Z`). `start_at` is
+inclusive, `end_at` exclusive, and both override the date-only bounds — that is how an hour-level
+query is expressed. An unordered window returns `400 bad_request`.
+
 ### Calendar
 
 | Method | Path | Notes |

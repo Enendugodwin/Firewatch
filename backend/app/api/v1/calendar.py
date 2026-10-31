@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -33,11 +33,15 @@ def _filters(
     synthetic: bool | None,
     start_date: date | None = None,
     end_date: date | None = None,
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
 ) -> ObservationFilters:
     return ObservationFilters(
         bbox=BBox.parse(bbox) if bbox else None,
         start_date=start_date,
         end_date=end_date,
+        start_at=start_at,
+        end_at=end_at,
         sensor=sensor,
         satellite=satellite,
         min_frp=min_frp,
@@ -52,6 +56,10 @@ def calendar_activity(
     start_date: date = Query(..., description="First day of the calendar window (UTC)"),
     end_date: date = Query(..., description="Last day of the calendar window (UTC)"),
     granularity: str = Query("day", description="day, week, month or year"),
+    start_at: datetime | None = Query(
+        None, description="Exact start (ISO 8601, UTC), inclusive"
+    ),
+    end_at: datetime | None = Query(None, description="Exact end (ISO 8601, UTC), exclusive"),
     bbox: str | None = Query(None, description="west,south,east,north"),
     sensor: str | None = Query(None, description="MODIS or VIIRS"),
     satellite: str | None = None,
@@ -72,6 +80,8 @@ def calendar_activity(
         synthetic,
         start_date,
         end_date,
+        start_at,
+        end_at,
     )
     result = calendar_service.calendar_activity(
         session,
@@ -113,6 +123,8 @@ def _bucket_payload(
 def calendar_drilldown(
     bucket_start: date = Query(..., description="Any date inside the bucket"),
     granularity: str = Query("day", description="day, week, month or year"),
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
     bbox: str | None = None,
     sensor: str | None = None,
     satellite: str | None = None,
@@ -137,6 +149,8 @@ def calendar_drilldown(
         synthetic,
         bucket.start,
         bucket.end,
+        start_at,
+        end_at,
     )
     summary = _bucket_payload(
         session,

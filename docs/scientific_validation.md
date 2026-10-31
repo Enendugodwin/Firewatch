@@ -83,6 +83,14 @@ through 2026-08-31 while `MODIS_NRT` covered 2026-10-30, so a recent date is gen
 | Drill-down | Bucket 2026-10-29 returns 55,612 detections; the first page matches the bucket metrics |
 | Query cost | Day-level aggregation dropped from ~12.6 s to ~0.5 s after removing the wide subquery |
 
+### Provenance label verification (2026-10-31)
+
+| Check | Result |
+| --- | --- |
+| VIIRS satellite codes | FIRMS `N` / `1` / `2` expand to Suomi-NPP / NOAA-20 / NOAA-21 in API output |
+| Day/night codes | Stored and returned as `D` / `N` (older lowercase rows are upper-cased on read) |
+| Fingerprint safety | Stored satellite code is unchanged, so record fingerprints stay stable |
+
 ### Map verification (2026-10-31)
 
 | Check | Result |

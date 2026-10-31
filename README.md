@@ -31,6 +31,7 @@ exposes all of it through a dark analytical console.
 | Event grouping: spatiotemporal DBSCAN, per-event provenance and FRP aggregates | Working |
 | Map: MapLibre globe, four themes, viewport aggregation, FRP/confidence/day-night filters | Working |
 | Calendar: day/week/month/year buckets, coverage states, drill-down to detections | Working |
+| Query (Intelligence): time window, region, sensor/satellite, FRP/confidence scope | Working |
 | APIs: `/fires`, `/fires/aggregate`, `/calendar`, `/geo/search`, `/harmonization/*` | Working |
 | Console: overview aggregates, sensor-intelligence workspace, ingestion console | Working |
 | Design system, shell, command palette, freshness, synthetic-data labelling | Working |
@@ -112,8 +113,8 @@ Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 ## Tests
 
 ```bash
-cd backend  && uv run pytest       # 125 tests
-cd frontend && npm test            # 31 tests
+cd backend  && uv run pytest       # 129 tests
+cd frontend && npm test            # 38 tests
 
 cd backend  && uv run ruff check . && uv run mypy app
 cd frontend && npm run typecheck

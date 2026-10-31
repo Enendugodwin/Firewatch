@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -33,11 +33,15 @@ def _filters(
     daynight: str | None,
     synthetic: bool | None,
     min_confidence: str | None = None,
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
 ) -> ObservationFilters:
     return ObservationFilters(
         bbox=BBox.parse(bbox) if bbox else None,
         start_date=start_date,
         end_date=end_date,
+        start_at=start_at,
+        end_at=end_at,
         sensor=sensor,
         satellite=satellite,
         min_frp=min_frp,
@@ -52,6 +56,12 @@ def search_fires(
     bbox: str | None = Query(None, description="west,south,east,north"),
     start_date: date | None = None,
     end_date: date | None = None,
+    start_at: datetime | None = Query(
+        None, description="Exact start (ISO 8601, UTC), inclusive; overrides start_date"
+    ),
+    end_at: datetime | None = Query(
+        None, description="Exact end (ISO 8601, UTC), exclusive; overrides end_date"
+    ),
     sensor: str | None = Query(None, description="MODIS or VIIRS"),
     satellite: str | None = None,
     min_frp: float | None = Query(None, ge=0),
@@ -63,7 +73,17 @@ def search_fires(
     session: Session = Depends(get_session),
 ) -> ObservationPage:
     filters = _filters(
-        bbox, start_date, end_date, sensor, satellite, min_frp, daynight, synthetic, min_confidence
+        bbox,
+        start_date,
+        end_date,
+        sensor,
+        satellite,
+        min_frp,
+        daynight,
+        synthetic,
+        min_confidence,
+        start_at,
+        end_at,
     )
     rows, total = search_observations(session, filters, limit=limit, offset=offset)
     return ObservationPage(
@@ -105,6 +125,8 @@ def fires_geojson(
     bbox: str | None = Query(None, description="west,south,east,north"),
     start_date: date | None = None,
     end_date: date | None = None,
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
     sensor: str | None = None,
     satellite: str | None = None,
     min_frp: float | None = Query(None, ge=0),
@@ -120,7 +142,17 @@ def fires_geojson(
     full historical dataset.
     """
     filters = _filters(
-        bbox, start_date, end_date, sensor, satellite, min_frp, daynight, synthetic, min_confidence
+        bbox,
+        start_date,
+        end_date,
+        sensor,
+        satellite,
+        min_frp,
+        daynight,
+        synthetic,
+        min_confidence,
+        start_at,
+        end_at,
     )
     rows, total = search_observations(session, filters, limit=limit, offset=0)
     features = []
@@ -165,6 +197,8 @@ def aggregate_fires(
     zoom: int = Query(3, ge=0, le=14),
     start_date: date | None = None,
     end_date: date | None = None,
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
     sensor: str | None = Query(None, description="MODIS or VIIRS"),
     satellite: str | None = None,
     min_frp: float | None = Query(None, ge=0),
@@ -181,7 +215,17 @@ def aggregate_fires(
     """
     area = BBox.parse(bbox)
     filters = _filters(
-        bbox, start_date, end_date, sensor, satellite, min_frp, daynight, synthetic, min_confidence
+        bbox,
+        start_date,
+        end_date,
+        sensor,
+        satellite,
+        min_frp,
+        daynight,
+        synthetic,
+        min_confidence,
+        start_at,
+        end_at,
     )
     result = aggregate_observations(session, filters, bbox=area, zoom=zoom, limit=limit)
     return AggregateResponse(**result)

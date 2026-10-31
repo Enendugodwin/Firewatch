@@ -7,6 +7,7 @@ import type {
   MatchPage,
   ModuleStatusItem,
   Observation,
+  ObservationPage,
   SourceOut,
   SourceHealth,
   SystemStatus,
@@ -240,6 +241,10 @@ export interface MockMap {
   observation: Observation;
 }
 
+export interface MockQuery {
+  observations: ObservationPage;
+}
+
 export interface MockCalendar {
   calendar: CalendarResponse;
   drilldown: CalendarDrilldown;
@@ -253,6 +258,7 @@ export interface MockOptions {
   dashboard?: DashboardOverview;
   map?: MockMap;
   calendar?: MockCalendar;
+  query?: MockQuery;
 }
 
 const EMPTY_GEOMETRY = {
@@ -337,6 +343,8 @@ export function installFetchMock(options: MockOptions = {}) {
   const mapCells = options.map?.cells ?? EMPTY_CELLS;
   const mapObservation = options.map?.observation;
   const calendar = options.calendar?.calendar ?? EMPTY_CALENDAR;
+  const observations: ObservationPage =
+    options.query?.observations ?? { items: [], total: 0, limit: 200, offset: 0 };
   const calendarDrilldown = options.calendar?.drilldown ?? EMPTY_DRILLDOWN;
 
   const mock = vi.fn(async (input: RequestInfo | URL) => {
@@ -358,6 +366,7 @@ export function installFetchMock(options: MockOptions = {}) {
       });
     }
     if (url.includes("/api/v1/calendar")) return json(calendar);
+    if (/\/api\/v1\/fires(\?|$)/.test(url)) return json(observations);
     if (url.includes("/api/v1/fires/aggregate")) return json(mapCells);
     if (url.includes("/api/v1/fires/geojson")) return json(EMPTY_GEOMETRY);
     if (url.includes("/api/v1/geo/search")) return json(PLACE_RESULTS);

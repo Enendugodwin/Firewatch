@@ -1,10 +1,10 @@
 import { AlertTriangle, X } from "lucide-react";
 
+import { ObservationDialog } from "@/components/calendar/ObservationDialog";
 import { Badge } from "@/components/ui/Badge";
 import { DataRow } from "@/components/ui/Panel";
 import type { CalendarDrilldown } from "@/lib/calendarApi";
 import { formatCount, formatFrp } from "@/lib/format";
-import { provenanceRows } from "@/lib/provenance";
 
 /**
  * Drill-down for one calendar bucket. Lists the detections that produced the
@@ -105,8 +105,9 @@ export function BucketPanel({
               <li key={item.id}>
                 <button
                   type="button"
-                  onClick={() => onSelect(item.id === selectedId ? null : item.id)}
+                  onClick={() => onSelect(item.id)}
                   aria-pressed={item.id === selectedId}
+                  aria-haspopup="dialog"
                   className={`flex w-full items-center gap-2 rounded-control border px-2 py-[5px] text-left text-3xs transition-colors duration-150 ${
                     item.id === selectedId
                       ? "border-accent/35 bg-line/[0.05]"
@@ -140,27 +141,9 @@ export function BucketPanel({
           </p>
         ) : null}
 
-        {observation ? (
-          <div className="mt-[12px] border-t border-line/[0.07] pt-[10px]">
-            <div className="label mb-[6px]">Selected detection</div>
-            <dl className="divide-y divide-line/[0.06]">
-              {provenanceRows(observation).map((row) => (
-                <div key={row.label} className="flex items-start justify-between gap-3 py-[5px]">
-                  <dt className="shrink-0 text-2xs font-light text-faint">{row.label}</dt>
-                  <dd className="min-w-0 break-all text-right font-mono text-3xs text-muted">
-                    {row.value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            {observation.is_synthetic ? (
-              <p className="mt-[8px] rounded-control border border-warn/25 bg-warn/[0.06] px-2 py-[6px] text-3xs font-light text-warn">
-                Synthetic fixture row — not a NASA observation.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
       </div>
+
+      <ObservationDialog observation={observation} onClose={() => onSelect(null)} />
     </div>
   );
 }

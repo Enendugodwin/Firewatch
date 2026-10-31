@@ -15,6 +15,7 @@ from app.db.models import (
     FireObservation,
     ObservationMatch,
 )
+from app.services.normalization import satellite_label
 
 #: Categories at or above each minimum. Unknown categories are never upgraded.
 CONFIDENCE_LADDER: dict[str, tuple[str, ...]] = {
@@ -62,12 +63,31 @@ class ObservationFilters:
     bbox: BBox | None = None
     start_date: date | None = None
     end_date: date | None = None
+    #: Exact window, when the caller asks for a time of day. Takes precedence
+    #: over the date-only bounds above; naive values are read as UTC.
+    start_at: datetime | None = None
+    end_at: datetime | None = None
     sensor: str | None = None
     satellite: str | None = None
     min_frp: float | None = None
     daynight: str | None = None
     min_confidence: str | None = None
     synthetic: bool | None = None
+
+    def __post_init__(self) -> None:
+        for field in ("start_at", "end_at"):
+            value = getattr(self, field)
+            if value is not None and value.tzinfo is None:
+                object.__setattr__(self, field, value.replace(tzinfo=UTC))
+        if self.start_at and self.end_at and self.start_at >= self.end_at:
+            raise AppError(
+                "bad_request",
+                "start_at must be before end_at.",
+                details={
+                    "start_at": self.start_at.isoformat(),
+                    "end_at": self.end_at.isoformat(),
+                },
+            )
 
     def apply(self, stmt: Select) -> Select:
         if self.bbox is not None:
@@ -77,10 +97,14 @@ class ObservationFilters:
                 FireObservation.latitude >= self.bbox.south,
                 FireObservation.latitude <= self.bbox.north,
             )
-        if self.start_date is not None:
+        if self.start_at is not None:
+            stmt = stmt.where(FireObservation.acquired_at >= self.start_at)
+        elif self.start_date is not None:
             start = datetime.combine(self.start_date, datetime.min.time(), tzinfo=UTC)
             stmt = stmt.where(FireObservation.acquired_at >= start)
-        if self.end_date is not None:
+        if self.end_at is not None:
+            stmt = stmt.where(FireObservation.acquired_at < self.end_at)
+        elif self.end_date is not None:
             end = datetime.combine(
                 self.end_date + timedelta(days=1), datetime.min.time(), tzinfo=UTC
             )
@@ -156,7 +180,7 @@ def observation_to_dict(row: FireObservation) -> dict[str, Any]:
         "source_code": row.source_code,
         "source_record_id": row.source_record_id,
         "sensor": row.sensor,
-        "satellite": row.satellite,
+        "satellite": satellite_label(row.satellite) or row.satellite,
         "latitude": row.latitude,
         "longitude": row.longitude,
         "acquired_at": row.acquired_at,
@@ -167,7 +191,8 @@ def observation_to_dict(row: FireObservation) -> dict[str, Any]:
         "frp_mw": row.frp_mw,
         "scan_km": row.scan_km,
         "track_km": row.track_km,
-        "daynight": row.daynight,
+        # Older rows were normalised before day/night was upper-cased.
+        "daynight": row.daynight.upper()[:1] if row.daynight else None,
         "processing_version": row.processing_version,
         "source_product": row.source_product,
         "quality_flags": row.quality_flags or {},

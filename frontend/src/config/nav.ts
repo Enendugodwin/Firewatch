@@ -8,6 +8,7 @@ import {
   LineChart,
   Map as MapIcon,
   Radar,
+  Search,
   Settings2,
   ShieldAlert,
   Sparkles,
@@ -98,6 +99,14 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     title: "Intelligence",
     items: [
+      {
+        key: "query",
+        label: "Data Query",
+        to: "/query",
+        icon: Search,
+        phase: "Phase 5",
+        group: "Filter stored detections",
+      },
       {
         key: "regions",
         label: "Regional Intelligence",

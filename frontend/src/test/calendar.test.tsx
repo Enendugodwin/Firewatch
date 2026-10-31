@@ -143,7 +143,7 @@ describe("burning calendar page", () => {
     expect(await screen.findByRole("heading", { name: /burning calendar/i })).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText(/12/)).toBeInTheDocument();
+      expect(screen.getAllByText(/12/).length).toBeGreaterThan(0);
     });
 
     expect(screen.getByText(/periods without data/i)).toBeInTheDocument();
@@ -162,7 +162,28 @@ describe("burning calendar page", () => {
     await waitFor(() => {
       expect(screen.getByText(/12:41Z/)).toBeInTheDocument();
     });
-    expect(screen.getByText(/nominal/i)).toBeInTheDocument();
+    // The query panel also offers "Nominal or higher", so match loosely.
+    expect(screen.getAllByText(/nominal/i).length).toBeGreaterThan(0);
+  });
+
+  it("opens the selected detection in a centred dialog, not inline", async () => {
+    renderApp("/calendar");
+
+    const day = await screen.findByRole("button", { name: /^2026-10-29: / });
+    fireEvent.click(day);
+    const row = await screen.findByRole("button", { name: /12:41Z/ });
+    fireEvent.click(row);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveClass("mx-auto");
+    expect(screen.getByText(/record id/i)).toBeInTheDocument();
+    expect(screen.getByText(/cal123/)).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
   });
 
   it("labels an observed but empty period as a real zero", async () => {
