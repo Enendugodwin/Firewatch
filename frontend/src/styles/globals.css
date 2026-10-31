@@ -170,3 +170,35 @@
     @apply h-px w-full bg-line/[0.07];
   }
 }
+
+/* MapLibre ships light chrome; theme its controls to the dark field so the map
+   reads as one instrument rather than an embedded widget. */
+.maplibregl-ctrl-group {
+  background: rgba(8, 11, 20, 0.82) !important;
+  border: 1px solid rgba(233, 238, 246, 0.1);
+  box-shadow: none !important;
+  backdrop-filter: blur(12px);
+}
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid rgba(233, 238, 246, 0.08) !important;
+}
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1.7);
+}
+.maplibregl-ctrl-attrib {
+  background: rgba(8, 11, 20, 0.82) !important;
+  border-radius: 9999px;
+  color: #8f9aae;
+}
+.maplibregl-ctrl-attrib a {
+  color: #b9c3d4 !important;
+}
+.maplibregl-ctrl-attrib-button {
+  background-color: rgba(8, 11, 20, 0.9) !important;
+}
+.maplibregl-ctrl-scale {
+  background: rgba(8, 11, 20, 0.82) !important;
+  border-color: rgba(233, 238, 246, 0.3) !important;
+  color: #b9c3d4 !important;
+}
+

@@ -70,7 +70,11 @@ function DeliveryMeter() {
       </div>
       <p className="mt-[9px] text-3xs font-light leading-relaxed text-faint">
         {ready} of {total} modules operational.{" "}
-        {status?.phase === "3" ? "Ingestion and harmonization are live; the map is next." : ""}
+        {status?.phase === "4"
+          ? "Ingestion, harmonization and the map are live; the calendar is next."
+          : status?.phase === "3"
+            ? "Ingestion and harmonization are live; the map is next."
+            : ""}
       </p>
     </div>
   );

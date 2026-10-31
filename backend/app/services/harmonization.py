@@ -1,10 +1,10 @@
-"""MODISâ€“VIIRS cross-sensor association.
+"""MODIS–VIIRS cross-sensor association.
 
 The engine never merges records. It produces scored candidate associations
 between observations from *different sensor families*, stores every component of
 the score, and classifies them as probable, possible, unmatched or rejected.
 
-    S = wtÂ·T + wsÂ·G + wfÂ·F
+    S = wt·T + ws·G + wf·F
 
 T is temporal similarity, G geographic proximity, F footprint overlap. The score
 is an association score, not the probability that two detections are the same

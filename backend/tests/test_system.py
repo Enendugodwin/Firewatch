@@ -18,8 +18,8 @@ def test_status_reports_no_data_instead_of_fake_activity(client: TestClient) -> 
 def test_status_exposes_phase_and_capabilities(client: TestClient) -> None:
     body = client.get("/api/v1/system/status").json()
 
-    assert body["phase"] == "3"
-    assert body["phase_name"] == "Harmonization"
+    assert body["phase"] == "4"
+    assert body["phase_name"] == "Global Fire Map"
     assert body["capabilities"]["authentication"] is False
     # Ingestion is implemented; it reports unavailable until a MAP_KEY exists.
     assert body["capabilities"]["ingestion"] is False

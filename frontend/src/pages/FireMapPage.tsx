@@ -267,7 +267,7 @@ export function FireMapPage() {
       />
       </div>
 
-      <div className="relative h-[calc(100vh-17rem)] min-h-[520px] overflow-hidden rounded-card border border-line/[0.1]">
+      <div className="relative h-[calc(100dvh-21rem)] min-h-[420px] overflow-hidden rounded-card border border-line/[0.1] sm:h-[calc(100dvh-17rem)] sm:min-h-[520px]">
         <Suspense
           fallback={
             <div className="absolute inset-0 flex items-center justify-center bg-canvas">
@@ -294,8 +294,8 @@ export function FireMapPage() {
           />
         </Suspense>
 
-        <div className="pointer-events-none absolute inset-0 z-10 p-3">
-          <div className="flex h-full flex-col justify-between">
+        <div className="pointer-events-none absolute inset-0 z-10 p-3 pb-4">
+          <div className="flex h-full flex-col justify-between gap-3">
             <div className="flex items-start justify-between gap-3">
               <div className="pointer-events-auto hidden sm:block">
                 <MapFilters
@@ -324,24 +324,26 @@ export function FireMapPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-end justify-between gap-2">
+            <div className="flex flex-wrap items-end gap-2 pb-6 pr-14 sm:pb-0">
               <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-full border border-line/[0.1] bg-panel/90 px-3 py-1.5 text-3xs font-light text-muted backdrop-blur-glass">
                 {loading ? <Loader2 className="size-3 animate-spin text-faint" aria-hidden /> : null}
                 <span>{statusLine}</span>
-                <span className="text-line/20">|</span>
-                <span className="font-mono">
+                <span className="hidden text-line/20 sm:inline">|</span>
+                <span className="hidden font-mono sm:inline">
                   {dateRange.start} → {dateRange.end}
                 </span>
                 {meta.aggregated ? <Badge tone="neutral">aggregated</Badge> : null}
               </div>
-              <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-line/[0.1] bg-panel/90 px-3 py-1.5 text-3xs font-light text-faint backdrop-blur-glass">
+              <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-full border border-line/[0.1] bg-panel/90 px-3 py-1.5 text-3xs font-light text-faint backdrop-blur-glass">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-1.5 rounded-full bg-[#72A5F9]" /> MODIS outline
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-1.5 rounded-full bg-[#60D58B]" /> VIIRS outline
                 </span>
-                <span className="hidden sm:inline">Colour = FRP</span>
+                <span className="hidden sm:inline">
+                  {meta.aggregated ? "Colour = density" : "Colour = FRP"}
+                </span>
               </div>
             </div>
           </div>

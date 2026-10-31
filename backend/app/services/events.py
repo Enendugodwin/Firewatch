@@ -58,7 +58,7 @@ def dbscan_labels(
     neighbourhood has exactly one definition in both dimensions.
 
     Neighbourhoods are computed in row chunks so a few thousand observations do
-    not require an nÃ—n distance matrix in memory at once.
+    not require an n×n distance matrix in memory at once.
 
     Returns a label per point; -1 marks noise.
     """

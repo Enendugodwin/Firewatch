@@ -356,7 +356,7 @@ def ingest_range(
 
 
 class StaticCsvClient(FirmsClient):
-    """Client that replays a CSV payload â€” fixture loading and tests only."""
+    """Client that replays a CSV payload — fixture loading and tests only."""
 
     def __init__(self, csv_text: str) -> None:
         super().__init__(map_key="fixture", max_retries=1, sleep=lambda _seconds: None)
@@ -417,7 +417,7 @@ def sync_availability(
     """
     Ask FIRMS which dates the product covers, then record one status per date.
 
-    Dates inside the provider's coverage window are ``available`` â€” they may
+    Dates inside the provider's coverage window are ``available`` — they may
     contain zero detections and that is still an observed day. Dates outside the
     window are recorded as ``before_coverage`` or ``not_yet_available`` so a gap
     is never mistaken for quiet conditions.

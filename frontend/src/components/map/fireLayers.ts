@@ -74,7 +74,7 @@ export function cellRadiusExpression(): unknown[] {
 
 /**
  * Cells are counts, so they are coloured by density rather than by a single
- * detection's FRP â€” otherwise one intense detection recolours an entire cell.
+ * detection's FRP - otherwise one intense detection recolours an entire cell.
  */
 export function cellColorExpression(): unknown[] {
   return [
@@ -132,11 +132,13 @@ export function sensorTotals(features: FireFeature[]): { modis: number; viirs: n
 }
 
 /** Provenance rows for the inspection panel. */
+const DAYNIGHT_LABELS: Record<string, string> = { D: "Day", N: "Night" };
+
 export function provenanceRows(observation: Observation): { label: string; value: string }[] {
   const rows: { label: string; value: string }[] = [
     { label: "Coordinates", value: `${observation.latitude.toFixed(4)}, ${observation.longitude.toFixed(4)}` },
     { label: "Acquired (UTC)", value: observation.acquired_at.replace("T", " ").slice(0, 16) + "Z" },
-    { label: "Sensor / satellite", value: `${observation.sensor} Â· ${observation.satellite}` },
+    { label: "Sensor / satellite", value: `${observation.sensor} · ${observation.satellite}` },
     {
       label: "Confidence",
       value:
@@ -148,7 +150,7 @@ export function provenanceRows(observation: Observation): { label: string; value
       label: "Brightness",
       value:
         observation.brightness_temperature !== null
-          ? `${observation.brightness_temperature.toFixed(1)} K Â· ${observation.brightness_channel ?? "channel n/a"}`
+          ? `${observation.brightness_temperature.toFixed(1)} K · ${observation.brightness_channel ?? "channel n/a"}`
           : "n/a",
     },
     {
@@ -159,11 +161,11 @@ export function provenanceRows(observation: Observation): { label: string; value
       label: "Scan / track",
       value:
         observation.scan_km !== null && observation.track_km !== null
-          ? `${observation.scan_km.toFixed(2)} Ã— ${observation.track_km.toFixed(2)} km`
+          ? `${observation.scan_km.toFixed(2)} × ${observation.track_km.toFixed(2)} km`
           : "n/a",
     },
-    { label: "Day / night", value: observation.daynight ? observation.daynight.toUpperCase() : "n/a" },
-    { label: "Product", value: `${observation.source_product}${observation.processing_version ? ` Â· ${observation.processing_version}` : ""}` },
+    { label: "Day / night", value: DAYNIGHT_LABELS[(observation.daynight ?? "").toUpperCase()] ?? "n/a" },
+    { label: "Product", value: `${observation.source_product}${observation.processing_version ? ` · ${observation.processing_version}` : ""}` },
     { label: "Record id", value: observation.source_record_id },
   ];
   return rows;

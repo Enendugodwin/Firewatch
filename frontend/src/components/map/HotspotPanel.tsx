@@ -77,7 +77,7 @@ export function HotspotPanel({
             {provenanceRows(observation).map((row) => (
               <div key={row.label} className="flex items-start justify-between gap-3 py-[6px]">
                 <dt className="shrink-0 text-2xs font-light text-faint">{row.label}</dt>
-                <dd className="break-all text-right font-mono text-3xs text-muted">{row.value}</dd>
+                <dd className="min-w-0 break-all text-right font-mono text-3xs text-muted">{row.value}</dd>
               </div>
             ))}
           </dl>

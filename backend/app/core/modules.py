@@ -4,9 +4,9 @@ Single source of truth for the ten product modules plus settings, used by the
 API (``/api/v1/system/modules``) and surfaced in the UI so that a module is
 never presented as complete before it is. ``status`` is intentionally coarse:
 
-* ``scaffolded`` â€” route + shell exist, no analytical capability yet.
-* ``in_progress`` â€” partially implemented.
-* ``ready`` â€” implemented and covered by tests.
+* ``scaffolded`` — route + shell exist, no analytical capability yet.
+* ``in_progress`` — partially implemented.
+* ``ready`` — implemented and covered by tests.
 """
 
 from __future__ import annotations

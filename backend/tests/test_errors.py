@@ -21,7 +21,7 @@ def test_pending_modules_return_structured_not_implemented(client: TestClient) -
         assert response.status_code == 501, path
         error = response.json()["error"]
         assert error["code"] == "not_implemented", path
-        assert error["details"]["current_phase"] == "Phase 3", path
+        assert error["details"]["current_phase"] == "Phase 4", path
         assert error["details"]["planned_for_phase"].startswith("Phase "), path
         assert error["request_id"], path
 
