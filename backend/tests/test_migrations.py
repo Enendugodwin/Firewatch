@@ -15,18 +15,30 @@ from app.db.session import get_engine, session_scope
 from scripts.seed_sources import seed
 
 
-def test_migration_creates_the_source_registry(migrated: Path) -> None:
+def test_migrations_create_the_full_schema(migrated: Path) -> None:
     tables = inspect(get_engine()).get_table_names()
 
-    assert "data_sources" in tables
-    assert "alembic_version" in tables
+    for expected in (
+        "data_sources",
+        "fire_observations",
+        "raw_observations",
+        "ingestion_runs",
+        "ingestion_partitions",
+        "source_availability",
+        "observation_matches",
+        "fire_events",
+        "event_observations",
+        "algorithm_runs",
+        "alembic_version",
+    ):
+        assert expected in tables, expected
 
 
 def test_migration_is_applied_once(migrated: Path) -> None:
     with get_engine().connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
-    assert revision == "0001_foundation"
+    assert revision == "0002_observations"
 
 
 def test_seed_is_idempotent(migrated: Path) -> None:

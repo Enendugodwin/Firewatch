@@ -3,7 +3,7 @@ import { ChevronsLeft, ChevronsRight, Flame, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { NAV_SECTIONS } from "@/config/nav";
-import { useModules } from "@/lib/queries";
+import { useModules, useSystemStatus } from "@/lib/queries";
 import { useUiStore } from "@/store/ui";
 import type { ModuleStatus } from "@/types/api";
 import { StatusDot } from "@/components/ui/StatusDot";
@@ -48,6 +48,7 @@ function Wordmark({ compact }: { compact: boolean }) {
 
 function DeliveryMeter() {
   const { data } = useModules();
+  const { data: status } = useSystemStatus();
   const modules = data ?? [];
   const total = modules.length || 11;
   const ready = modules.filter((module) => module.status === "ready").length;
@@ -57,7 +58,9 @@ function DeliveryMeter() {
     <div className="mx-[10px] mb-[10px] rounded-card border border-line/[0.07] bg-line/[0.02] px-[14px] py-[12px]">
       <div className="flex items-baseline justify-between">
         <span className="label">Delivery</span>
-        <span className="font-mono text-3xs text-muted">Phase 1 / 9</span>
+        <span className="font-mono text-3xs text-muted">
+          Phase {status?.phase ?? "1"} / 9
+        </span>
       </div>
       <div className="mt-[9px] h-[2px] w-full overflow-hidden rounded-full bg-line/10">
         <div
@@ -66,7 +69,8 @@ function DeliveryMeter() {
         />
       </div>
       <p className="mt-[9px] text-3xs font-light leading-relaxed text-faint">
-        {ready} of {total} modules operational. NASA ingestion starts in Phase 2.
+        {ready} of {total} modules operational.{" "}
+        {status?.phase === "3" ? "Ingestion and harmonization are live; the map is next." : ""}
       </p>
     </div>
   );

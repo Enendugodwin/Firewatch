@@ -21,8 +21,7 @@ def seed() -> int:
     touched = 0
     with session_scope() as session:
         existing = {
-            source.source_code: source
-            for source in session.scalars(select(DataSource)).all()
+            source.source_code: source for source in session.scalars(select(DataSource)).all()
         }
         for definition in FIRMS_SOURCES:
             row = existing.get(definition.code)

@@ -28,6 +28,8 @@ class DataStatus(BaseModel):
     firms_configured: bool
     sources_registered: int
     observations_stored: int | None = None
+    synthetic_observations: int = 0
+    missing_dates: int = 0
     last_ingested_at: datetime | None = None
     last_observation_at: datetime | None = None
 
@@ -71,4 +73,6 @@ class SourceOut(BaseModel):
     satellite: str
     processing_level: str
     description: str
-    status: Literal["not_ingested", "ingesting", "ok", "error"] = "not_ingested"
+    status: Literal["not_ingested", "ok", "error"] = "not_ingested"
+    observations: int = 0
+    last_observation_at: datetime | None = None

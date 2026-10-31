@@ -32,7 +32,7 @@ MODULES: tuple[ModuleInfo, ...] = (
         "label": "Overview",
         "route": "/",
         "phase": "Phase 4",
-        "status": "scaffolded",
+        "status": "in_progress",
         "summary": "Global fire activity and intelligence summary.",
         "planned": [
             "Total detections for the selected period, split by sensor",
@@ -90,7 +90,7 @@ MODULES: tuple[ModuleInfo, ...] = (
         "label": "Sensor Intelligence",
         "route": "/harmonization",
         "phase": "Phase 3",
-        "status": "scaffolded",
+        "status": "ready",
         "summary": "MODIS/VIIRS normalization, matching and quality control.",
         "planned": [
             "Per-source ingestion and normalization statistics",

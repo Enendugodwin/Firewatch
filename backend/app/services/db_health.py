@@ -26,9 +26,10 @@ def check_database(settings: Settings | None = None) -> DatabaseStatus:
             postgis: bool | None = None
             if settings.is_postgres:
                 try:
-                    postgis = connection.execute(
-                        text("SELECT PostGIS_Version()")
-                    ).scalar_one_or_none() is not None
+                    postgis = (
+                        connection.execute(text("SELECT PostGIS_Version()")).scalar_one_or_none()
+                        is not None
+                    )
                 except SQLAlchemyError:
                     postgis = False
             return DatabaseStatus(

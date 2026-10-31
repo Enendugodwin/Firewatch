@@ -16,9 +16,7 @@ import structlog
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 
-def _add_request_id(
-    _logger: Any, _method: str, event_dict: dict[str, Any]
-) -> dict[str, Any]:
+def _add_request_id(_logger: Any, _method: str, event_dict: dict[str, Any]) -> dict[str, Any]:
     request_id = request_id_var.get()
     if request_id:
         event_dict.setdefault("request_id", request_id)

@@ -78,13 +78,49 @@ is deliberate: the console never shows a number it cannot trace to stored NASA o
 - **Deployment notes** — the security posture: no authentication yet, bind to localhost or a
   trusted network.
 
-## Reading fire data correctly (for when data arrives)
+## Ingestion console
+
+**Settings → Ingestion console** retrieves a bounded window from NASA FIRMS:
+
+1. Choose a product (`MODIS_NRT`, `VIIRS_SNPP_NRT`, …). Standard Processing products are for
+   historical analysis and usually lag weeks; NRT is for current monitoring.
+2. Pick a start and end date — at most five days per request, because that is the API limit.
+3. Optionally set a bounding box (`west,south,east,north`) to limit volume; without one the whole
+   globe is requested, which can mean tens of thousands of rows per day.
+4. Run it. The result shows received / inserted / rejected counts and how many partitions were
+   completed or skipped.
+
+The console is disabled when `FIRMS_MAP_KEY` is unset; the panel explains why rather than pretending
+to retrieve. Recent runs below it list every attempt with its counts and status.
+
+## Sensor Intelligence
+
+This is the Phase 3 workspace and the technical centrepiece of the first milestones.
+
+- **Detection totals** cover everything stored (whole world, all time), split by sensor family.
+- **Cross-sensor matches** count probable + possible associations; the hint breaks it down.
+- **Associations table** lists candidate pairs (always MODIS ↔ VIIRS). Each row shows the score,
+  the time difference and the geographic distance. Click a row to inspect its evidence.
+- **Match evidence** panel shows the score, temporal/geographic/footprint components as bars, the
+  weights note, both observations (coordinates, time, FRP, confidence), and the observation
+  identifiers. The panel states that the score is *not* a probability of physical identity.
+- **Estimated fire events** lists clusters with centroid, observation count, sensor count, peak FRP
+  and the detection window. An event is an estimate, not a confirmed fire.
+- **Re-run associations** recomputes against the period selected in the header and records a new
+  algorithm run. The note under the tiles states which scope the results cover.
+
+Everything is labelled when it comes from the synthetic fixture: a "Demo data only" banner appears
+on every view that can show fixture rows.
+
+## Reading fire data correctly
 
 - A hotspot count is a count of **detections**, not of fires. One fire can appear many times across
   overpasses and sensors.
 - MODIS and VIIRS see the world differently: 1 km versus 375 m pixels, different algorithms,
   different confidence semantics. Their totals are not interchangeable.
 - Cloud, smoke and small fires affect detection. A quiet day is not proof of no fire.
+- A day outside a product's coverage window is labelled `before_coverage` / `not_yet_available`, not
+  zero activity.
 - Proximity analysis is geographic screening, not threat assessment.
 - Always attribute: NASA FIRMS (MODIS Terra/Aqua, VIIRS Suomi-NPP / NOAA-20 / NOAA-21).
 

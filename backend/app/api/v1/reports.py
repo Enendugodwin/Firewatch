@@ -11,4 +11,4 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 @router.get("", summary="List generated reports")
 def list_reports() -> None:
-    raise not_implemented("Intelligence reports", "Phase 1", planned_for="Phase 7")
+    raise not_implemented("Intelligence reports", planned_for="Phase 7")

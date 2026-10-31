@@ -11,4 +11,4 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login", summary="Authenticate a user")
 def login() -> None:
-    raise not_implemented("Authentication", "Phase 1", planned_for="Phase 8")
+    raise not_implemented("Authentication", planned_for="Phase 8")

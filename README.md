@@ -3,15 +3,15 @@
 **Global fire intelligence, from satellite detections to defensible analysis.**
 
 FIREWATCH X is a geospatial intelligence platform for NASA MODIS and VIIRS active-fire
-observations. It ingests real satellite thermal detections, normalises and harmonises them across
-sensor families, and exposes historical burning activity, anomalies, regional profiles and
-generated intelligence reports through a dark analytical console.
+observations. It retrieves real satellite thermal detections, retains the raw payloads, normalises
+them per sensor family, associates observations across sensors, groups estimated events, and
+exposes all of it through a dark analytical console.
 
 > [!IMPORTANT]
-> **Status: Phase 1 of 9 — Foundation.** The platform shell, API, database, design system,
-> navigation and test suites are complete and running. **No observations have been ingested yet**,
-> so every module reports an empty state. Nothing is populated with sample data, and the API
-> returns `501 not_implemented` for analytical routes rather than inventing numbers.
+> **Status: Phase 3 of 9 — Harmonization.** Ingestion, normalization, cross-sensor association and
+> event grouping are working against the live NASA FIRMS API. This workstation holds ~87,600 real
+> detections. The map (Phase 4), calendar (Phase 5) and intelligence layers (Phase 6+) remain
+> scaffolding and say so.
 >
 > Satellite thermal anomalies are detections, not confirmed wildfires. They may be false
 > positives, may be agricultural or industrial heat, and can be hidden by cloud. Do not use this
@@ -23,22 +23,27 @@ generated intelligence reports through a dark analytical console.
 
 | Area | State |
 | --- | --- |
-| FastAPI application (config, structured logs, error envelope, request IDs, CORS, security headers) | Working |
-| `GET /health`, `GET /ready` probes with degraded-state reporting | Working |
-| Module registry + capability truth (`/api/v1/system/status`, `/modules`, `/sources`) | Working |
-| PostgreSQL/PostGIS migration + idempotent 8-source FIRMS seed (SQLite fallback for dev) | Working |
-| Dark geospatial design system (tokens, themes, panels, navigation, status bar) | Working |
-| Responsive application shell: sidebar, command palette, date range, freshness, notices | Working |
-| Type-checked React console, 11 module routes + 404 | Working |
-| Docker Compose stack (PostGIS, Redis, API, Celery worker, nginx frontend) | Authored (no Docker on this host) |
-| NASA FIRMS client, ingestion, harmonization, map, calendar, anomaly engine, reports, AI | Phase 2–7 |
+| NASA FIRMS client: area CSV, retries/backoff, `Retry-After`, key redaction, honest failure modes | Working |
+| Resumable ingestion: tiles, ≤5-day windows, per-partition checkpoints, immutable raw payloads | Working |
+| Normalization: separate MODIS and VIIRS adapters, preserved raw confidence and channels | Working |
+| Availability: coverage-window parsing (observed vs before/after coverage, never "zero") | Working |
+| Harmonization: `S = wₜT + wₛG + w_fF`, probable/possible/rejected with full evidence | Working |
+| Event grouping: spatiotemporal DBSCAN, per-event provenance and FRP aggregates | Working |
+| APIs: `/fires`, `/harmonization/*`, `/admin/ingestion/*`, `/dashboard` | Working |
+| Console: overview aggregates, sensor-intelligence workspace, ingestion console | Working |
+| Design system, shell, command palette, freshness, synthetic-data labelling | Working |
+| Map, calendar, anomalies, regions, exposure, reports, AI assistant, auth | Phase 4–8 |
 
-## Quick start (local, no Docker)
+Live verification on 2026-10-30: `VIIRS_SNPP_NRT` and `MODIS_NRT` ingested for Nigeria
+(2.5,4.0,14.7,13.9) across 2026-10-29 → 2026-10-30; 4,100 observations in scope produced 659
+candidate pairs (29 probable, 157 possible) and 587 estimated events (158 seen by both sensors).
+
+## Quick start (local)
 
 Requires **Python 3.11+**, **[uv](https://docs.astral.sh/uv/)**, **Node 20+**.
 
 ```bash
-cp .env.example .env          # optional: set FIRMS_MAP_KEY if you have one
+cp .env.example .env          # then set FIRMS_MAP_KEY (backend-only secret)
 python scripts/bootstrap.py   # prerequisites, migrations, source seed
 
 # terminal 1 — API on :8200
@@ -48,68 +53,67 @@ cd backend && uv sync --group dev && uv run uvicorn app.main:app --reload --port
 cd frontend && npm install && npm run dev
 ```
 
-Open <http://localhost:5273>. API docs: <http://127.0.0.1:8200/api/docs>.
-
-Windows helper: `powershell -ExecutionPolicy Bypass -File scripts/dev.ps1`.
+- Console: <http://127.0.0.1:5273>
+- API docs: <http://127.0.0.1:8200/api/docs>
 
 Without a `FIRMS_MAP_KEY` the platform runs in its **unconfigured, empty state** — by design. It
 never fabricates observations to look complete.
 
-## Quick start (containers)
+### Demo data without a key
 
 ```bash
-cp .env.example .env          # set POSTGRES_PASSWORD and FIRMS_MAP_KEY
-docker compose up --build
+cd backend && uv run python -m scripts.ingest_fixture --yes
 ```
 
-- Console: <http://localhost:8088>
-- API: <http://localhost:8200>
-- PostGIS: `localhost:5433`
+Loads a small hand-written fixture, stored with `is_synthetic = true` and labelled "Demo data only"
+everywhere it appears. Clear it with `python -m scripts.clear_synthetic`.
 
-The `api` and `worker` containers share one image; the API runs migrations and the seed on boot.
+## Using it
 
-## Repository layout
+1. **Settings** → *Ingestion console*: pick a product, a date window (≤5 days) and optionally a
+   bounding box; run it. Partitions are recorded, so a repeat run resumes rather than duplicates.
+2. **Sensor Intelligence**: totals by sensor, cross-sensor associations with score components,
+   inspectable observation ids, and estimated events with extent and FRP aggregates.
+3. **Re-run associations** recomputes for the period selected in the header and records an
+   `algorithm_run` with its scope and parameters.
 
+```bash
+# custom bounding-box ingestion
+curl -X POST http://127.0.0.1:8200/api/v1/admin/ingestion/run \
+  -H 'Content-Type: application/json' \
+  -d '{"source_code":"VIIRS_SNPP_NRT","start_date":"2026-10-29","end_date":"2026-10-30",
+       "bbox":"2.5,4.0,14.7,13.9"}'
 ```
-backend/          FastAPI app, Alembic migrations, Celery worker, pytest suite
-frontend/         React + TypeScript + Tailwind console (Vite), Vitest suite
-infrastructure/   container/deployment/monitoring assets as they are added
-scripts/          bootstrap + dev runners
-docs/             architecture, API, data dictionary, methodology, deployment, validation
-docker-compose.yml
-.env.example
-```
-
-Detailed structure and service responsibilities: [docs/architecture.md](docs/architecture.md).
 
 ## Configuration
-
-All settings are environment variables read by the backend (`backend/app/core/config.py`).
-A single root `.env` serves both local development and Compose. See [`.env.example`](.env.example).
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | yes | PostgreSQL+PostGIS in deployments; SQLite is dev/test only |
-| `FIRMS_MAP_KEY` | for data | NASA FIRMS key — **backend only**, never shipped to the browser |
+| `FIRMS_MAP_KEY` | for data | NASA FIRMS key — **backend only**, never in the browser or this repo |
 | `REDIS_URL` | for workers | Celery broker/result backend |
 | `CORS_ORIGINS` | yes | Comma-separated allowed frontend origins |
-| `ENVIRONMENT` | no | `local` / `development` / `staging` / `production` |
-| `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` | no | Optional assistant; statistical analysis works without an LLM |
+| `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` | no | Optional assistant; analytics works without an LLM |
 
-Request a free FIRMS key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
+> **Never put a real key in `.env.example`.** That file is tracked by git. Only `.env` (ignored)
+> or a secret manager should hold credentials.
+
+Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 
 ## Tests
 
 ```bash
-cd backend  && uv run pytest      # 23 tests: API surface, honesty guarantees, migrations, seed
-cd frontend && npm test           # 7 tests: shell, navigation, empty-state reporting
+cd backend  && uv run pytest       # 102 tests
+cd frontend && npm test            # 14 tests
+
 cd backend  && uv run ruff check . && uv run mypy app
 cd frontend && npm run typecheck
 ```
 
-Backend tests run against SQLite; the same migrations apply to PostgreSQL (the PostGIS
-`CREATE EXTENSION` statement is dialect-guarded). Docker-based PostgreSQL testing arrives with the
-ingestion phase.
+Backend coverage includes normalization (per-sensor semantics, rejection), the FIRMS client
+(retries, auth, key redaction, availability shapes), ingestion (dedup, resume, provenance),
+harmonization (scoring, thresholds, cross-family only, idempotence), event clustering
+(determinism, provenance) and the HTTP surface (envelopes, filters, pagination, 501s).
 
 ## Design language
 
@@ -117,23 +121,17 @@ ingestion phase.
 (`#0B101D`), hairline white borders inside a gradient edge shell, and one restrained green accent
 (`#60D58B`). Display type is Newsreader; interface copy is light-weight Inter; measurements,
 coordinates and source codes are JetBrains Mono. Fire severity keeps its own semantic scale
-(amber `#FACC15`, orange `#FB923C`, red `#EF4444`) so colour never confuses chrome with hazard.
-
-A perspective grid field sits behind the console — green hairlines on black, breathing slowly and
-drifting with the pointer, faded into the chrome at the edges. Radii stay in the 7/8/11/12/pill
-family; motion is limited to 150 ms colour transitions and a 4 s ambient pulse, and is disabled
-under `prefers-reduced-motion`. A high-contrast theme remaps the surface tokens only.
-
-Full specification and component recipes: [docs/design.md](docs/design.md).
+(amber/orange/red) so colour never confuses chrome with hazard. See
+[docs/design.md](docs/design.md).
 
 ## Roadmap
 
 | Phase | Scope | State |
 | --- | --- | --- |
-| 1 | Foundation: shell, API, database, design system, navigation | **Complete** |
-| 2 | NASA FIRMS client, resumable ingestion, normalisation | Next |
-| 3 | MODIS/VIIRS harmonization, event grouping, inspection UI | Planned |
-| 4 | Global fire map with MapLibre, filters, hotspot provenance | Planned |
+| 1 | Foundation: shell, API, database, design system, navigation | Complete |
+| 2 | FIRMS client, resumable ingestion, normalization, availability | Complete |
+| 3 | Harmonization, event grouping, sensor-intelligence workspace | Complete |
+| 4 | Global fire map with MapLibre, filters, hotspot provenance | Next |
 | 5 | Historical burning calendar with drill-down | Planned |
 | 6 | Analytics, baselines, anomaly engine, exposure screening | Planned |
 | 7 | Reports/exports, alerts, AI assistant | Planned |
@@ -146,9 +144,10 @@ Observations come from NASA FIRMS (MODIS Terra/Aqua and VIIRS Suomi-NPP / NOAA-2
 Standard Processing products power historical analysis; Near-Real-Time products power operational
 monitoring. Processing versions are retained and never merged silently.
 
-MODIS and VIIRS differ in spatial resolution, detection algorithm and confidence semantics, so
-their raw totals are not interchangeable. Counts are of *detections*, not fires. Missing satellite
-data is never presented as zero activity.
+MODIS and VIIRS differ in resolution, detection algorithm and confidence semantics, so their raw
+totals are not interchangeable. Counts are of *detections*, not fires. A day inside a product's
+coverage window is an observed day even when it contains no detections; a day outside it is
+labelled `before_coverage` or `not_yet_available`, never zero.
 
 ## Licence
 

@@ -11,4 +11,4 @@ router = APIRouter(prefix="/regions", tags=["regions"])
 
 @router.get("", summary="List configured regions")
 def list_regions() -> None:
-    raise not_implemented("Regional intelligence", "Phase 1", planned_for="Phase 6")
+    raise not_implemented("Regional intelligence", planned_for="Phase 6")

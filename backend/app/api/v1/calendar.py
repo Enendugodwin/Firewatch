@@ -11,4 +11,4 @@ router = APIRouter(prefix="/calendar", tags=["calendar"])
 
 @router.get("", summary="Calendar activity for a region and period")
 def calendar_activity() -> None:
-    raise not_implemented("Burning calendar", "Phase 1", planned_for="Phase 5")
+    raise not_implemented("Burning calendar", planned_for="Phase 5")

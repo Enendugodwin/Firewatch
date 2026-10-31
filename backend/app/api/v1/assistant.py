@@ -11,4 +11,4 @@ router = APIRouter(prefix="/assistant", tags=["assistant"])
 
 @router.post("/chat", summary="Ask an analytical question")
 def assistant_chat() -> None:
-    raise not_implemented("AI assistant", "Phase 1", planned_for="Phase 7")
+    raise not_implemented("AI assistant", planned_for="Phase 7")

@@ -11,4 +11,4 @@ router = APIRouter(prefix="/anomalies", tags=["anomalies"])
 
 @router.get("", summary="Search detected anomalies")
 def list_anomalies() -> None:
-    raise not_implemented("Anomaly detection", "Phase 1", planned_for="Phase 6")
+    raise not_implemented("Anomaly detection", planned_for="Phase 6")

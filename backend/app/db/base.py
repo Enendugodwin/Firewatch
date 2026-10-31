@@ -5,10 +5,14 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, MetaData, func
+from sqlalchemy import JSON, DateTime, MetaData, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import CHAR, TypeDecorator
+
+# JSON on SQLite/others, JSONB on PostgreSQL (indexable, compact).
+JsonType = JSON().with_variant(JSONB(), "postgresql")
 
 # Deterministic constraint names keep Alembic migrations reversible and diffable.
 NAMING_CONVENTION = {
@@ -49,9 +53,7 @@ class Base(DeclarativeBase):
 
 
 class UUIDPrimaryKeyMixin:
-    id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
 
 
 class TimestampMixin:

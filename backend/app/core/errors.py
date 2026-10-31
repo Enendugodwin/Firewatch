@@ -52,9 +52,7 @@ class AppError(Exception):
         self.status_code = status_code or ERROR_STATUS_CODES.get(code, 400)
 
 
-def error_body(
-    code: str, message: str, details: dict[str, Any] | None = None
-) -> dict[str, Any]:
+def error_body(code: str, message: str, details: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "error": {
             "code": code,
@@ -65,18 +63,23 @@ def error_body(
     }
 
 
-def not_implemented(module: str, phase: str, *, planned_for: str) -> AppError:
+def not_implemented(module: str, *, planned_for: str) -> AppError:
     """Honest placeholder for a route whose module is not built yet.
 
     FIREWATCH X must never serve invented observations, so unimplemented
-    analytical endpoints fail loudly instead of returning sample data.
+    analytical endpoints fail loudly instead of returning sample data. The
+    reported phase is read from the runtime so it cannot drift from the build.
     """
+    from app.core.runtime import current_phase
+
+    phase, phase_name = current_phase()
     return AppError(
         "not_implemented",
         f"{module} is not implemented yet.",
         details={
             "module": module,
-            "current_phase": phase,
+            "current_phase": f"Phase {phase}",
+            "current_phase_name": phase_name,
             "planned_for_phase": planned_for,
         },
     )
@@ -111,9 +114,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(RequestValidationError)
-    async def _validation_error(
-        _request: Request, exc: RequestValidationError
-    ) -> JSONResponse:
+    async def _validation_error(_request: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(
             status_code=422,
             content=error_body(

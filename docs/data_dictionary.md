@@ -1,82 +1,127 @@
 # Data dictionary
 
-## Implemented (Phase 1 migration `0001_foundation`)
+## Implemented tables
 
 ### `data_sources`
 
-Registry of the satellite products the platform is allowed to retrieve. Seeded idempotently by
-`backend/scripts/seed_sources.py` from `app/services/sources.py`.
+Registry of satellite products the platform may retrieve (seeded from
+`app/services/sources.py`).
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | UUID | Primary key (`GUID`; native `uuid` on PostgreSQL, `CHAR(32)` elsewhere) |
+| `id` | UUID | Primary key (`uuid` on PostgreSQL, `CHAR(32)` elsewhere) |
 | `source_code` | `VARCHAR(32)` | Unique FIRMS product code, e.g. `VIIRS_NOAA20_SP` |
 | `sensor` | `VARCHAR(16)` | `MODIS` or `VIIRS` |
 | `satellite` | `VARCHAR(32)` | `Terra/Aqua`, `Suomi-NPP`, `NOAA-20`, `NOAA-21` |
-| `processing_level` | `VARCHAR(16)` | `SP` (standard processing) or `NRT` (near-real-time) |
-| `description` | `VARCHAR(255)` | Human-readable purpose |
-| `active` | `BOOLEAN` | Whether retrieval is permitted |
-| `created_at`, `updated_at` | `TIMESTAMPTZ` | Server-maintained |
+| `processing_level` | `VARCHAR(16)` | `SP` (standard processing) or `NRT` |
+| `active` | `BOOLEAN` | Retrieval permitted |
 
-Indexes: unique `source_code`, B-tree on `processing_level`. `alembic_version` tracks revisions.
+### `fire_observations` — canonical detection
 
-## Canonical observation schema (Phase 2, not yet created)
+One row per satellite thermal detection. Original measurements are never overwritten by derived
+fields.
 
-Every source record is transformed into one canonical shape while original values are retained.
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | Primary key |
+| `source_id` | UUID FK | → `data_sources` |
+| `source_code` | `VARCHAR(32)` | Product code, denormalised for fast filtering |
+| `source_record_id` | `VARCHAR(64)` | Fingerprint (see below) |
+| `run_id` | UUID FK NULL | → `ingestion_runs` that produced the row |
+| `sensor`, `satellite` | `VARCHAR` | Sensor family and platform |
+| `latitude`, `longitude` | `DOUBLE` | WGS84 decimal degrees |
+| `acquired_at` | `TIMESTAMPTZ` | UTC acquisition instant |
+| `confidence_raw` | `INTEGER` | MODIS 0–100; `NULL` for categorical VIIRS |
+| `confidence_category` | `VARCHAR(16)` | Source category (`low`/`nominal`/`high`) |
+| `brightness_temperature` | `DOUBLE` | Source channel value |
+| `brightness_channel` | `VARCHAR(24)` | e.g. `modis_brightness_4um`, `viirs_bright_ti4_4um` |
+| `frp_mw` | `DOUBLE` | Fire Radiative Power, MW |
+| `scan_km`, `track_km` | `DOUBLE` | Pixel dimensions |
+| `daynight` | `CHAR(1)` | `D` / `N` |
+| `processing_version` | `VARCHAR(32)` | Product version, retained |
+| `source_product` | `VARCHAR(32)` | FIRMS source code |
+| `source_payload` | JSONB | Untouched original row |
+| `quality_flags` | JSONB | Interpretation metadata (see below) |
+| `ingested_at` | `TIMESTAMPTZ` | When FIREWATCH X stored it |
+| `is_synthetic` | `BOOLEAN` | True only for labelled fixture rows |
 
-| Canonical field | Meaning |
+Unique: `(source_id, source_record_id)`. Indexes: `acquired_at`, `(sensor, acquired_at)`,
+`(latitude, longitude)`, `is_synthetic`.
+
+**`quality_flags` keys**: `normalizer`, `bright_t31_kelvin` / `bright_ti5_kelvin`,
+`confidence_interpretation` (MODIS bands are an application interpretation, not NASA's),
+`confidence_source` (VIIRS categorical), `firms_type`, `firms_type_label`, `suspected_non_fire`
+(true when FIRMS `type` ≠ 0 — volcano, static land, offshore), `instrument`.
+
+**`source_record_id`**: FIRMS publishes no per-row identifier, so identity is a SHA-256 over
+product, sensor, satellite, coordinates (5 dp), acquisition instant, brightness, FRP, scan/track
+and confidence. Rounding deduplicates repeats of the same detection while distinct detections
+differ in time, position or radiometry.
+
+### `raw_observations`
+
+Immutable retrieved payload with `content_hash`, `retrieved_at`, `run_id` and `is_synthetic`.
+Unique on `(source_id, source_record_id)`, so re-ingestion never rewrites history.
+
+### `ingestion_runs`
+
+One row per retrieval job: `status` (`running`/`succeeded`/`partial`/`failed`), timestamps,
+`records_received`/`inserted`/`rejected`, `error_message`, `query_parameters` (tile, bbox, dates,
+synthetic) and `is_synthetic`.
+
+### `ingestion_partitions`
+
+Resumable unit of work: `(source_id, tile_key, date_start)` unique, plus `date_end`, `status`,
+`records_received`, `attempts`, `error_message`. A succeeded partition is skipped on re-run.
+
+### `source_availability`
+
+One row per `(source_id, observation_date)`: `status` ∈ `available` (inside the provider coverage
+window — an *observed* day, possibly with zero detections), `missing`, `empty`, `before_coverage`,
+`not_yet_available`, `unknown`. This is what prevents a gap from reading as quiet conditions.
+
+### `observation_matches`
+
+Scored association between two observations from different sensor families.
+
+| Column | Notes |
 | --- | --- |
-| `source_id` | Original source identifier / fingerprint |
-| `sensor` | `MODIS` or `VIIRS` — never merged |
-| `satellite` | Terra, Aqua, SNPP, NOAA-20, NOAA-21 |
-| `latitude`, `longitude` | Decimal degrees, WGS84 |
-| `location` | `GEOGRAPHY(Point, 4326)` (PostGIS) |
-| `acquired_at` | UTC acquisition timestamp |
-| `confidence_raw` | Original numeric confidence, unconverted |
-| `confidence_category` | Original source category (`low`/`nominal`/`high`, `l`/`n`/`h`, etc.) |
-| `brightness_temperature` | Source channel value; **not** cross-sensor comparable |
-| `brightness_channel` | Which channel the value came from |
-| `frp_mw` | Fire Radiative Power, megawatts |
-| `scan_km`, `track_km` | Pixel dimensions |
-| `daynight` | `D` / `N` where supported |
-| `processing_version` | Product version (e.g. MODIS C61) |
-| `source_product` | FIRMS source code |
-| `source_payload` | Untouched original record (JSONB) |
-| `quality_flags` | Validation and quality metadata |
-| `ingested_at` | When FIREWATCH X stored it |
+| `observation_a_id`, `observation_b_id` | FKs to `fire_observations` (unique pair) |
+| `temporal_delta_seconds`, `spatial_distance_m` | Measured separation |
+| `footprint_overlap` | 0–1 circular-footprint approximation, `NULL` when unknown |
+| `association_score` | `S` in [0, 1] — an association score, not a probability of identity |
+| `match_status` | `probable` / `possible` / `rejected` |
+| `components` | JSONB: temporal/spatial/footprint values, weights, model note |
+| `algorithm_version` | e.g. `assoc-v1` |
 
-Rules:
+### `fire_events` and `event_observations`
 
-- Original measurements are preserved even when no common field exists.
-- `confidence_raw` and `confidence_category` keep their source semantics. Any application-level
-  quality class is labelled a **harmonized interpretation**, not NASA's confidence.
-- Uniqueness is enforced on the source record identity, with a documented fallback fingerprint when
-  the provider supplies none.
+Estimated events from spatiotemporal clustering: first/last detection, centroid, bounding box,
+`observation_count`, `sensor_count`, `maximum_frp_mw` and `aggregate_frp_mw` (labelled separately),
+clustering method/parameters and methodology version. `event_observations` is the many-to-many link
+that preserves every member observation.
+
+### `algorithm_runs`
+
+Audit trail for harmonization and event grouping: `kind`, `status`, `parameters` (including the
+analysis `scope`: bbox and dates), `stats`, `algorithm_version`, `is_synthetic`,
+`error_message`.
 
 ## Planned tables
 
 | Table | Purpose |
 | --- | --- |
-| `raw_observations` | Immutable retrieved payloads + retrieval metadata |
-| `ingestion_runs` | Per-run status, counts, query parameters, errors |
-| `observation_matches` | Cross-sensor associations: deltas, distances, score, status, algorithm version |
-| `fire_events` | Estimated events: extent, observation count, sensor count, FRP aggregates, clustering parameters |
-| `event_observations` | Many-to-many event ↔ observation with provenance |
-| `geographic_regions` | Countries, admin areas, custom areas as PostGIS geometry |
-| `daily_fire_statistics` | Per region / date / sensor: raw counts, match groups, events, FRP, completeness |
-| `regional_baselines` | Baseline windows with mean, median, SD, MAD, quantiles, model version |
-| `anomalies` | Observed vs expected, deviation score, method, evidence, investigation state |
-| `infrastructure_assets`, `exposure_assessments` | Assets and geodesic distance results with dataset attribution |
-| `users`, `saved_regions`, `alerts`, `reports`, `audit_logs`, `data_quality_checks` | Platform records |
-
-Partitioning of `fire_observations` is deferred until measured volumes justify it; the
-specification is explicit that partition strategy should follow data, not guesswork.
+| `geographic_regions` | Countries, admin areas, custom polygons as PostGIS geometry |
+| `daily_fire_statistics` | Per region/date/sensor aggregates with completeness |
+| `regional_baselines` | Mean, median, SD, MAD, quantiles, model version |
+| `anomalies` | Observed vs expected, deviation score, evidence, method |
+| `infrastructure_assets`, `exposure_assessments` | Assets and geodesic distance results |
+| `users`, `saved_regions`, `alerts`, `reports`, `audit_logs` | Platform records |
 
 ## Conventions
 
-- **UTC everywhere.** Storage is `TIMESTAMPTZ`; the UI renders UTC and labels it.
-- **No floats for identity.** Coordinates are doubles; identifiers are UUIDs or source strings.
-- **Provenance is mandatory.** Every derived row keeps a pointer to its source observations and the
-  algorithm/model version that produced it.
-- **Constraint naming** follows the `NAMING_CONVENTION` in `backend/app/db/base.py` so Alembic
-  diffs and downgrades stay deterministic.
+- **UTC everywhere.** `TIMESTAMPTZ` storage, UTC rendering, explicit labels.
+- **Provenance is mandatory.** Derived rows keep their source observations and algorithm version.
+- **Missing ≠ zero.** Availability is stored per date; aggregates never silently fill gaps.
+- Constraint naming follows `NAMING_CONVENTION` in `backend/app/db/base.py` so migrations diff and
+  downgrade deterministically.

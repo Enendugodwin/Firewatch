@@ -1,0 +1,5 @@
+latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight,type
+8.503,9.104,341.9,0.375,0.375,2026-10-28,1035,Suomi-NPP,VIIRS,h,2.0NRT,295.2,9.8,D,0
+8.498,9.097,336.5,0.375,0.375,2026-10-28,1125,Suomi-NPP,VIIRS,n,2.0NRT,294.8,7.3,D,0
+7.199,8.398,353.1,0.375,0.375,2026-10-29,0920,NOAA-20,VIIRS,h,2.0NRT,296.4,28.9,D,0
+6.104,7.201,311.2,0.375,0.375,2026-10-29,1400,NOAA-20,VIIRS,l,2.0NRT,289.9,1.2,D,0

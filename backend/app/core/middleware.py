@@ -27,9 +27,7 @@ SECURITY_HEADERS = {
 class RequestContextMiddleware(BaseHTTPMiddleware):
     """Attach a request id, time the request, log it, and add safe headers."""
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         incoming = request.headers.get(REQUEST_ID_HEADER)
         request_id = incoming if incoming and len(incoming) <= 64 else uuid.uuid4().hex
         token = request_id_var.set(request_id)

@@ -37,6 +37,4 @@ celery_app.conf.update(
 @celery_app.on_after_configure.connect
 def _configure_signal_logging(**_kwargs: object) -> None:
     configure_logging(level=settings.log_level, json_output=settings.log_json)
-    get_logger("app.workers").info(
-        "worker_configured", broker=settings.redis_url.split("@")[-1]
-    )
+    get_logger("app.workers").info("worker_configured", broker=settings.redis_url.split("@")[-1])

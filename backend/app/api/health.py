@@ -13,15 +13,11 @@ router = APIRouter(tags=["health"])
 
 @router.get("/health", response_model=HealthResponse, summary="Liveness probe")
 def health(settings: Settings = Depends(get_settings)) -> HealthResponse:
-    return HealthResponse(
-        status="ok", service=settings.app_name, version=settings.app_version
-    )
+    return HealthResponse(status="ok", service=settings.app_name, version=settings.app_version)
 
 
 @router.get("/ready", summary="Readiness probe (checks the database)")
-def ready(
-    response: Response, settings: Settings = Depends(get_settings)
-) -> dict[str, object]:
+def ready(response: Response, settings: Settings = Depends(get_settings)) -> dict[str, object]:
     database = check_database(settings)
     if not database.connected:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE

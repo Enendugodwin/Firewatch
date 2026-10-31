@@ -43,9 +43,9 @@ The specification names twelve services. They map onto modules of this monolith:
 
 | Service | Status | Location |
 | --- | --- | --- |
-| `firms_ingestion` | Phase 2 | `services/ingestion` |
-| `normalization` | Phase 2 | `services/normalization` |
-| `harmonization` | Phase 3 | `services/harmonization` |
+| `firms_ingestion` | Phase 2 — implemented | `services/firms/`, `services/ingestion.py` |
+| `normalization` | Phase 2 — implemented | `services/normalization.py` |
+| `harmonization` | Phase 3 — implemented | `services/harmonization.py`, `services/events.py` |
 | `geospatial` | Phase 4 | `services/geospatial` |
 | `calendar` | Phase 5 | `services/calendar` |
 | `anomaly_engine` | Phase 6 | `services/anomalies` |
@@ -56,19 +56,40 @@ The specification names twelve services. They map onto modules of this monolith:
 | `auth` | Phase 8 | `services/auth` |
 | `audit` | Phase 8 | `services/audit` |
 
-## Phase 1 decisions worth knowing
+## Phase 2/3 decisions worth knowing
+
+**Partitions are the unit of work.** `(source, tile, date window)` is recorded before a request and
+marked succeeded after the rows are committed, so a backfill can be stopped and resumed without
+duplicating records. Ingestion commits per window.
+
+**Two identities, two layers.** Raw payloads are kept verbatim with a content hash; normalized rows
+carry a fingerprint derived from the measurement itself (FIRMS supplies no row id). Both layers are
+unique on `(source_id, source_record_id)`, so re-ingestion is a no-op rather than a duplicate.
+
+**Analysis is scoped, not global.** Every harmonization and event run records its `scope` (bbox and
+dates) in `algorithm_runs`, and the console states which scope the displayed associations cover.
+Detection totals stay global — the two are labelled separately so a scoped result is never read as
+a global measurement.
+
+**Provenance scopes never blend.** Synthetic fixture rows (`is_synthetic = true`) are harmonized
+separately from real observations; there is no code path that compares the two.
+
+**Scores are association scores.** The UI calls them that, stores every component, and never
+converts them into a probability of physical identity.
+
+## Foundation decisions worth knowing
 
 **Honest empty states over sample data.** Analytical routes exist in OpenAPI from day one but
 raise `AppError("not_implemented")`, rendered as:
 
 ```json
 {"error": {"code": "not_implemented", "message": "…",
-           "details": {"current_phase": "Phase 1", "planned_for_phase": "Phase 2"},
+           "details": {"current_phase": "Phase 3", "planned_for_phase": "Phase 5"},
            "request_id": "…"}}
 ```
 
 The UI treats `501` as "contract published, implementation pending", which keeps navigation and
-documentation honest while the pipeline is built.
+documentation honest while later phases are built.
 
 **One registry, two readers.** `app/core/modules.py` is the single source of truth for module
 labels, routes, phases and capabilities. The API serves it; the console renders it. A module

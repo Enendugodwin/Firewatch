@@ -70,17 +70,55 @@ These routes exist so the contract is fixed before implementation. All currently
 
 | Group | Paths | Phase |
 | --- | --- | --- |
-| Dashboard | `/dashboard` | 4 |
-| Fires | `/fires`, `/fires/geojson` | 2 / 4 |
 | Calendar | `/calendar` | 5 |
-| Harmonization | `/harmonization/summary`, `/harmonization/matches` | 3 |
 | Anomalies | `/anomalies` | 6 |
 | Regions | `/regions` | 6 |
 | Exposure | `/exposure` | 6 |
 | Reports | `/reports` | 7 |
 | Assistant | `POST /assistant/chat` | 7 |
-| Admin | `/admin/ingestion/jobs` | 2 |
 | Auth | `POST /auth/login` | 8 |
+
+## Implemented (Phases 2–3)
+
+### Observations
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/fires` | Filters: `bbox`, `start_date`, `end_date`, `sensor`, `satellite`, `min_frp`, `daynight`, `synthetic`; `limit` ≤ 5000, `offset` |
+| GET | `/fires/{id}` | Full record including `quality_flags` and fingerprint |
+| GET | `/fires/sources` | Counts and last-seen per product |
+| GET | `/fires/geojson` | Bounded FeatureCollection plus `truncated`/`total` |
+
+### Harmonization
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/harmonization/summary` | Sensor totals, match counts, events, last run and its scope |
+| GET | `/harmonization/matches` | `status`, `min_score`, pagination; full score components |
+| GET | `/harmonization/matches/{id}` | Evidence for one pair |
+| GET | `/harmonization/events` | Estimated events with extent and FRP aggregates |
+| POST | `/harmonization/run` | Body: `synthetic?`, `bbox?`, `start_date?`, `end_date?`, thresholds, `run_events` |
+| GET | `/harmonization/jobs`, `/jobs/{id}` | Algorithm run history and status |
+| GET | `/harmonization/status` | Engine versions, defaults and disclaimers |
+
+### Ingestion administration
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| POST | `/admin/ingestion/run` | `source_code`, `start_date`, `end_date` (≤5 days), `bbox?` or `tile?`; optional harmonization/events |
+| GET | `/admin/ingestion/jobs` | Recent runs with counts and query parameters |
+| GET | `/admin/ingestion/sources` | Registered state, observations, last run and error |
+| GET | `/admin/ingestion/tiles` | `world` plus deterministic global tiles |
+| POST | `/admin/ingestion/availability` | Coverage window → per-date status |
+
+### Dashboard
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/dashboard` | Detection totals by sensor, FRP sum, match counts, events, freshness |
+
+Without `FIRMS_MAP_KEY`, `POST /admin/ingestion/run` returns `503 unavailable` with a hint — it never
+simulates a retrieval.
 
 ## Example requests
 

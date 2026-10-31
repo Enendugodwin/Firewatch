@@ -1,61 +1,99 @@
 # Scientific validation
 
-The platform is only credible if its numbers reconcile with the observations behind them. This
-document records what is verified today and what each later phase must prove before its output is
-presented as analysis.
+The platform is only credible if its numbers reconcile with the observations behind them and if gaps
+are labelled as gaps. This document records what is verified and what each later phase must prove.
 
-## Verified in Phase 1
+## Verified in Phases 1–3
 
 | Check | Method | Result |
 | --- | --- | --- |
-| API never serves fabricated observations | `test_errors.py` asserts every pending route returns `501` with an error envelope and **no** `items`/`features` payload | Pass |
-| Data freshness is reported, not implied | `test_system.py` asserts `freshness = "no_data"`, `observations_stored = null`, and a reason that names the missing key | Pass |
-| Module status cannot overstate readiness | `test_system.py` asserts no module is `ready` after Phase 1 and only `settings` is `in_progress` | Pass |
-| Source catalogue is complete and honest | 8 FIRMS products, all `not_ingested` | Pass |
-| Migrations are reversible and dialect-portable | upgrade → downgrade → upgrade on SQLite; PostGIS statement guarded | Pass |
-| Seed is idempotent (no duplicate sources) | seed twice, assert 8 rows | Pass |
-| Secrets are not required to boot | API starts and `/ready` succeeds with an empty `FIRMS_MAP_KEY` | Pass |
-| Request correlation | `X-Request-ID` echoed or generated, present in error bodies | Pass |
-| UI reports empty state instead of mock statistics | `app.test.tsx` asserts "no fire activity to display" and the API-provided reason | Pass |
+| No fabricated observations | Every pending route returns `501` with an envelope and no `items`/`features` | Pass |
+| Freshness is measured, not implied | `/system/status` derives it from `max(acquired_at)` and run records | Pass |
+| Module readiness cannot be overstated | Only delivered modules report `ready` in the registry | Pass |
+| Migrations reversible and dialect-portable | upgrade → downgrade → upgrade on SQLite; PostGIS guarded | Pass |
+| Seed idempotent | seed twice → 8 sources, no duplicates | Pass |
+| Coordinate validation | Out-of-range latitude/longitude rejected, not clamped | Pass |
+| Timestamp handling | `acq_date`+`acq_time` → exact UTC instant; impossible times rejected | Pass |
+| Confidence semantics preserved | MODIS 0–100 kept with an application band; VIIRS categorical kept, `raw = NULL` | Pass |
+| Channels not conflated | MODIS 4 µm and VIIRS `bright_ti4` labelled distinctly and never equated | Pass |
+| Non-fire anomalies flagged | FIRMS `type` ≠ 0 → `suspected_non_fire` | Pass |
+| Fingerprint identity | Stable across identical rows; distinct on 1-minute/time change | Pass |
+| Deduplication | Re-ingesting the same window inserts 0 new rows; raw payloads not rewritten | Pass |
+| Resumable backfill | Succeeded partitions skipped on re-run | Pass |
+| FIRMS retries | 503/429/transport retried with backoff; 403 not retried | Pass |
+| Key hygiene | MAP_KEY redacted from logs, errors and stored URLs | Pass |
+| Availability semantics | Coverage window → `available` inside, `before_coverage`/`not_yet_available` outside, never zero | Pass |
+| Cross-family only | No same-sensor pair is ever scored | Pass |
+| Score components | Temporal/spatial/footprint values, weights and note persisted per pair | Pass |
+| Threshold ordering | probable > possible ≥ store enforced; weak pairs not stored | Pass |
+| Idempotent association | Re-running produces the same pair count, no duplicates | Pass |
+| Event provenance | Each event links its member observations; counts reconcile | Pass |
+| Event FRP labels | Maximum and aggregate stored and reported separately | Pass |
+| Idempotent clustering | Re-running produces the same event count | Pass |
+| Scope recorded | Every algorithm run stores bbox and dates; the UI states them | Pass |
+| Provenance isolation | Synthetic and real observations are never harmonized together | Pass |
+| UI surfaces the empty state | Tests assert the reason comes from the API, not a placeholder | Pass |
 
-Totals: **23 backend tests, 7 frontend tests**, plus Ruff and mypy clean, and a strict TypeScript
-build.
+Totals: **102 backend tests, 14 frontend tests**, Ruff and mypy clean, strict TypeScript build.
 
-## Required before an analytical claim
+## Case study: availability was a range, not a list
+
+The first live check returned `available: 0, missing: 4` for dates that demonstrably had
+detections. The FIRMS endpoint returns:
+
+```
+data_id,min_date,max_date
+VIIRS_SNPP_NRT,2026-08-01,2026-10-30
+```
+
+The parser had assumed a list of dates, so every requested day was marked missing. That is precisely
+the failure the specification warns about — a gap silently rendered as "no fire". The parser now
+reads the coverage window, classifies dates inside it as observed, and labels dates outside it
+`before_coverage` / `not_yet_available`. Tests pin both shapes (window and legacy list) and the
+classification of out-of-range days.
+
+The same live check confirmed the SP/NRT distinction the platform must preserve: `MODIS_SP` covered
+through 2026-08-31 while `MODIS_NRT` covered 2026-10-30, so a recent date is genuinely
+`not_yet_available` for standard processing.
+
+## Live verification (2026-10-30)
+
+| Step | Result |
+| --- | --- |
+| Availability, `VIIRS_SNPP_NRT` | coverage 2026-08-01 → 2026-10-30 |
+| Ingestion, Nigeria bbox 2.5,4.0,14.7,13.9, 2026-10-29 → 30 | VIIRS 3,617 rows; MODIS_NRT 483 rows |
+| Deduplication | Re-running the VIIRS window inserted 0 new rows |
+| Harmonization (scoped) | 4,100 observations → 659 candidate pairs, 29 probable, 157 possible |
+| Event grouping (scoped) | 587 estimated events, 158 seen by both sensors |
+| Store total | 87,578 detections, 0 synthetic |
+
+## Required before a later-phase claim
 
 | Validation | Criterion |
 | --- | --- |
-| Coordinate handling | Known fixtures map to the correct latitude/longitude; no axis swap; poles and antimeridian behave |
-| Timestamp handling | `acq_date` + `acq_time` convert to UTC exactly; no local-time drift; day boundaries correct |
-| Deduplication | Ingesting the same window twice yields identical row counts |
-| Cross-sensor matching | Curated reference pairs: no automatic equivalence, precision/recall reported, rejected pairs explained |
-| Calendar reconciliation | Σ daily cells = stored observation count for every metric; spot-check a day against raw records |
-| FRP aggregation | Units in MW, aggregation labelled (sum vs maximum), no mixing of aggregate and peak |
+| Calendar reconciliation | Σ daily cells = stored observation count for every metric |
 | Missing data | A known-outage day is `no_data`, never `0` |
-| Baselines | Recomputing from the same snapshot produces identical medians/MAD |
-| Anomaly detection | Synthetic cases (spike, seasonal shift, flat baseline, tiny sample) classify as expected; zero MAD handled |
-| Exposure distances | Geodesic distance matches an independent library within tolerance; antimeridian cases pass |
-| Forecasts | Rolling-origin backtest beats the seasonal baseline before any forecast is surfaced |
-
-## Fixtures
-
-Synthetic fixtures are permitted for edge cases — duplicate rows, missing days, sensor outage,
-extreme FRP, date-boundary errors — but must live in test directories only, be clearly labelled
-synthetic, and never be reachable from a production data path or displayed as NASA observations.
+| Baselines | Recomputing from the same snapshot gives identical median/MAD |
+| Anomaly detection | Synthetic spike/shift/flat-baseline/tiny-sample cases classify as expected |
+| Match precision/recall | Curated reference pairs; reported precision/recall, rejected pairs explained |
+| Exposure distances | Geodesic distance matches an independent library within tolerance |
+| Forecasts | Rolling-origin backtest beats the seasonal baseline before any forecast is shown |
 
 ## Known limitations
 
-- No observations ingested: every statistical module is unimplemented, so no scientific result has
-  been produced or claimed.
-- SQLite in CI means spatial behaviour (PostGIS functions, GiST index performance) is not yet
-  exercised; container-based PostgreSQL testing is required from Phase 2.
-- MODIS/VIIRS brightness-temperature channels are not equivalent; any cross-sensor temperature
-  comparison must be labelled as such or avoided.
-- Hotspot counts are detections. Cloud cover suppresses detections; small or smouldering fires may
-  be missed; industrial and agricultural heat appear as hotspots.
+- Association thresholds (0.75/0.55/0.35) and the 180-minute window are **provisional defaults**;
+  precision/recall has not been measured against curated reference pairs yet.
+- The temporal term uses a quadratic tolerance; it is documented, stored per pair and applied
+  identically to every pair, but it is a modelling choice rather than a NASA product.
+- Event clustering truncates long observation windows by design (bounded memory). Runs record their
+  scope; a global multi-year clustering pass needs a different strategy.
+- CI runs on SQLite, so PostGIS behaviour (spatial indexes, geodesic SQL) is not exercised there.
+- MODIS/VIIRS brightness temperatures are not equivalent and must not be compared directly.
+- Hotspot counts are detections. Cloud suppresses detections; smouldering fires may be missed;
+  industrial and agricultural heat appear as hotspots.
 
-## Reporting
+## Reporting rules
 
-Once analytics exist, every report must carry: generation timestamp, geographic area, observation
-period, data sources and processing versions, methodology, statistical limitations and the
-observation identifiers behind each figure.
+Every report must carry: generation timestamp, geographic area, observation period, data sources and
+processing versions, methodology, statistical limitations and the observation identifiers behind
+each figure.

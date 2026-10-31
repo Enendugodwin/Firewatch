@@ -15,7 +15,14 @@ export function OrbitalField({ className }: { className?: string }) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const context = canvas.getContext("2d");
+    let context: CanvasRenderingContext2D | null = null;
+    try {
+      context = canvas.getContext("2d");
+    } catch {
+      // jsdom, blocked canvases and some kiosk browsers throw instead of
+      // returning null. The CSS gradient behind the canvas is the fallback.
+      return;
+    }
     if (!context) return;
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;

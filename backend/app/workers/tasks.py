@@ -1,4 +1,4 @@
-﻿"""Background tasks.
+"""Background tasks.
 
 Only diagnostics exist in Phase 1. Ingestion, harmonization, anomaly scoring and
 report rendering are added in the phases that implement them.

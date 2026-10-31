@@ -1,12 +1,15 @@
 import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDashed, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { ModuleScaffold } from "@/components/ui/ModuleScaffold";
-import { Panel, StatTile } from "@/components/ui/Panel";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/ModuleStatus";
+import { Panel, StatTile } from "@/components/ui/Panel";
 import { StatusDot } from "@/components/ui/StatusDot";
-import { useModules, useSystemStatus } from "@/lib/queries";
+import { SyntheticBanner } from "@/components/ui/SyntheticBanner";
+import { findNavItemByKey } from "@/config/nav";
+import { useDashboardOverview, useModules, useSystemStatus } from "@/lib/queries";
+import { formatCount, formatFrp } from "@/lib/format";
 import { formatDateTimeUtc, formatUptime } from "@/lib/time";
 import { useUiStore } from "@/store/ui";
 
@@ -27,17 +30,23 @@ interface Stage {
 }
 
 export function OverviewPage() {
-  const { data: status, isError, error, isLoading } = useSystemStatus();
+  const { data: status, isError: statusError } = useSystemStatus();
+  const overview = useDashboardOverview();
   const { data: modules } = useModules();
   const dateRange = useUiStore((state) => state.dateRange);
 
-  const overviewModule = modules?.find((module) => module.key === "overview");
+  const navItem = findNavItemByKey("overview");
+  const module = modules?.find((item) => item.key === "overview");
+
+  const data = overview.data;
+  const total = data?.detections.total ?? 0;
+  const hasData = total > 0;
 
   const stages: Stage[] = [
     {
       name: "Platform foundation",
       phase: "Phase 1",
-      detail: "API, configuration, design system, navigation and database registry.",
+      detail: "API, configuration, design system, navigation and db registry.",
       state: "done",
     },
     {
@@ -45,20 +54,20 @@ export function OverviewPage() {
       phase: "Phase 2",
       detail: status?.data.firms_configured
         ? "FIRMS_MAP_KEY is present in the backend environment."
-        : "Set FIRMS_MAP_KEY in the backend environment to enable retrieval.",
+        : "Set FIRMS_MAP_KEY in the backend environment to enable live retrieval.",
       state: status?.data.firms_configured ? "done" : "blocked",
     },
     {
       name: "Ingestion and normalization",
       phase: "Phase 2",
-      detail: "Tiled, resumable retrieval of MODIS and VIIRS records into PostGIS.",
-      state: "pending",
+      detail: "Tiled, resumable retrieval; raw payloads retained; per-sensor adapters.",
+      state: "done",
     },
     {
       name: "MODIS/VIIRS harmonization",
       phase: "Phase 3",
-      detail: "Cross-sensor association scoring and optional event clustering.",
-      state: "pending",
+      detail: "Cross-sensor association scoring, event grouping and inspection.",
+      state: "done",
     },
     {
       name: "Global fire map",
@@ -81,60 +90,80 @@ export function OverviewPage() {
   ];
 
   return (
-    <ModuleScaffold
-      moduleKey="overview"
-      requirements={[
-        "A NASA FIRMS MAP_KEY stored in the backend environment (never the browser).",
-        "PostgreSQL with PostGIS reachable from the API for spatial storage.",
-        "A completed ingestion run, so statistics are computed from stored observations.",
-      ]}
-      extra={
-        <div className="mb-[12px] space-y-[12px]">
-          {isError ? (
-            <div className="flex items-start gap-2.5 rounded-card border border-danger/25 bg-danger/[0.06] px-[18px] py-[14px]">
-              <AlertTriangle className="mt-[2px] size-4 shrink-0 text-danger" aria-hidden />
-              <div className="text-xs font-light leading-relaxed text-danger">
-                <p className="font-medium">The API is not reachable.</p>
-                <p className="mt-[2px] text-danger/80">
-                  {error instanceof Error ? error.message : "Unknown error."} Every figure on this
-                  page is withheld rather than guessed.
-                </p>
-              </div>
-            </div>
-          ) : null}
+    <div>
+      <PageHeader
+        eyebrow="Firewatch X / Monitoring"
+        title={module?.label ?? navItem?.label ?? "Overview"}
+        description="Global fire activity and intelligence summary, computed from stored satellite observations."
+        status={module?.status ?? "in_progress"}
+        phase={module?.phase ?? "Phase 4"}
+      />
 
-          <div className="grid gap-[10px] sm:grid-cols-2 xl:grid-cols-4">
-            <StatTile
-              label="Detections in period"
-              value={isLoading ? "…" : "—"}
-              hint={
-                status?.data.freshness === "no_data"
-                  ? "No observations stored yet"
-                  : "Computed from stored observations only"
-              }
-              tone="warn"
-            />
-            <StatTile
-              label="MODIS / VIIRS"
-              value={isLoading ? "…" : "— / —"}
-              hint="Split appears once both sensor families are ingested"
-            />
-            <StatTile
-              label="Cross-sensor matches"
-              value={isLoading ? "…" : "—"}
-              hint="Requires Phase 3 harmonization"
-            />
-            <StatTile
-              label="Sources registered"
-              value={isLoading ? "…" : String(status?.data.sources_registered ?? "—")}
-              hint="NASA FIRMS products in the catalogue"
-            />
+      {statusError || overview.isError ? (
+        <div className="mb-[12px] flex items-start gap-2.5 rounded-card border border-danger/25 bg-danger/[0.06] px-[18px] py-[13px]">
+          <AlertTriangle className="mt-[1px] size-4 shrink-0 text-danger" aria-hidden />
+          <div className="text-xs font-light leading-relaxed text-danger">
+            <p className="font-medium">The API is not reachable.</p>
+            <p className="mt-[2px] text-danger/80">
+              Every figure on this page is withheld rather than guessed.
+            </p>
           </div>
+        </div>
+      ) : null}
 
+      <SyntheticBanner count={data?.data.synthetic_observations ?? 0} total={total} />
+
+      <div className="grid gap-[10px] sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label="Detections in period"
+          value={formatCount(total)}
+          hint={
+            total
+              ? `${formatCount(data?.detections.modis)} MODIS · ${formatCount(
+                  data?.detections.viirs,
+                )} VIIRS`
+              : "No observations stored yet"
+          }
+          tone={total ? "neutral" : "warn"}
+        />
+        <StatTile
+          label="Cross-sensor matches"
+          value={formatCount(data?.matches.total)}
+          hint={
+            data?.scope?.start_date
+              ? `${formatCount(data?.matches.probable)} probable · ${formatCount(
+                  data?.matches.possible,
+                )} possible (last scope)`
+              : "Recompute associations to populate"
+          }
+        />
+        <StatTile
+          label="Estimated events"
+          value={formatCount(data?.events)}
+          hint={
+            data?.scope?.start_date
+              ? `Estimated clusters, scope ${data.scope.start_date}`
+              : "Estimated clusters from the last run"
+          }
+        />
+        <StatTile
+          label="Aggregate FRP"
+          value={total ? formatFrp(data?.detections.frp_mw) : "—"}
+          hint="Summed Fire Radiative Power of stored detections"
+        />
+      </div>
+
+      <p className="mt-[10px] text-2xs font-light leading-relaxed text-faint">
+        {data?.note ??
+          "Counts are satellite thermal detections, not fires. Detection totals cover the whole store; match and event counts cover the last analysis scope."}
+      </p>
+
+      <div className="mt-[12px] grid gap-[12px] lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <div className="space-y-[12px]">
           <Panel
             title="Pipeline readiness"
             subtitle="Real system state — nothing here is simulated."
-            actions={<Badge tone="warn">no data yet</Badge>}
+            actions={<Badge tone={hasData ? "ok" : "warn"}>{hasData ? "data present" : "no data yet"}</Badge>}
             bodyClassName="p-0"
           >
             <ul>
@@ -164,103 +193,113 @@ export function OverviewPage() {
             </ul>
           </Panel>
 
-          <div className="grid gap-[12px] lg:grid-cols-2">
+          {hasData ? (
             <Panel
-              title="Selected period"
-              subtitle="Shared across every module once queries are live."
+              title="Where to go next"
+              subtitle="The map and calendar arrive in Phases 4 and 5; the association workspace is live."
             >
-              <dl className="grid grid-cols-2 gap-x-[18px] gap-y-[14px]">
-                <div>
-                  <dt className="label">Start (UTC)</dt>
-                  <dd className="mt-[6px] font-mono text-[13px] text-ink">{dateRange.start}</dd>
-                </div>
-                <div>
-                  <dt className="label">End (UTC)</dt>
-                  <dd className="mt-[6px] font-mono text-[13px] text-ink">{dateRange.end}</dd>
-                </div>
-                <div>
-                  <dt className="label">Preset</dt>
-                  <dd className="mt-[6px] text-xs font-light capitalize text-muted">
-                    {dateRange.preset}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="label">API uptime</dt>
-                  <dd className="mt-[6px] font-mono text-[13px] text-ink">
-                    {status ? formatUptime(status.uptime_seconds) : "—"}
-                  </dd>
-                </div>
-              </dl>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  to="/harmonization"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line/10 bg-line/[0.03] px-3 py-1.5 text-xs font-light text-muted transition-colors duration-150 hover:text-ink"
+                >
+                  Inspect sensor intelligence
+                  <ArrowUpRight className="size-3" aria-hidden />
+                </Link>
+                <Link
+                  to="/settings"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line/10 bg-line/[0.03] px-3 py-1.5 text-xs font-light text-muted transition-colors duration-150 hover:text-ink"
+                >
+                  Ingestion and sources
+                  <ArrowUpRight className="size-3" aria-hidden />
+                </Link>
+              </div>
             </Panel>
-
-            <Panel
-              title="Data ingestion status"
-              subtitle="Separate indicators so a refreshing map is never mistaken for a live feed."
-              actions={
-                <span className="inline-flex items-center gap-1.5 text-2xs font-light text-muted">
-                  <StatusDot tone={status?.database.connected ? "ok" : "danger"} />
-                  {status?.database.connected ? "database reachable" : "database down"}
-                </span>
+          ) : (
+            <EmptyState
+              title="No fire activity to display"
+              description="The overview will show a global heatmap, daily detection trend and top regions once observations exist. Today the pipeline is empty, so this page reports system state instead of inventing a picture."
+              action={
+                <Link
+                  to="/settings"
+                  className="inline-flex items-center gap-1.5 text-xs font-light text-accent transition-colors duration-150 hover:text-ink"
+                >
+                  Inspect sources and configuration
+                  <ArrowUpRight className="size-3" aria-hidden />
+                </Link>
               }
-            >
-              <dl className="divide-y divide-line/[0.06]">
-                <div className="flex items-center justify-between gap-3 py-[7px]">
-                  <dt className="text-2xs font-light text-faint">Last NRT retrieval</dt>
-                  <dd className="font-mono text-2xs text-muted">
-                    {formatDateTimeUtc(status?.data.last_ingested_at ?? null)}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-3 py-[7px]">
-                  <dt className="text-2xs font-light text-faint">Latest observation</dt>
-                  <dd className="font-mono text-2xs text-muted">
-                    {formatDateTimeUtc(status?.data.last_observation_at ?? null)}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-3 py-[7px]">
-                  <dt className="text-2xs font-light text-faint">Observations stored</dt>
-                  <dd className="font-mono text-2xs text-muted">
-                    {status?.data.observations_stored ?? "—"}
-                  </dd>
-                </div>
-              </dl>
-              <p className="mt-[10px] border-t border-line/[0.06] pt-[10px] text-2xs font-light leading-relaxed text-faint">
-                {status?.data.freshness_reason ?? "Freshness is unknown until the API responds."}
-              </p>
-            </Panel>
-          </div>
-
-          <EmptyState
-            title="No fire activity to display"
-            description={
-              <>
-                The overview will show a global heatmap, daily detection trend and top regions once
-                observations exist. Today the pipeline is empty, so this page reports system state
-                instead of inventing a picture.
-              </>
-            }
-            action={
-              <Link
-                to="/settings"
-                className="inline-flex items-center gap-1.5 text-xs font-light text-accent transition-colors duration-150 hover:text-ink"
-              >
-                Inspect sources and configuration
-                <ArrowUpRight className="size-3" aria-hidden />
-              </Link>
-            }
-          />
+            />
+          )}
         </div>
-      }
-    >
-      <Panel title="What this module delivers" subtitle={overviewModule?.phase ?? "Phase 4"}>
-        <ul className="space-y-[10px]">
-          {(overviewModule?.planned ?? []).map((item) => (
-            <li key={item} className="flex gap-3 text-xs font-light leading-relaxed text-muted">
-              <span className="mt-[7px] size-1 shrink-0 rounded-full bg-accent/60" />
-              {item}
-            </li>
-          ))}
-        </ul>
-      </Panel>
-    </ModuleScaffold>
+
+        <div className="space-y-[12px]">
+          <Panel
+            title="Data ingestion status"
+            subtitle="Separate indicators so a refreshing page is never mistaken for a live feed."
+            actions={
+              <span className="inline-flex items-center gap-1.5 text-2xs font-light text-muted">
+                <StatusDot tone={status?.database.connected ? "ok" : "danger"} />
+                {status?.database.connected ? "database reachable" : "database down"}
+              </span>
+            }
+          >
+            <dl className="divide-y divide-line/[0.06]">
+              <div className="flex items-center justify-between gap-3 py-[7px]">
+                <dt className="text-2xs font-light text-faint">Last ingestion</dt>
+                <dd className="font-mono text-2xs text-muted">
+                  {formatDateTimeUtc(status?.data.last_ingested_at ?? null)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-[7px]">
+                <dt className="text-2xs font-light text-faint">Latest observation</dt>
+                <dd className="font-mono text-2xs text-muted">
+                  {formatDateTimeUtc(status?.data.last_observation_at ?? null)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-[7px]">
+                <dt className="text-2xs font-light text-faint">Observations stored</dt>
+                <dd className="font-mono text-2xs text-muted">
+                  {formatCount(status?.data.observations_stored)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-[7px]">
+                <dt className="text-2xs font-light text-faint">Missing dates</dt>
+                <dd className="font-mono text-2xs text-muted">
+                  {formatCount(status?.data.missing_dates)}
+                </dd>
+              </div>
+            </dl>
+            <p className="mt-[10px] border-t border-line/[0.06] pt-[10px] text-2xs font-light leading-relaxed text-faint">
+              {status?.data.freshness_reason ?? "Freshness is unknown until the API responds."}
+            </p>
+          </Panel>
+
+          <Panel title="Selected period" subtitle="Shared across every module.">
+            <dl className="grid grid-cols-2 gap-x-[18px] gap-y-[14px]">
+              <div>
+                <dt className="label">Start (UTC)</dt>
+                <dd className="mt-[6px] font-mono text-[13px] text-ink">{dateRange.start}</dd>
+              </div>
+              <div>
+                <dt className="label">End (UTC)</dt>
+                <dd className="mt-[6px] font-mono text-[13px] text-ink">{dateRange.end}</dd>
+              </div>
+              <div>
+                <dt className="label">Preset</dt>
+                <dd className="mt-[6px] text-xs font-light capitalize text-muted">
+                  {dateRange.preset}
+                </dd>
+              </div>
+              <div>
+                <dt className="label">API uptime</dt>
+                <dd className="mt-[6px] font-mono text-[13px] text-ink">
+                  {status ? formatUptime(status.uptime_seconds) : "—"}
+                </dd>
+              </div>
+            </dl>
+          </Panel>
+        </div>
+      </div>
+    </div>
   );
 }
