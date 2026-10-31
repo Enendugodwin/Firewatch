@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-#: Routes whose module has not been built yet. Phase 2/3 routes are exercised in
-#: test_api_phase2.py instead.
+#: Routes whose module has not been built yet. Delivered phases (2-5) are
+#: exercised in their own test modules instead.
 PENDING_ENDPOINTS = [
-    "/api/v1/calendar",
     "/api/v1/anomalies",
     "/api/v1/regions",
     "/api/v1/exposure",
@@ -21,7 +20,7 @@ def test_pending_modules_return_structured_not_implemented(client: TestClient) -
         assert response.status_code == 501, path
         error = response.json()["error"]
         assert error["code"] == "not_implemented", path
-        assert error["details"]["current_phase"] == "Phase 4", path
+        assert error["details"]["current_phase"] == "Phase 5", path
         assert error["details"]["planned_for_phase"].startswith("Phase "), path
         assert error["request_id"], path
 
@@ -41,7 +40,7 @@ def test_unknown_route_uses_the_error_envelope(client: TestClient) -> None:
 
 
 def test_pending_endpoints_never_leak_sample_measurements(client: TestClient) -> None:
-    body = client.get("/api/v1/calendar").json()
+    body = client.get("/api/v1/anomalies").json()
 
     assert set(body) == {"error"}
     assert "items" not in body and "features" not in body

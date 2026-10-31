@@ -72,14 +72,14 @@ export function OverviewPage() {
     {
       name: "Global fire map",
       phase: "Phase 4",
-      detail: "MapLibre layers, filters and hotspot inspection with provenance.",
-      state: "pending",
+      detail: "MapLibre layers, themes, filters and hotspot inspection with provenance.",
+      state: "done",
     },
     {
       name: "Historical burning calendar",
       phase: "Phase 5",
-      detail: "Daily to annual aggregation with missing-data awareness.",
-      state: "pending",
+      detail: "Day-to-year buckets, coverage states, FRP metrics and drill-down.",
+      state: "done",
     },
     {
       name: "Anomaly detection",

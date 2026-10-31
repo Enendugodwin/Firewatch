@@ -12,6 +12,7 @@ import type {
   SystemStatus,
 } from "@/types/api";
 import type { AggregateResponse } from "@/lib/mapApi";
+import type { CalendarResponse, CalendarDrilldown } from "@/lib/calendarApi";
 
 export const MODULES: ModuleStatusItem[] = [
   {
@@ -239,6 +240,11 @@ export interface MockMap {
   observation: Observation;
 }
 
+export interface MockCalendar {
+  calendar: CalendarResponse;
+  drilldown: CalendarDrilldown;
+}
+
 export interface MockOptions {
   status?: SystemStatus;
   summary?: HarmonizationSummary;
@@ -246,6 +252,7 @@ export interface MockOptions {
   events?: FireEventOut[];
   dashboard?: DashboardOverview;
   map?: MockMap;
+  calendar?: MockCalendar;
 }
 
 const EMPTY_GEOMETRY = {
@@ -262,6 +269,46 @@ const EMPTY_CELLS: AggregateResponse = {
   returned_cells: 0,
   truncated: false,
   bbox: [-180, -85, 180, 85],
+};
+
+const EMPTY_CALENDAR: CalendarResponse = {
+  granularity: "day",
+  start_date: "2026-10-29",
+  end_date: "2026-10-31",
+  buckets: [],
+  totals: {
+    detections: 0,
+    modis: 0,
+    viirs: 0,
+    frp_sum_mw: 0,
+    frp_max_mw: null,
+    high_confidence: 0,
+    active_buckets: 0,
+    quiet_buckets: 0,
+    unobserved_buckets: 0,
+    buckets: 0,
+  },
+  notes: ["Each bucket counts thermal detections, not fires."],
+};
+
+const EMPTY_DRILLDOWN: CalendarDrilldown = {
+  bucket: {
+    start: "2026-10-30",
+    end: "2026-10-30",
+    label: "2026-10-30",
+    state: "active",
+    coverage: { observed: 1, empty: 0, missing: 0, unknown: 0 },
+    detections: 0,
+    modis: 0,
+    viirs: 0,
+    frp_sum_mw: 0,
+    frp_max_mw: null,
+    high_confidence: 0,
+  },
+  total: 0,
+  returned: 0,
+  limit: 200,
+  items: [],
 };
 
 const PLACE_RESULTS = {
@@ -289,9 +336,28 @@ export function installFetchMock(options: MockOptions = {}) {
   const dashboard = options.dashboard ?? EMPTY_DASHBOARD;
   const mapCells = options.map?.cells ?? EMPTY_CELLS;
   const mapObservation = options.map?.observation;
+  const calendar = options.calendar?.calendar ?? EMPTY_CALENDAR;
+  const calendarDrilldown = options.calendar?.drilldown ?? EMPTY_DRILLDOWN;
 
   const mock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
+    if (url.includes("/api/v1/calendar/drilldown")) {
+      // Answer for the bucket that was actually clicked, not a fixed one.
+      const requested = new URL(url, "http://localhost").searchParams.get("bucket_start");
+      const matching =
+        calendar.buckets.find((item) => item.start === requested) ??
+        calendar.buckets[0] ??
+        calendarDrilldown.bucket;
+      const items = matching.state === "active" ? calendarDrilldown.items : [];
+      return json({
+        bucket: matching,
+        total: matching.detections,
+        returned: items.length,
+        limit: 200,
+        items,
+      });
+    }
+    if (url.includes("/api/v1/calendar")) return json(calendar);
     if (url.includes("/api/v1/fires/aggregate")) return json(mapCells);
     if (url.includes("/api/v1/fires/geojson")) return json(EMPTY_GEOMETRY);
     if (url.includes("/api/v1/geo/search")) return json(PLACE_RESULTS);

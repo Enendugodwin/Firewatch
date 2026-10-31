@@ -8,10 +8,10 @@ them per sensor family, associates observations across sensors, groups estimated
 exposes all of it through a dark analytical console.
 
 > [!IMPORTANT]
-> **Status: Phase 4 of 9 — Global Fire Map.** Ingestion, normalization, harmonization, event
-> grouping and the interactive map are working against the live NASA FIRMS API. This workstation
-> holds ~87,600 real detections. The calendar (Phase 5) and intelligence layers (Phase 6+) remain
-> scaffolding and say so.
+> **Status: Phase 5 of 9 — Burning Calendar.** Ingestion, normalization, harmonization, event
+> grouping, the interactive map and the historical burning calendar are working against the live
+> NASA FIRMS API. This workstation holds ~133,000 real detections. The intelligence layers
+> (Phase 6+) remain scaffolding and say so.
 >
 > Satellite thermal anomalies are detections, not confirmed wildfires. They may be false
 > positives, may be agricultural or industrial heat, and can be hidden by cloud. Do not use this
@@ -30,10 +30,11 @@ exposes all of it through a dark analytical console.
 | Harmonization: `S = wₜT + wₛG + w_fF`, probable/possible/rejected with full evidence | Working |
 | Event grouping: spatiotemporal DBSCAN, per-event provenance and FRP aggregates | Working |
 | Map: MapLibre globe, four themes, viewport aggregation, FRP/confidence/day-night filters | Working |
-| APIs: `/fires`, `/fires/aggregate`, `/geo/search`, `/harmonization/*`, `/admin/ingestion/*` | Working |
+| Calendar: day/week/month/year buckets, coverage states, drill-down to detections | Working |
+| APIs: `/fires`, `/fires/aggregate`, `/calendar`, `/geo/search`, `/harmonization/*` | Working |
 | Console: overview aggregates, sensor-intelligence workspace, ingestion console | Working |
 | Design system, shell, command palette, freshness, synthetic-data labelling | Working |
-| Calendar, anomalies, regions, exposure, reports, AI assistant, auth | Phase 5–8 |
+| Anomalies, regions, exposure, reports, AI assistant, auth | Phase 6–8 |
 
 Verified live: the map serves 57 gridded cells over 87,578 detections at world zoom and switches
 to individual points when zoomed past level 6, with per-detection provenance on click.
@@ -111,8 +112,8 @@ Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 ## Tests
 
 ```bash
-cd backend  && uv run pytest       # 115 tests
-cd frontend && npm test            # 25 tests
+cd backend  && uv run pytest       # 125 tests
+cd frontend && npm test            # 31 tests
 
 cd backend  && uv run ruff check . && uv run mypy app
 cd frontend && npm run typecheck
@@ -141,8 +142,8 @@ coordinates and source codes are JetBrains Mono. Fire severity keeps its own sem
 | 2 | FIRMS client, resumable ingestion, normalization, availability | Complete |
 | 3 | Harmonization, event grouping, sensor-intelligence workspace | Complete |
 | 4 | Global fire map: aggregation, filters, search, hotspot provenance | Complete |
-| 5 | Historical burning calendar with drill-down | Next |
-| 6 | Analytics, baselines, anomaly engine, exposure screening | Planned |
+| 5 | Burning calendar: day/week/month/year buckets, coverage states, drill-down | Complete |
+| 6 | Analytics, baselines, anomaly engine, exposure screening | Next |
 | 7 | Reports/exports, alerts, AI assistant | Planned |
 | 8 | Validation, backtesting, performance, security hardening | Planned |
 | 9 | Production deployment and monitoring | Planned |

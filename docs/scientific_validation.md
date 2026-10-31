@@ -72,6 +72,17 @@ through 2026-08-31 while `MODIS_NRT` covered 2026-10-30, so a recent date is gen
 | Event grouping (scoped) | 587 estimated events, 158 seen by both sensors |
 | Store total | 87,578 detections, 0 synthetic |
 
+### Calendar verification (2026-10-31)
+
+| Check | Result |
+| --- | --- |
+| Range coverage | 7-day request returned 7 buckets (3 active, 4 unobserved) |
+| Reconciliation | Sum of bucket detections equals the range total (133,237) |
+| Sensor split | Per-bucket MODIS + VIIRS equals bucket detections |
+| Coverage states | Days before ingestion are `unobserved`, not zero; `empty` availability yields `quiet` |
+| Drill-down | Bucket 2026-10-29 returns 55,612 detections; the first page matches the bucket metrics |
+| Query cost | Day-level aggregation dropped from ~12.6 s to ~0.5 s after removing the wide subquery |
+
 ### Map verification (2026-10-31)
 
 | Check | Result |

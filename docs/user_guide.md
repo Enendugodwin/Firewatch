@@ -116,6 +116,21 @@ The map is the Phase 4 workspace.
   as non-fire (volcano, static land, offshore) say so explicitly.
 - **Period**: the header date range applies to the map, as it does everywhere else.
 
+## Burning Calendar
+
+The calendar answers "how much burning, when?" over the stored history.
+
+- **Granularity**: Day, week, month or year. Buckets always cover the whole selected period, with
+  no gaps: a day without detections still appears.
+- **Empty periods are labelled.** `quiet` means a source observed that period and reported no
+  detections — a real zero. `unobserved` (hatched) means no availability was recorded, so it is
+  not zero and is never counted as activity.
+- **Metric**: detections, FRP (summed over detections), or high-confidence detection count.
+- **Drill down**: select any cell or bar to see the detections behind it — time, sensor,
+  confidence, FRP — and click one for its full stored provenance. Buckets larger than 200
+  detections show the most recent rows and say so.
+- **Scope**: counts are detections, not fires, for the period selected in the header.
+
 ## Sensor Intelligence
 
 This is the Phase 3 workspace and the technical centrepiece of the first milestones.

@@ -22,9 +22,12 @@ export default defineConfig({
     port: WEB_PORT,
     strictPort: true,
     proxy: {
-      "/api": { target: API_TARGET, changeOrigin: true },
-      "/health": { target: API_TARGET, changeOrigin: true },
-      "/ready": { target: API_TARGET, changeOrigin: true },
+      // A pooled upstream socket can stall for seconds after the browser aborts
+      // a request (React StrictMode double-mounts do this in dev), so proxied
+      // calls get their own connection instead of reusing a poisoned one.
+      "/api": { target: API_TARGET, changeOrigin: true, agent: false },
+      "/health": { target: API_TARGET, changeOrigin: true, agent: false },
+      "/ready": { target: API_TARGET, changeOrigin: true, agent: false },
     },
   },
   preview: {

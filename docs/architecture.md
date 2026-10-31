@@ -110,7 +110,7 @@ raise `AppError("not_implemented")`, rendered as:
 
 ```json
 {"error": {"code": "not_implemented", "message": "…",
-           "details": {"current_phase": "Phase 4", "planned_for_phase": "Phase 5"},
+           "details": {"current_phase": "Phase 5", "planned_for_phase": "Phase 5"},
            "request_id": "…"}}
 ```
 

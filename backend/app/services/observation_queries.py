@@ -109,10 +109,16 @@ def search_observations(
     limit: int = 200,
     offset: int = 0,
 ) -> tuple[list[FireObservation], int]:
-    base = filters.apply(select(FireObservation))
-    total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+    # Count on the bare table: wrapping a full-column select in a subquery makes
+    # SQLite materialise every row before counting, which is seconds on 100k+.
+    total = (
+        session.scalar(filters.apply(select(func.count()).select_from(FireObservation))) or 0
+    )
     rows = session.scalars(
-        base.order_by(FireObservation.acquired_at.desc()).limit(limit).offset(offset)
+        filters.apply(select(FireObservation))
+        .order_by(FireObservation.acquired_at.desc())
+        .limit(limit)
+        .offset(offset)
     ).all()
     return list(rows), int(total)
 

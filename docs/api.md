@@ -101,6 +101,18 @@ Filters shared by `/fires`, `/fires/geojson` and `/fires/aggregate`: `bbox`, `st
 `end_date`, `sensor`, `satellite`, `min_frp`, `daynight`, `min_confidence` (`low|nominal|high`) and
 `synthetic`.
 
+### Calendar
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/calendar` | Required `start_date`, `end_date`; `granularity` day/week/month/year |
+| GET | `/calendar/drilldown` | `bucket_start` + `granularity`; returns the bucket plus its detections |
+
+Every bucket in the range is returned, including empty ones, with `state`
+(`active` / `quiet` / `unobserved`), per-day coverage counts from source availability, and six
+metrics: detections, MODIS, VIIRS, FRP sum, FRP max and high-confidence count. Filters are the same
+as `/fires` (`bbox`, `sensor`, `satellite`, `min_frp`, `daynight`, `min_confidence`, `synthetic`).
+
 ### Harmonization
 
 | Method | Path | Notes |
