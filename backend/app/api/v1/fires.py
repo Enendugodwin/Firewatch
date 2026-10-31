@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 from app.core.errors import AppError
 from app.db.models import FireObservation
 from app.db.session import get_session
+from app.schemas.map import AggregateResponse
 from app.schemas.observations import ObservationOut, ObservationPage
+from app.services.map_aggregation import aggregate_observations
 from app.services.observation_queries import (
     BBox,
     ObservationFilters,
@@ -30,6 +32,7 @@ def _filters(
     min_frp: float | None,
     daynight: str | None,
     synthetic: bool | None,
+    min_confidence: str | None = None,
 ) -> ObservationFilters:
     return ObservationFilters(
         bbox=BBox.parse(bbox) if bbox else None,
@@ -39,6 +42,7 @@ def _filters(
         satellite=satellite,
         min_frp=min_frp,
         daynight=daynight,
+        min_confidence=min_confidence,
         synthetic=synthetic,
     )
 
@@ -52,12 +56,15 @@ def search_fires(
     satellite: str | None = None,
     min_frp: float | None = Query(None, ge=0),
     daynight: str | None = Query(None, pattern="^[DdNn]$"),
+    min_confidence: str | None = Query(None, pattern="^(?i)(low|nominal|high)$"),
     synthetic: bool | None = Query(None, description="Filter labelled fixture data"),
     limit: int = Query(200, ge=1, le=5000),
     offset: int = Query(0, ge=0),
     session: Session = Depends(get_session),
 ) -> ObservationPage:
-    filters = _filters(bbox, start_date, end_date, sensor, satellite, min_frp, daynight, synthetic)
+    filters = _filters(
+        bbox, start_date, end_date, sensor, satellite, min_frp, daynight, synthetic, min_confidence
+    )
     rows, total = search_observations(session, filters, limit=limit, offset=offset)
     return ObservationPage(
         items=[ObservationOut(**observation_to_dict(row)) for row in rows],
@@ -102,6 +109,7 @@ def fires_geojson(
     satellite: str | None = None,
     min_frp: float | None = Query(None, ge=0),
     daynight: str | None = Query(None, pattern="^[DdNn]$"),
+    min_confidence: str | None = Query(None, pattern="^(?i)(low|nominal|high)$"),
     synthetic: bool | None = None,
     limit: int = Query(2000, ge=1, le=5000),
     session: Session = Depends(get_session),
@@ -111,7 +119,9 @@ def fires_geojson(
     server-side aggregation or vector tiles so the browser never receives the
     full historical dataset.
     """
-    filters = _filters(bbox, start_date, end_date, sensor, satellite, min_frp, daynight, synthetic)
+    filters = _filters(
+        bbox, start_date, end_date, sensor, satellite, min_frp, daynight, synthetic, min_confidence
+    )
     rows, total = search_observations(session, filters, limit=limit, offset=0)
     features = []
     for row in rows:
@@ -143,6 +153,38 @@ def fires_geojson(
             "limit": limit,
         },
     }
+
+
+@router.get(
+    "/aggregate",
+    response_model=AggregateResponse,
+    summary="Viewport aggregation for zoomed-out map views",
+)
+def aggregate_fires(
+    bbox: str = Query(..., description="west,south,east,north (required)"),
+    zoom: int = Query(3, ge=0, le=14),
+    start_date: date | None = None,
+    end_date: date | None = None,
+    sensor: str | None = Query(None, description="MODIS or VIIRS"),
+    satellite: str | None = None,
+    min_frp: float | None = Query(None, ge=0),
+    daynight: str | None = Query(None, pattern="^[DdNn]$"),
+    min_confidence: str | None = Query(None, pattern="^(?i)(low|nominal|high)$"),
+    synthetic: bool | None = None,
+    limit: int = Query(6000, ge=1, le=20000),
+    session: Session = Depends(get_session),
+) -> AggregateResponse:
+    """
+    Gridded counts so a world view never requests every stored detection.
+
+    ``count`` is a count of detections in that cell, not a count of fires.
+    """
+    area = BBox.parse(bbox)
+    filters = _filters(
+        bbox, start_date, end_date, sensor, satellite, min_frp, daynight, synthetic, min_confidence
+    )
+    result = aggregate_observations(session, filters, bbox=area, zoom=zoom, limit=limit)
+    return AggregateResponse(**result)
 
 
 @router.get("/{observation_id}", response_model=ObservationOut, summary="Observation details")

@@ -46,7 +46,7 @@ The specification names twelve services. They map onto modules of this monolith:
 | `firms_ingestion` | Phase 2 — implemented | `services/firms/`, `services/ingestion.py` |
 | `normalization` | Phase 2 — implemented | `services/normalization.py` |
 | `harmonization` | Phase 3 — implemented | `services/harmonization.py`, `services/events.py` |
-| `geospatial` | Phase 4 | `services/geospatial` |
+| `geospatial` | Phase 4 — implemented | `services/map_aggregation.py`, `services/gazetteer.py` |
 | `calendar` | Phase 5 | `services/calendar` |
 | `anomaly_engine` | Phase 6 | `services/anomalies` |
 | `exposure_engine` | Phase 6 | `services/exposure` |
@@ -76,6 +76,25 @@ separately from real observations; there is no code path that compares the two.
 
 **Scores are association scores.** The UI calls them that, stores every component, and never
 converts them into a probability of physical identity.
+
+## Phase 4 decisions worth knowing
+
+**The map never downloads the dataset.** Below zoom 6 the server returns gridded counts
+(`/fires/aggregate`), one row per cell with detection counts by sensor and the strongest FRP.
+Past zoom 6 the client requests bounded GeoJSON for the viewport, capped at 5,000 features and
+labelled `truncated` when the cap is hit. This is the difference between a map and a bulk export.
+
+**Cells are counts, not fires.** A cell's radius and colour encode how many detections fell inside
+it (and FRP only as cell metadata), so a single intense detection cannot recolour a whole cell or
+masquerade as one fire.
+
+**Search is offline.** `services/gazetteer.py` ships approximate country and city centroids plus
+`lat,lon` parsing, so geographic search needs no API key and no third-party geocoder. Results are
+navigation aids, not authoritative boundaries.
+
+**The basemap is optional and attributed.** An OSM raster layer is heavily desaturated and
+darkened to sit inside the orbital palette; turning it off leaves a pure dark field with the data.
+Tile failures degrade to the dark canvas rather than breaking the map.
 
 ## Foundation decisions worth knowing
 

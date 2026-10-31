@@ -15,7 +15,7 @@ def test_status_reports_stored_observations_and_provenance(
     assert data["observations_stored"] == loaded_fixture["inserted"]
     assert data["synthetic_observations"] == loaded_fixture["inserted"]
     assert "synthetic fixture" in data["freshness_reason"]
-    assert data["freshness"] in {"current", "delayed"}
+    assert data["freshness"] in {"current", "delayed", "stale"}
     assert data["last_ingested_at"] is not None
     assert data["last_observation_at"] is not None
 

@@ -53,11 +53,11 @@ def test_module_registry_covers_every_product_module(client: TestClient) -> None
 def test_only_delivered_modules_claim_readiness(client: TestClient) -> None:
     modules = {module["key"]: module for module in client.get("/api/v1/system/modules").json()}
 
-    # Phase 3 delivered the harmonization workspace; nothing beyond it may claim
+    # Delivered modules only. Nothing beyond the finished phases may claim
     # readiness until its own phase lands.
     assert modules["harmonization"]["status"] == "ready"
+    assert modules["fire-map"]["status"] == "ready"
     for key in (
-        "fire-map",
         "calendar",
         "analytics",
         "anomalies",

@@ -19,6 +19,7 @@ from app.api.v1 import (
     dashboard,
     exposure,
     fires,
+    geo,
     harmonization,
     regions,
     reports,
@@ -29,6 +30,7 @@ api_router = APIRouter()
 api_router.include_router(system.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(fires.router)
+api_router.include_router(geo.router)
 api_router.include_router(calendar.router)
 api_router.include_router(harmonization.router)
 api_router.include_router(anomalies.router)

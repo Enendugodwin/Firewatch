@@ -33,6 +33,11 @@ are labelled as gaps. This document records what is verified and what each later
 | Scope recorded | Every algorithm run stores bbox and dates; the UI states them | Pass |
 | Provenance isolation | Synthetic and real observations are never harmonized together | Pass |
 | UI surfaces the empty state | Tests assert the reason comes from the API, not a placeholder | Pass |
+| Aggregation reconciles | Cell counts sum to the total and split correctly by sensor | Pass |
+| Aggregation respects filters | `sensor=MODIS` yields zero VIIRS counts; confidence ladder applied | Pass |
+| Zoom threshold | Aggregation below z6, bounded points above it; trimming reported | Pass |
+| Map never bulk-exports | Point requests are capped and labelled `truncated` | Pass |
+| Gazetteer safety | Coordinate parsing rejects out-of-range pairs; no result is invented | Pass |
 
 Totals: **102 backend tests, 14 frontend tests**, Ruff and mypy clean, strict TypeScript build.
 
@@ -66,6 +71,15 @@ through 2026-08-31 while `MODIS_NRT` covered 2026-10-30, so a recent date is gen
 | Harmonization (scoped) | 4,100 observations → 659 candidate pairs, 29 probable, 157 possible |
 | Event grouping (scoped) | 587 estimated events, 158 seen by both sensors |
 | Store total | 87,578 detections, 0 synthetic |
+
+### Map verification (2026-10-31)
+
+| Check | Result |
+| --- | --- |
+| World view | 57 cells covering 87,578 detections at 22.5° grid |
+| Zoomed view (Lagos) | 9 individual detections in the viewport, each inspectable |
+| Inspection | Click returns coordinates, UTC time, confidence 81 (high), brightness 325.8 K, FRP 22.01 MW from the stored record |
+| Basemap failure | Data layers and inspection continue without tiles |
 
 ## Required before a later-phase claim
 

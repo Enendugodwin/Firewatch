@@ -93,6 +93,25 @@ is deliberate: the console never shows a number it cannot trace to stored NASA o
 The console is disabled when `FIRMS_MAP_KEY` is unset; the panel explains why rather than pretending
 to retrieve. Recent runs below it list every attempt with its counts and status.
 
+## Global Fire Map
+
+The map is the Phase 4 workspace.
+
+- **Zoom matters.** Below zoom 6 the map shows gridded cells: each dot is a number of detections
+  in that cell, not a fire. Past zoom 6 it shows individual detections. The status strip tells you
+  which mode you are in and how many detections are in view.
+- **Colour** encodes FRP (yellow → orange → red). Dot outlines identify the sensor: blue for MODIS,
+  green for VIIRS. Cells are coloured by detection density.
+- **Filters**: MODIS/VIIRS toggles, minimum FRP, confidence floor, day/night, optional density
+  heatmap, optional basemap.
+- **Search**: type a country, a city or `lat,lon` and press Enter to fly there. The list offers
+  alternative matches.
+- **Inspect**: click any detection to open the panel with coordinates, UTC acquisition time,
+  sensor and satellite, raw confidence plus category, brightness and channel, FRP, scan/track,
+  day/night, product/version and the observation fingerprint. Thermal anomalies flagged by FIRMS
+  as non-fire (volcano, static land, offshore) say so explicitly.
+- **Period**: the header date range applies to the map, as it does everywhere else.
+
 ## Sensor Intelligence
 
 This is the Phase 3 workspace and the technical centrepiece of the first milestones.

@@ -16,6 +16,13 @@ from app.db.models import (
     ObservationMatch,
 )
 
+#: Categories at or above each minimum. Unknown categories are never upgraded.
+CONFIDENCE_LADDER: dict[str, tuple[str, ...]] = {
+    "low": ("low", "nominal", "high"),
+    "nominal": ("nominal", "high"),
+    "high": ("high",),
+}
+
 
 @dataclass(frozen=True)
 class BBox:
@@ -59,6 +66,7 @@ class ObservationFilters:
     satellite: str | None = None
     min_frp: float | None = None
     daynight: str | None = None
+    min_confidence: str | None = None
     synthetic: bool | None = None
 
     def apply(self, stmt: Select) -> Select:
@@ -85,6 +93,10 @@ class ObservationFilters:
             stmt = stmt.where(FireObservation.frp_mw >= self.min_frp)
         if self.daynight:
             stmt = stmt.where(FireObservation.daynight == self.daynight.upper()[:1])
+        if self.min_confidence:
+            allowed = CONFIDENCE_LADDER.get(self.min_confidence.lower())
+            if allowed:
+                stmt = stmt.where(FireObservation.confidence_category.in_(allowed))
         if self.synthetic is not None:
             stmt = stmt.where(FireObservation.is_synthetic.is_(self.synthetic))
         return stmt

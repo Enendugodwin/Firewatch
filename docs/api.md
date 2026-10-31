@@ -89,6 +89,18 @@ These routes exist so the contract is fixed before implementation. All currently
 | GET | `/fires/sources` | Counts and last-seen per product |
 | GET | `/fires/geojson` | Bounded FeatureCollection plus `truncated`/`total` |
 
+### Map
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/fires/aggregate` | Required `bbox`, `zoom` 0–14; returns cells with counts by sensor, max FRP, cell size and total |
+| GET | `/fires/geojson` | Bounded FeatureCollection (≤5,000) with `truncated`/`total` |
+| GET | `/geo/search` | Offline country/city centroids and `lat,lon` parsing |
+
+Filters shared by `/fires`, `/fires/geojson` and `/fires/aggregate`: `bbox`, `start_date`,
+`end_date`, `sensor`, `satellite`, `min_frp`, `daynight`, `min_confidence` (`low|nominal|high`) and
+`synthetic`.
+
 ### Harmonization
 
 | Method | Path | Notes |

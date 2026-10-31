@@ -6,10 +6,12 @@ import type {
   HarmonizationSummary,
   MatchPage,
   ModuleStatusItem,
+  Observation,
   SourceOut,
   SourceHealth,
   SystemStatus,
 } from "@/types/api";
+import type { AggregateResponse } from "@/lib/mapApi";
 
 export const MODULES: ModuleStatusItem[] = [
   {
@@ -232,13 +234,51 @@ function json(body: unknown, status = 200) {
   });
 }
 
+export interface MockMap {
+  cells: AggregateResponse;
+  observation: Observation;
+}
+
 export interface MockOptions {
   status?: SystemStatus;
   summary?: HarmonizationSummary;
   matches?: MatchPage;
   events?: FireEventOut[];
   dashboard?: DashboardOverview;
+  map?: MockMap;
 }
+
+const EMPTY_GEOMETRY = {
+  type: "FeatureCollection" as const,
+  features: [],
+  properties: { returned: 0, total: 0, truncated: false, limit: 5000 },
+};
+
+const EMPTY_CELLS: AggregateResponse = {
+  cells: [],
+  cell_degrees: 11.25,
+  zoom: 2,
+  total_detections: 0,
+  returned_cells: 0,
+  truncated: false,
+  bbox: [-180, -85, 180, 85],
+};
+
+const PLACE_RESULTS = {
+  query: "nigeria",
+  count: 1,
+  results: [
+    {
+      name: "Nigeria",
+      kind: "country",
+      latitude: 9.08,
+      longitude: 8.68,
+      iso: "NG",
+      zoom: 6,
+    },
+  ],
+  note: "Approximate centroids for map navigation.",
+};
 
 /** Install a fetch mock covering every endpoint the shell and pages use. */
 export function installFetchMock(options: MockOptions = {}) {
@@ -247,9 +287,15 @@ export function installFetchMock(options: MockOptions = {}) {
   const matches = options.matches ?? { items: [], total: 0, limit: 50, offset: 0 };
   const events = options.events ?? [];
   const dashboard = options.dashboard ?? EMPTY_DASHBOARD;
+  const mapCells = options.map?.cells ?? EMPTY_CELLS;
+  const mapObservation = options.map?.observation;
 
   const mock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
+    if (url.includes("/api/v1/fires/aggregate")) return json(mapCells);
+    if (url.includes("/api/v1/fires/geojson")) return json(EMPTY_GEOMETRY);
+    if (url.includes("/api/v1/geo/search")) return json(PLACE_RESULTS);
+    if (url.includes("/api/v1/fires/") && mapObservation) return json(mapObservation);
     if (url.includes("/api/v1/system/status")) return json(status);
     if (url.includes("/api/v1/system/modules")) return json(MODULES);
     if (url.includes("/api/v1/system/sources")) return json(SOURCES);

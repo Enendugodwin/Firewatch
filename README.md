@@ -8,9 +8,9 @@ them per sensor family, associates observations across sensors, groups estimated
 exposes all of it through a dark analytical console.
 
 > [!IMPORTANT]
-> **Status: Phase 3 of 9 — Harmonization.** Ingestion, normalization, cross-sensor association and
-> event grouping are working against the live NASA FIRMS API. This workstation holds ~87,600 real
-> detections. The map (Phase 4), calendar (Phase 5) and intelligence layers (Phase 6+) remain
+> **Status: Phase 4 of 9 — Global Fire Map.** Ingestion, normalization, harmonization, event
+> grouping and the interactive map are working against the live NASA FIRMS API. This workstation
+> holds ~87,600 real detections. The calendar (Phase 5) and intelligence layers (Phase 6+) remain
 > scaffolding and say so.
 >
 > Satellite thermal anomalies are detections, not confirmed wildfires. They may be false
@@ -29,10 +29,14 @@ exposes all of it through a dark analytical console.
 | Availability: coverage-window parsing (observed vs before/after coverage, never "zero") | Working |
 | Harmonization: `S = wₜT + wₛG + w_fF`, probable/possible/rejected with full evidence | Working |
 | Event grouping: spatiotemporal DBSCAN, per-event provenance and FRP aggregates | Working |
-| APIs: `/fires`, `/harmonization/*`, `/admin/ingestion/*`, `/dashboard` | Working |
+| Map: MapLibre globe, viewport aggregation, FRP/confidence/day-night filters, inspection | Working |
+| APIs: `/fires`, `/fires/aggregate`, `/geo/search`, `/harmonization/*`, `/admin/ingestion/*` | Working |
 | Console: overview aggregates, sensor-intelligence workspace, ingestion console | Working |
 | Design system, shell, command palette, freshness, synthetic-data labelling | Working |
-| Map, calendar, anomalies, regions, exposure, reports, AI assistant, auth | Phase 4–8 |
+| Calendar, anomalies, regions, exposure, reports, AI assistant, auth | Phase 5–8 |
+
+Verified live: the map serves 57 gridded cells over 87,578 detections at world zoom and switches
+to individual points when zoomed past level 6, with per-detection provenance on click.
 
 Live verification on 2026-10-30: `VIIRS_SNPP_NRT` and `MODIS_NRT` ingested for Nigeria
 (2.5,4.0,14.7,13.9) across 2026-10-29 → 2026-10-30; 4,100 observations in scope produced 659
@@ -74,7 +78,11 @@ everywhere it appears. Clear it with `python -m scripts.clear_synthetic`.
    bounding box; run it. Partitions are recorded, so a repeat run resumes rather than duplicates.
 2. **Sensor Intelligence**: totals by sensor, cross-sensor associations with score components,
    inspectable observation ids, and estimated events with extent and FRP aggregates.
-3. **Re-run associations** recomputes for the period selected in the header and records an
+3. **Global Fire Map**: pan and zoom. Zoomed-out views request gridded counts (never the whole
+   dataset); past zoom 6 the map requests individual detections. Filter by sensor, minimum FRP,
+   confidence and day/night; search a country, city or `lat,lon`; click a detection to inspect its
+   full provenance.
+4. **Re-run associations** recomputes for the period selected in the header and records an
    `algorithm_run` with its scope and parameters.
 
 ```bash
@@ -103,8 +111,8 @@ Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 ## Tests
 
 ```bash
-cd backend  && uv run pytest       # 102 tests
-cd frontend && npm test            # 14 tests
+cd backend  && uv run pytest       # 115 tests
+cd frontend && npm test            # 22 tests
 
 cd backend  && uv run ruff check . && uv run mypy app
 cd frontend && npm run typecheck
@@ -113,7 +121,8 @@ cd frontend && npm run typecheck
 Backend coverage includes normalization (per-sensor semantics, rejection), the FIRMS client
 (retries, auth, key redaction, availability shapes), ingestion (dedup, resume, provenance),
 harmonization (scoring, thresholds, cross-family only, idempotence), event clustering
-(determinism, provenance) and the HTTP surface (envelopes, filters, pagination, 501s).
+(determinism, provenance), map aggregation (cell reconciliation, zoom, filters) and the HTTP
+surface (envelopes, filters, pagination, 501s).
 
 ## Design language
 
@@ -131,8 +140,8 @@ coordinates and source codes are JetBrains Mono. Fire severity keeps its own sem
 | 1 | Foundation: shell, API, database, design system, navigation | Complete |
 | 2 | FIRMS client, resumable ingestion, normalization, availability | Complete |
 | 3 | Harmonization, event grouping, sensor-intelligence workspace | Complete |
-| 4 | Global fire map with MapLibre, filters, hotspot provenance | Next |
-| 5 | Historical burning calendar with drill-down | Planned |
+| 4 | Global fire map: aggregation, filters, search, hotspot provenance | Complete |
+| 5 | Historical burning calendar with drill-down | Next |
 | 6 | Analytics, baselines, anomaly engine, exposure screening | Planned |
 | 7 | Reports/exports, alerts, AI assistant | Planned |
 | 8 | Validation, backtesting, performance, security hardening | Planned |
