@@ -122,6 +122,12 @@ The calendar answers "how much burning, when?" over the stored history.
 
 - **Granularity**: Day, week, month or year. Buckets always cover the whole selected period, with
   no gaps: a day without detections still appears.
+- **Months**: in Day view a month strip lists every month that holds data, with `‹ ›` to step
+  through them and *Header range* to return to the header period. Selecting a month scopes the grid,
+  the stat tiles and the drill-down to that month.
+- **Layout**: months render as wall-calendar grids (Monday-first, whole weeks, day numbers plus the
+  count per day). Selecting a cell opens the drill-down in a right-hand drawer so the grid keeps the
+  full width.
 - **Empty periods are labelled.** `quiet` means a source observed that period and reported no
   detections — a real zero. `unobserved` (hatched) means no availability was recorded, so it is
   not zero and is never counted as activity.
@@ -129,6 +135,7 @@ The calendar answers "how much burning, when?" over the stored history.
 - **Drill down**: select any cell or bar to see the detections behind it — time, sensor,
   confidence, FRP — and click one for its full stored provenance. Buckets larger than 200
   detections show the most recent rows and say so.
+- **Export**: the drill-down and the query table both offer CSV downloads of the exact scope.
 - **Scope**: counts are detections, not fires, for the period selected in the header.
 
 ## Data Query (Intelligence)

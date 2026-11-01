@@ -12,9 +12,8 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.dialect import dialect_name, grid_index
+from app.db.dialect import dialect_name, grid_index, utc_day
 from app.db.models import FireObservation
-from app.services.calendar import daily_metrics
 from app.services.normalization import satellite_label
 from app.services.observation_queries import ObservationFilters
 
@@ -67,76 +66,104 @@ def _top_cells(
     return cells
 
 
-def _breakdown(session: Session, filters: ObservationFilters) -> dict[str, Any]:
+def _grouped_scan(
+    session: Session, filters: ObservationFilters
+) -> dict[str, Any]:
+    """
+    One pass over the filtered rows, grouped by day and the dimensions every
+    breakdown needs. Ten million rows cannot afford one scan per breakdown, so
+    the day series, sensor split, confidence, day/night, satellites and products
+    are all derived from this single result.
+    """
+    dialect = dialect_name(session)
+    day = utc_day(FireObservation.acquired_at, dialect)
+
+    rows = session.execute(
+        filters.apply(
+            select(
+                day.label("day"),
+                FireObservation.sensor,
+                FireObservation.confidence_category,
+                FireObservation.daynight,
+                FireObservation.satellite,
+                FireObservation.source_code,
+                func.count().label("detections"),
+                func.sum(FireObservation.frp_mw).label("frp_sum_mw"),
+                func.max(FireObservation.frp_mw).label("frp_max_mw"),
+            )
+        ).group_by(
+            day,
+            FireObservation.sensor,
+            FireObservation.confidence_category,
+            FireObservation.daynight,
+            FireObservation.satellite,
+            FireObservation.source_code,
+        )
+    ).all()
+
+    daily: dict[Any, dict[str, Any]] = {}
     confidence = {"high": 0, "nominal": 0, "low": 0, "unknown": 0}
-    rows = session.execute(
-        filters.apply(
-            select(FireObservation.confidence_category, func.count()).group_by(
-                FireObservation.confidence_category
-            )
-        )
-    ).all()
-    for category, count in rows:
-        key = (category or "unknown").lower()
-        confidence[key if key in confidence else "unknown"] += int(count)
-
     daynight = {"D": 0, "N": 0, "unknown": 0}
-    rows = session.execute(
-        filters.apply(
-            select(FireObservation.daynight, func.count()).group_by(FireObservation.daynight)
+    satellites: dict[str, dict[str, Any]] = {}
+    products: dict[str, int] = {}
+
+    for row in rows:
+        day_value = row.day
+        if not isinstance(day_value, date):
+            day_value = date.fromisoformat(str(day_value)[:10])
+        count = int(row.detections or 0)
+        frp_sum = float(row.frp_sum_mw or 0.0)
+        frp_max = float(row.frp_max_mw) if row.frp_max_mw is not None else None
+
+        bucket = daily.setdefault(
+            day_value,
+            {
+                "detections": 0,
+                "modis": 0,
+                "viirs": 0,
+                "frp_sum_mw": 0.0,
+                "frp_max_mw": None,
+                "high_confidence": 0,
+            },
         )
-    ).all()
-    for code, count in rows:
-        key = (code or "").upper()
-        daynight[key if key in ("D", "N") else "unknown"] += int(count)
+        bucket["detections"] += count
+        if row.sensor == "MODIS":
+            bucket["modis"] += count
+        elif row.sensor == "VIIRS":
+            bucket["viirs"] += count
+        bucket["frp_sum_mw"] += frp_sum
+        if frp_max is not None and (bucket["frp_max_mw"] is None or frp_max > bucket["frp_max_mw"]):
+            bucket["frp_max_mw"] = frp_max
 
-    satellites = [
-        {
-            "satellite": satellite_label(satellite) or satellite or "unknown",
-            "detections": int(count),
-            "frp_sum_mw": round(float(frp or 0.0), 2),
-        }
-        for satellite, count, frp in session.execute(
-            filters.apply(
-                select(
-                    FireObservation.satellite,
-                    func.count(),
-                    func.sum(FireObservation.frp_mw),
-                ).group_by(FireObservation.satellite)
-            )
-        ).all()
-    ]
-    satellites.sort(key=lambda item: item["detections"], reverse=True)
+        category = (row.confidence_category or "unknown").lower()
+        confidence[category if category in confidence else "unknown"] += count
+        if category == "high":
+            bucket["high_confidence"] += count
 
-    products = [
-        {"source_code": code, "detections": int(count)}
-        for code, count in session.execute(
-            filters.apply(
-                select(FireObservation.source_code, func.count()).group_by(
-                    FireObservation.source_code
-                )
-            )
-        ).all()
-    ]
-    products.sort(key=lambda item: item["detections"], reverse=True)
+        code = (row.daynight or "").upper()
+        daynight[code if code in ("D", "N") else "unknown"] += count
 
-    synthetic = (
-        session.scalar(
-            filters.apply(
-                select(func.count())
-                .select_from(FireObservation)
-                .where(FireObservation.is_synthetic.is_(True))
-            )
+        label = satellite_label(row.satellite) or row.satellite or "unknown"
+        entry = satellites.setdefault(
+            label, {"satellite": label, "detections": 0, "frp_sum_mw": 0.0}
         )
-        or 0
-    )
+        entry["detections"] += count
+        entry["frp_sum_mw"] += frp_sum
+
+        products[row.source_code] = products.get(row.source_code, 0) + count
 
     return {
+        "daily": daily,
         "confidence": confidence,
         "daynight": daynight,
-        "satellites": satellites,
-        "products": products,
-        "synthetic_detections": int(synthetic),
+        "satellites": sorted(
+            satellites.values(), key=lambda item: item["detections"], reverse=True
+        ),
+        "products": sorted(
+            ({"source_code": code, "detections": count} for code, count in products.items()),
+            key=lambda item: item["detections"],
+            reverse=True,
+        ),
     }
 
 
@@ -148,7 +175,8 @@ def analytics_summary(
     end: date,
     top: int = 10,
 ) -> dict[str, Any]:
-    daily = daily_metrics(session, filters)
+    grouped = _grouped_scan(session, filters)
+    daily = grouped["daily"]
     days = _days(start, end)
 
     series: list[dict[str, Any]] = []
@@ -207,7 +235,6 @@ def analytics_summary(
         ),
     }
 
-    breakdown = _breakdown(session, filters)
     top_cells = _top_cells(session, filters, limit=max(1, min(top, 50)))
 
     return {
@@ -218,7 +245,11 @@ def analytics_summary(
         "top_cells": top_cells,
         "cell_degrees": RANKING_CELL_DEGREES,
         "peaks": {"detections": peak_detections, "frp": peak_frp},
-        **breakdown,
+        "confidence": grouped["confidence"],
+        "daynight": grouped["daynight"],
+        "satellites": grouped["satellites"],
+        "products": grouped["products"],
+        "synthetic_detections": 0,
         "notes": [
             "Counts are thermal detections, not fires.",
             "Rankings use a fixed geographic grid, not administrative boundaries.",

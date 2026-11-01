@@ -45,6 +45,13 @@ Notes:
   offers it, and the capability report keeps saying "not built" otherwise.
 - The local cluster is a normal user process: it does not survive a reboot. Run the start
   script (or register it as a scheduled task) before starting the API.
+- Start it with `postgres.exe` (the script does this), not `pg_ctl`. On this host a
+  `pg_ctl`-started postmaster had child processes die with `0xC0000142`
+  (`STATUS_DLL_INIT_FAILED`) under load; the directly launched server has run for hours.
+- `migrations/0005` adds a covering index on `(UTC day, sensor, confidence, daynight,
+  satellite, source_code) INCLUDE (frp_mw)` for PostgreSQL. Analytics, the calendar, the
+  anomaly engine and reports all aggregate by day, and on ~9 M rows that index turns a
+  ~15 s heap scan into an index-only scan.
 - SQLite connections now use WAL and a 30 s busy timeout, which removes the "database is
   locked" failures seen when the UI polled during a bulk ingestion. On PostgreSQL the
   problem does not exist.

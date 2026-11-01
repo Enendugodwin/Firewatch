@@ -23,7 +23,18 @@ if (-not (Test-Path "$DataDir\PG_VERSION")) {
 }
 
 $log = Join-Path $DataDir "..\server.log"
-& "$PgHome\bin\pg_ctl.exe" -D $DataDir -l $log -o "-p $Port -c listen_addresses=127.0.0.1" start
 
-Start-Sleep -Seconds 3
+# Start postgres.exe directly, not through pg_ctl. On this Windows host pg_ctl
+# yielded a postmaster whose child processes died with 0xC0000142
+# (STATUS_DLL_INIT_FAILED) under load; the same server started this way runs for
+# hours. Keep the launcher in sync with how the cluster is actually run.
+$arguments = @("-D", $DataDir, "-p", "$Port")
+$process = Start-Process -FilePath "$PgHome\bin\postgres.exe" -ArgumentList $arguments `
+    -RedirectStandardOutput $log -RedirectStandardError "$DataDir\..\server.err" `
+    -WindowStyle Hidden -PassThru
+
+Start-Sleep -Seconds 5
+if ($process.HasExited) {
+    throw "PostgreSQL exited immediately (code $($process.ExitCode)); see $log"
+}
 & "$PgHome\bin\psql.exe" -h 127.0.0.1 -p $Port -U firewatch -d postgres -tAc "select 'postgres ' || version();"

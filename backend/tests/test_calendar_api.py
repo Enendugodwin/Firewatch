@@ -260,3 +260,33 @@ def test_bucket_helpers_cover_the_range() -> None:
         assert getattr(error, "code", "") == "bad_request"
     else:  # pragma: no cover - the call must raise
         raise AssertionError("expected the span guard to reject a 4000-day range")
+
+
+def test_months_endpoint_lists_only_months_with_data(
+    client: TestClient, loaded_fixture: dict
+) -> None:
+    body = client.get(
+        "/api/v1/calendar/months",
+        params={
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31",
+            "synthetic": "true",
+        },
+    ).json()
+
+    assert len(body) == 1
+    month = body[0]
+    assert month["month"] == "2026-10"
+    assert month["detections"] == loaded_fixture["inserted"]
+    assert month["active_days"] == 2
+    assert month["observed_days"] >= 2
+    assert month["start"] == "2026-10-01"
+    assert month["end"] == "2026-10-31"
+
+
+def test_months_endpoint_is_empty_without_data(client: TestClient) -> None:
+    body = client.get(
+        "/api/v1/calendar/months",
+        params={"start_date": "2020-01-01", "end_date": "2020-12-31"},
+    ).json()
+    assert body == []
