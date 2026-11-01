@@ -10,9 +10,15 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.db.session import get_session
-from app.schemas.calendar import CalendarBucket, CalendarDrilldown, CalendarResponse
+from app.schemas.calendar import (
+    CalendarBucket,
+    CalendarDrilldown,
+    CalendarMonth,
+    CalendarResponse,
+)
 from app.schemas.observations import ObservationOut
 from app.services import calendar as calendar_service
+from app.services.anomalies import observed_days
 from app.services.observation_queries import (
     BBox,
     ObservationFilters,
@@ -91,6 +97,54 @@ def calendar_activity(
         granularity=parsed_granularity,
     )
     return CalendarResponse(**result)
+
+
+@router.get(
+    "/months",
+    response_model=list[CalendarMonth],
+    summary="Months that hold data, for the calendar month picker",
+)
+def calendar_months(
+    start_date: date = Query(..., description="First day of the search window (UTC)"),
+    end_date: date = Query(..., description="Last day of the search window (UTC)"),
+    synthetic: bool | None = Query(None, description="Filter labelled fixture data"),
+    session: Session = Depends(get_session),
+) -> list[CalendarMonth]:
+    """
+    Group the stored days by month so the UI can offer only months that exist,
+    with their totals and how many days a source actually observed.
+    """
+    calendar_service.validate_span(start_date, end_date)
+    filters = _filters(None, None, None, None, None, None, synthetic, start_date, end_date)
+    daily = calendar_service.daily_metrics(session, filters)
+    observed = observed_days(session, start_date, end_date, None)
+
+    months: dict[str, CalendarMonth] = {}
+    for day, metrics in daily.items():
+        key = day.strftime("%Y-%m")
+        start = day.replace(day=1)
+        end = calendar_service.bucket_for(start, "month").end
+        entry = months.get(key)
+        if entry is None:
+            entry = CalendarMonth(
+                month=key,
+                start=start,
+                end=end,
+                detections=0,
+                active_days=0,
+                observed_days=0,
+            )
+            months[key] = entry
+        entry.detections += int(metrics.get("detections", 0))
+        entry.active_days += 1
+
+    for day in observed:
+        key = day.strftime("%Y-%m")
+        entry = months.get(key)
+        if entry is not None:
+            entry.observed_days += 1
+
+    return sorted(months.values(), key=lambda item: item.month)
 
 
 def _bucket_payload(

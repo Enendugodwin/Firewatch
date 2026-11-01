@@ -540,6 +540,18 @@ export function installFetchMock(options: MockOptions = {}) {
     }
     if (url.includes("/api/v1/analytics/summary")) return json(analytics);
     if (/\/api\/v1\/anomalies(\?|$)/.test(url)) return json(anomalies);
+    if (url.includes("/api/v1/calendar/months")) {
+      return json([
+        {
+          month: "2026-10",
+          start: "2026-10-01",
+          end: "2026-10-31",
+          detections: 420,
+          active_days: 2,
+          observed_days: 3,
+        },
+      ]);
+    }
     if (url.includes("/api/v1/calendar/drilldown")) {
       // Answer for the bucket that was actually clicked, not a fixed one.
       const requested = new URL(url, "http://localhost").searchParams.get("bucket_start");

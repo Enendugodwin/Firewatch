@@ -104,7 +104,11 @@ export function CalendarHeat({
   const today = todayUtc();
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div>
+      <div
+        className="grid justify-center gap-5"
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(320px, 720px))" }}
+      >
       {groups.map((group) => (
         <section
           key={group.key}
@@ -206,8 +210,10 @@ export function CalendarHeat({
         </section>
       ))}
 
+      </div>
+
       {granularity === "day" ? (
-        <p className="lg:col-span-2 text-3xs font-light leading-relaxed text-faint">
+        <p className="mt-3 text-center text-3xs font-light leading-relaxed text-faint">
           Each square is one UTC day. Shading follows {metric === "frp" ? "FRP" : metric.replace("_", " ")};
           hatched days have no source availability and are never counted as zero. Today is outlined in
           blue.

@@ -49,6 +49,15 @@ export interface CalendarResponse {
   notes: string[];
 }
 
+export interface CalendarMonthOption {
+  month: string;
+  start: string;
+  end: string;
+  detections: number;
+  active_days: number;
+  observed_days: number;
+}
+
 export interface CalendarDrilldown {
   bucket: CalendarBucket;
   total: number;
@@ -105,6 +114,17 @@ export function calendarParams(query: CalendarQuery, extra: Record<string, strin
   if (query.synthetic !== undefined) params.set("synthetic", String(query.synthetic));
   for (const [key, value] of Object.entries(extra)) params.set(key, String(value));
   return params;
+}
+
+export function fetchCalendarMonths(start: string, end: string, signal?: AbortSignal) {
+  const params = new URLSearchParams({
+    start_date: start,
+    end_date: end,
+    synthetic: "false",
+  });
+  return apiFetch<CalendarMonthOption[]>(`/api/v1/calendar/months?${params.toString()}`, {
+    signal,
+  });
 }
 
 export function fetchCalendar(query: CalendarQuery, signal?: AbortSignal) {

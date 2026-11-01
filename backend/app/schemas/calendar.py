@@ -68,3 +68,14 @@ class CalendarDrilldown(BaseModel):
     returned: int
     limit: int
     items: list[ObservationOut]
+
+
+class CalendarMonth(BaseModel):
+    """A month with data, for the calendar's month picker."""
+
+    month: str = Field(description="YYYY-MM")
+    start: date
+    end: date
+    detections: int
+    active_days: int
+    observed_days: int
