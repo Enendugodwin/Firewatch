@@ -32,7 +32,15 @@ def build_report(
     top: int = 10,
 ) -> dict[str, Any]:
     analytics = analytics_summary(session, filters, start=start, end=end, top=top)
-    anomalies = detect_anomalies(session, filters, start=start, end=end)
+    # Reuse the series the analytics pass just produced: no second full scan.
+    daily = {
+        date.fromisoformat(str(point["date"])[:10]): {
+            "detections": point["detections"],
+            "frp_sum_mw": point["frp_sum_mw"],
+        }
+        for point in analytics["series"]
+    }
+    anomalies = detect_anomalies(session, filters, start=start, end=end, daily=daily)
 
     matches_total = session.scalar(select(func.count()).select_from(ObservationMatch)) or 0
     probable = (

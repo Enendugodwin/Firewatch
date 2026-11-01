@@ -128,6 +128,7 @@ def detect_anomalies(
     min_window_days: int = DEFAULT_MIN_WINDOW_DAYS,
     z_threshold: float = DEFAULT_Z_THRESHOLD,
     metric: str = "detections",
+    daily: dict[date, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     baseline_days = max(1, min(baseline_days, 365))
     min_baseline_days = max(2, min(min_baseline_days, baseline_days))
@@ -135,7 +136,9 @@ def detect_anomalies(
     metric = "frp_sum_mw" if metric == "frp" else "detections"
 
     history_start = start - timedelta(days=baseline_days + 1)
-    daily = daily_metrics(session, filters)
+    # Reports already have the day series; reuse it instead of scanning twice.
+    if daily is None:
+        daily = daily_metrics(session, filters)
     observed = observed_days(session, history_start, end, filters.sensor)
 
     method = {
