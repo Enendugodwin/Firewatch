@@ -38,7 +38,7 @@ def _bar(fraction: float) -> str:
 
 
 def snapshot(start: date, end: date, chunk_days: int, sources: int) -> str:
-    windows = _windows(start, end, chunk_days)
+    windows = set(_windows(start, end, chunk_days))
     expected = len(windows) * sources
 
     with session_scope() as session:
@@ -50,10 +50,7 @@ def snapshot(start: date, end: date, chunk_days: int, sources: int) -> str:
                 func.sum(IngestionPartition.records_received),
             )
             .join(DataSource, DataSource.id == IngestionPartition.source_id)
-            .where(
-                IngestionPartition.date_start >= start,
-                IngestionPartition.date_start <= end,
-            )
+            .where(IngestionPartition.date_start.in_(sorted(windows)))
             .group_by(DataSource.source_code, IngestionPartition.status)
         ).all()
 
@@ -89,7 +86,7 @@ def snapshot(start: date, end: date, chunk_days: int, sources: int) -> str:
     completed = sum(entry["succeeded"] for entry in per_source.values())
     failed = sum(entry["other"] for entry in per_source.values())
     inserted = sum(entry["rows"] for entry in per_source.values())
-    fraction = completed / expected if expected else 0.0
+    fraction = min(1.0, completed / expected) if expected else 0.0
 
     elapsed = ""
     eta = ""

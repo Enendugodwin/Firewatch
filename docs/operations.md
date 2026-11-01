@@ -56,6 +56,22 @@ Notes:
   locked" failures seen when the UI polled during a bulk ingestion. On PostgreSQL the
   problem does not exist.
 
+## Start and stop
+
+From the repository root:
+
+```bat
+start.bat     :: PostgreSQL (if needed), API on 8200, web on 5273
+stop.bat      :: stops web, API and PostgreSQL
+stop.bat -KeepDatabase
+```
+
+Both are thin wrappers around `scripts\start_stack.ps1` and
+`scripts\stop_stack.ps1`. The start script waits for `/ready` and the web root
+before returning, writes pid files and logs under `logs\`, and launches the
+servers through WMI so they are not children of the console that started them —
+a console child kept `cmd.exe` waiting until the server exited.
+
 ## Backfilling more than five days
 
 The API caps one request at five days, so a long backfill is a resumable loop of

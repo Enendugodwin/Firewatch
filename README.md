@@ -57,6 +57,9 @@ estimate (~7.1 GB for a full four-product day, ~3.7 GB at the observed rate).
 
 ## Quick start (local)
 
+Prefer one click: `start.bat` brings up PostgreSQL, the API and the web app; `stop.bat`
+shuts them down. See [docs/operations.md](docs/operations.md#start-and-stop).
+
 Requires **Python 3.11+**, **[uv](https://docs.astral.sh/uv/)**, **Node 20+**.
 
 ```bash
