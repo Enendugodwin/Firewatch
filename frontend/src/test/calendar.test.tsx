@@ -119,7 +119,9 @@ describe("calendar helpers", () => {
 
     expect(groups).toHaveLength(2);
     expect(groups[0]!.key).toBe("2026-10");
-    expect(groups[0]!.weeks).toHaveLength(1);
+    // A wall-calendar grid is always whole weeks; short months are padded.
+    expect(groups[0]!.weeks.length).toBeGreaterThanOrEqual(5);
+    expect(groups[0]!.weeks[0]).toHaveLength(7);
     // 2026-10-26 is a Monday, 2026-10-27 a Tuesday.
     expect(groups[0]!.weeks[0]![0]?.start).toBe("2026-10-26");
     expect(groups[0]!.weeks[0]![1]?.start).toBe("2026-10-27");
