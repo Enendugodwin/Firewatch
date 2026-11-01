@@ -21,6 +21,7 @@ from sqlalchemy import Select, case, func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
+from app.db.dialect import dialect_name, utc_day
 from app.db.models import DataSource, FireObservation, SourceAvailability
 from app.services.observation_queries import ObservationFilters
 
@@ -120,7 +121,9 @@ def daily_metrics(session: Session, filters: ObservationFilters) -> dict[date, d
     Only the five columns the aggregation needs are selected, so SQLite never
     materialises a wide intermediate table for the whole range.
     """
-    day = func.date(FireObservation.acquired_at).label("day")
+    dialect = dialect_name(session)
+    day_expression = utc_day(FireObservation.acquired_at, dialect)
+    day = day_expression.label("day")
     statement = filters.apply(
         select(
             day,
@@ -133,7 +136,7 @@ def daily_metrics(session: Session, filters: ObservationFilters) -> dict[date, d
                 "high_confidence"
             ),
         )
-    ).group_by(func.date(FireObservation.acquired_at))
+    ).group_by(day_expression)
 
     rows: dict[date, dict[str, Any]] = {}
     for raw_day, detections, modis, viirs, frp_sum, frp_max, high in session.execute(statement):

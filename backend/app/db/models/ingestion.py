@@ -97,7 +97,8 @@ class SourceAvailability(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     source_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("data_sources.id"))
     observation_date: Mapped[date] = mapped_column(Date, nullable=False)
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default="available")
+    #: available | empty | missing | not_yet_available (17 chars)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="available")
     checked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

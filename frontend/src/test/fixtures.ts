@@ -101,6 +101,16 @@ export const SOURCES: SourceOut[] = [
     observations: 0,
     last_observation_at: null,
   },
+  {
+    code: "VIIRS_SNPP_NRT",
+    sensor: "VIIRS",
+    satellite: "Suomi-NPP",
+    processing_level: "NRT",
+    description: "VIIRS near-real-time.",
+    status: "ok",
+    observations: 241992,
+    last_observation_at: "2026-10-31T21:10:00Z",
+  },
 ];
 
 export const SOURCE_HEALTH: SourceHealth[] = [
@@ -113,6 +123,17 @@ export const SOURCE_HEALTH: SourceHealth[] = [
     observations: 0,
     last_run_status: null,
     last_run_at: null,
+    last_error: null,
+  },
+  {
+    code: "VIIRS_SNPP_NRT",
+    sensor: "VIIRS",
+    satellite: "Suomi-NPP",
+    processing_level: "NRT",
+    registered: true,
+    observations: 241992,
+    last_run_status: "succeeded",
+    last_run_at: "2026-10-31T21:10:00Z",
     last_error: null,
   },
 ];
@@ -405,7 +426,7 @@ export function installFetchMock(options: MockOptions = {}) {
     options.query?.observations ?? { items: [], total: 0, limit: 200, offset: 0 };
   const calendarDrilldown = options.calendar?.drilldown ?? EMPTY_DRILLDOWN;
 
-  const mock = vi.fn(async (input: RequestInfo | URL) => {
+  const mock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes("/api/v1/analytics/summary")) return json(analytics);
     if (/\/api\/v1\/anomalies(\?|$)/.test(url)) return json(anomalies);
@@ -439,6 +460,27 @@ export function installFetchMock(options: MockOptions = {}) {
     if (url.includes("/api/v1/harmonization/matches")) return json(matches);
     if (url.includes("/api/v1/harmonization/events")) return json(events);
     if (url.includes("/api/v1/harmonization/jobs")) return json([]);
+    if (url.includes("/api/v1/admin/ingestion/run") && !url.includes("run-all")) {
+      const body = init?.body ? (JSON.parse(String(init.body)) as { source_code?: string }) : {};
+      return json({
+        run_id: `run-${body.source_code ?? "unknown"}`,
+        source_code: body.source_code ?? "UNKNOWN",
+        status: "succeeded",
+        records_received: 20,
+        records_inserted: 20,
+        records_rejected: 0,
+        partitions_completed: 1,
+        partitions_skipped: 0,
+        rejections: {},
+        errors: [],
+        is_synthetic: false,
+        harmonization: null,
+        events: null,
+      });
+    }
+    if (url.includes("/api/v1/harmonization/run")) {
+      return json({ scopes: [], events: [] });
+    }
     if (url.includes("/api/v1/admin/ingestion/run-all")) {
       return json({
         start_date: "2026-10-30",

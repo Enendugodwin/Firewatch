@@ -9,9 +9,10 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import Integer, cast, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.db.dialect import dialect_name, grid_index
 from app.db.models import FireObservation
 from app.services.calendar import daily_metrics
 from app.services.normalization import satellite_label
@@ -37,8 +38,9 @@ def _top_cells(
     """Ranked cells. Aggregated directly over the table: wrapping a wide select
     in a subquery makes SQLite materialise every row first."""
     cell = RANKING_CELL_DEGREES
-    lon_index = cast((FireObservation.longitude + 180.0) / cell, Integer)
-    lat_index = cast((FireObservation.latitude + 90.0) / cell, Integer)
+    dialect = dialect_name(session)
+    lon_index = grid_index(FireObservation.longitude, 180.0, cell, dialect)
+    lat_index = grid_index(FireObservation.latitude, 90.0, cell, dialect)
 
     statement = filters.apply(
         select(

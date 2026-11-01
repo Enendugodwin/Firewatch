@@ -48,9 +48,13 @@ function IngestionConsole() {
   const [sourceCode, setSourceCode] = useState("VIIRS_SNPP_NRT");
   const [startDate, setStartDate] = useState(formatUtcDate(addDays(new Date(), -1)));
   const [endDate, setEndDate] = useState(today);
+  const [progress, setProgress] = useState<{ done: number; total: number; current: string } | null>(
+    null,
+  );
 
   const configured = status?.data.firms_configured ?? false;
   const busy = runIngestion.isPending || runAll.isPending;
+  const sourceCodes = (sources ?? []).map((source) => source.code);
   const error = runIngestion.error ?? runAll.error;
 
   return (
@@ -103,31 +107,41 @@ function IngestionConsole() {
             variant="primary"
             disabled={busy || !configured}
             title={configured ? "Retrieve this window" : "Set FIRMS_MAP_KEY first"}
-            onClick={() =>
+            onClick={() => {
+              setProgress(null);
               runIngestion.mutate({
                 source_code: sourceCode,
                 start_date: startDate,
                 end_date: endDate,
-              })
-            }
+              });
+            }}
           >
             <Play className="size-3" aria-hidden />
             {runIngestion.isPending ? "Retrieving…" : "Run window"}
           </Button>
           <Button
             variant="secondary"
-            disabled={busy || !configured}
+            disabled={busy || !configured || sourceCodes.length === 0}
             title={
               configured
                 ? "Run this window for every registered product"
                 : "Set FIRMS_MAP_KEY first"
             }
-            onClick={() =>
+            onClick={() => {
+              const codes = sourceCodes;
+              setProgress({ done: 0, total: codes.length, current: codes[0] ?? "" });
               runAll.mutate({
                 start_date: startDate,
                 end_date: endDate,
-              })
-            }
+                source_codes: codes,
+                onProgress: (update) =>
+                  setProgress({
+                    done: update.done,
+                    total: update.total,
+                    current: update.current,
+                  }),
+              });
+            }}
           >
             <Layers className="size-3" aria-hidden />
             {runAll.isPending ? "Running all…" : "Run all sources"}
@@ -135,9 +149,48 @@ function IngestionConsole() {
         </div>
       </div>
 
+      {runIngestion.isPending ? (
+        <div className="mt-[10px]" aria-live="polite">
+          <div className="mb-[4px] flex items-center justify-between text-3xs text-faint">
+            <span className="font-mono">{sourceCode}</span>
+            <span>retrieving…</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-line/[0.08]">
+            <div className="h-full w-1/3 animate-pulse rounded-full bg-accent/80" />
+          </div>
+        </div>
+      ) : null}
+
+      {runAll.isPending && progress ? (
+        <div className="mt-[10px]" aria-live="polite">
+          <div className="mb-[4px] flex items-center justify-between text-3xs text-faint">
+            <span className="font-mono">{progress.current}</span>
+            <span>
+              {progress.done} of {progress.total}
+            </span>
+          </div>
+          <div
+            className="h-1.5 overflow-hidden rounded-full bg-line/[0.08]"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={progress.total}
+            aria-valuenow={progress.done}
+            aria-label="Source ingestion progress"
+          >
+            <div
+              className="h-full rounded-full bg-accent transition-[width] duration-300"
+              style={{
+                width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%`,
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <p className="mt-[9px] text-2xs font-light leading-relaxed text-faint">
         Maximum five days per request. Partitions are recorded and resumed, so re-running a window
-        never duplicates observations.
+        never duplicates observations. Products without data for the window report +0 rather than
+        failing — SP processing lags NRT by design.
       </p>
 
       {!configured ? (

@@ -149,13 +149,20 @@ export interface IngestPayload {
   run_events?: boolean;
 }
 
+export interface IngestAllProgress {
+  done: number;
+  total: number;
+  current: string;
+  result: IngestResponse | null;
+}
+
 export interface IngestAllPayload {
   start_date: string;
   end_date: string;
-  tile?: string;
-  source_codes?: string[];
+  source_codes: string[];
   run_harmonization?: boolean;
   run_events?: boolean;
+  onProgress?: (progress: IngestAllProgress) => void;
 }
 
 export function useRunIngestion() {
@@ -175,15 +182,96 @@ export function useRunIngestion() {
   });
 }
 
-/** Ingest the same window for every registered source in one call. */
+/**
+ * Ingest the same window for every registered source. The loop runs one request
+ * per source so the console can show real progress and a per-source outcome; the
+ * aggregate /run-all endpoint remains available for scripts and API clients.
+ */
 export function useRunAllIngestion() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: IngestAllPayload) =>
-      apiFetch<IngestAllResponse>("/api/v1/admin/ingestion/run-all", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
+    mutationFn: async ({
+      onProgress,
+      run_harmonization = true,
+      run_events = true,
+      ...payload
+    }: IngestAllPayload) => {
+      const codes = payload.source_codes;
+      const results: IngestResponse[] = [];
+      let inserted = 0;
+      let received = 0;
+      let rejected = 0;
+
+      for (const [index, code] of codes.entries()) {
+        onProgress?.({ done: index, total: codes.length, current: code, result: null });
+        let result: IngestResponse;
+        try {
+          result = await apiFetch<IngestResponse>("/api/v1/admin/ingestion/run", {
+            method: "POST",
+            body: JSON.stringify({
+              source_code: code,
+              start_date: payload.start_date,
+              end_date: payload.end_date,
+              run_harmonization: false,
+            }),
+          });
+        } catch (error) {
+          result = {
+            run_id: null,
+            source_code: code,
+            status: "failed",
+            records_received: 0,
+            records_inserted: 0,
+            records_rejected: 0,
+            partitions_completed: 0,
+            partitions_skipped: 0,
+            rejections: {},
+            errors: [error instanceof Error ? error.message : String(error)],
+            is_synthetic: false,
+            harmonization: null,
+            events: null,
+          };
+        }
+        results.push(result);
+        inserted += result.records_inserted;
+        received += result.records_received;
+        rejected += result.records_rejected;
+        onProgress?.({ done: index + 1, total: codes.length, current: code, result });
+      }
+
+      let harmonization: Record<string, unknown> | null = null;
+      let events: Record<string, unknown> | null = null;
+      if (inserted > 0 && run_harmonization) {
+        try {
+          const outcome = await apiFetch<{
+            scopes?: Record<string, unknown>[];
+            events?: Record<string, unknown>[];
+          }>("/api/v1/harmonization/run", {
+            method: "POST",
+            body: JSON.stringify({ run_events }),
+          });
+          harmonization = { scopes: outcome.scopes ?? [] };
+          events = outcome.events?.length ? { events: outcome.events.length } : null;
+        } catch {
+          harmonization = null;
+        }
+      }
+
+      const succeeded = results.filter((item) => item.status !== "failed").length;
+      return {
+        start_date: payload.start_date,
+        end_date: payload.end_date,
+        sources_requested: codes.length,
+        sources_succeeded: succeeded,
+        sources_failed: codes.length - succeeded,
+        records_received: received,
+        records_inserted: inserted,
+        records_rejected: rejected,
+        results,
+        harmonization,
+        events,
+      } satisfies IngestAllResponse;
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries();
     },

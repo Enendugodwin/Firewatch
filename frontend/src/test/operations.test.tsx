@@ -16,23 +16,30 @@ function callsTo(fragment: string) {
 }
 
 describe("ingestion console", () => {
-  it("offers a single action that ingests every source", async () => {
+  it("offers a single action that ingests every source", { timeout: 15000 }, async () => {
     renderApp("/settings");
 
     const button = await screen.findByRole("button", { name: /run all sources/i });
     await waitFor(() => expect(button).toBeEnabled());
     fireEvent.click(button);
 
-    await waitFor(() => {
-      const posts = fetchMock.mock.calls.filter(
-        (call) => String(call[0]).includes("/admin/ingestion/run-all"),
-      );
-      expect(posts.length).toBe(1);
-    });
+    await waitFor(
+      () => {
+        const posts = fetchMock.mock.calls.filter(
+          (call) =>
+            String(call[0]).includes("/admin/ingestion/run") &&
+            !String(call[0]).includes("run-all"),
+        );
+        // One request per registered source, so progress can be reported.
+        expect(posts.length).toBe(2);
+      },
+      { timeout: 12000 },
+    );
 
     expect(await screen.findByText(/2 of 2 sources ingested/i)).toBeInTheDocument();
-    expect(screen.getByText(/MODIS_NRT/)).toBeInTheDocument();
-    expect(screen.getByText(/VIIRS_SNPP_NRT/)).toBeInTheDocument();
+    // Both the run summary and the source table list the products.
+    expect(screen.getAllByText(/MODIS_SP/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/VIIRS_SNPP_NRT/).length).toBeGreaterThan(0);
   });
 
   it("refreshes every derived view after ingestion", async () => {

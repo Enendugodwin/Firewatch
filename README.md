@@ -48,6 +48,13 @@ Live verification on 2026-10-30: `VIIRS_SNPP_NRT` and `MODIS_NRT` ingested for N
 (2.5,4.0,14.7,13.9) across 2026-10-29 → 2026-10-30; 4,100 observations in scope produced 659
 candidate pairs (29 probable, 157 possible) and 587 estimated events (158 seen by both sensors).
 
+## Database
+
+The live workstation runs **PostgreSQL 16** (588 MB for 371k detections); SQLite remains the
+zero-setup option for tests and CI. See [docs/operations.md](docs/operations.md) for starting
+the local cluster, migrating, copying SQLite data across, backups and the 30-day storage
+estimate (~7.1 GB for a full four-product day, ~3.7 GB at the observed rate).
+
 ## Quick start (local)
 
 Requires **Python 3.11+**, **[uv](https://docs.astral.sh/uv/)**, **Node 20+**.

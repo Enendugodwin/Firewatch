@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import text
 
 from app.db.base import GUID
 
@@ -30,8 +31,14 @@ def _is_postgres() -> bool:
 def upgrade() -> None:
     bind = op.get_bind()
     if _is_postgres():
-        # PostGIS is required for every spatial query in later phases.
-        op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
+        # Spatial queries need PostGIS, but the extension is optional for a
+        # plain server: install it only when the binaries are available, and let
+        # the capability report keep saying "not built" otherwise.
+        available = bind.execute(
+            text("SELECT 1 FROM pg_available_extensions WHERE name = 'postgis'")
+        ).first()
+        if available:
+            op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
 
     op.create_table(
         "data_sources",

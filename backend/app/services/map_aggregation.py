@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import Integer, case, cast, func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from app.db.dialect import dialect_name, grid_index
 from app.db.models import FireObservation
 from app.services.observation_queries import BBox, ObservationFilters
 
@@ -41,8 +42,9 @@ def aggregate_observations(
     # grouping cannot diverge.
     scoped = filters.apply(select(FireObservation)).subquery()
 
-    lon_index = cast((scoped.c.longitude + 180.0) / cell, Integer)
-    lat_index = cast((scoped.c.latitude + 90.0) / cell, Integer)
+    dialect = dialect_name(session)
+    lon_index = grid_index(scoped.c.longitude, 180.0, cell, dialect)
+    lat_index = grid_index(scoped.c.latitude, 90.0, cell, dialect)
 
     statement = (
         select(

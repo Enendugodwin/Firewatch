@@ -9,8 +9,9 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import lru_cache
+from typing import Any
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
@@ -26,12 +27,33 @@ def get_engine() -> Engine:
     }
     if settings.is_sqlite:
         # SQLite has no server-side pool; allow cross-thread use for tests/dev.
-        kwargs["connect_args"] = {"check_same_thread": False}
+        kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
     else:
         kwargs["pool_size"] = settings.database_pool_size
         kwargs["pool_timeout"] = settings.database_pool_timeout
         kwargs["pool_recycle"] = 1800
-    return create_engine(settings.database_url, **kwargs)
+    engine = create_engine(settings.database_url, **kwargs)
+    if settings.is_sqlite:
+        _configure_sqlite(engine)
+    return engine
+
+
+def _configure_sqlite(engine: Engine) -> None:
+    """
+    WAL + a busy timeout. Ingestion writes tens of thousands of rows in one
+    transaction while the UI keeps polling for status; with the default rollback
+    journal the reader and writer block each other and requests fail with
+    "database is locked". WAL lets readers continue during writes and the timeout
+    absorbs the remaining contention.
+    """
+
+    @event.listens_for(engine, "connect")
+    def _sqlite_pragmas(dbapi_connection: Any, _record: Any) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
+        cursor.close()
 
 
 @lru_cache(maxsize=1)
