@@ -49,6 +49,23 @@ Notes:
   locked" failures seen when the UI polled during a bulk ingestion. On PostgreSQL the
   problem does not exist.
 
+## Backfilling more than five days
+
+The API caps one request at five days, so a long backfill is a resumable loop of
+five-day partitions:
+
+```powershell
+cd backend
+.venv\Scripts\python.exe -m scripts.backfill --start 2026-09-02 --end 2026-10-31
+# live progress bar, derived from completed partitions
+.venv\Scripts\python.exe -m scripts.backfill_status --start 2026-09-02 `
+    --end 2026-10-31 --watch
+```
+
+`backfill` prints one line per (source, window) with rows inserted and an ETA, and
+skips partitions that already succeeded. `backfill_status` shows the same view as
+a progress bar and is safe to run while the backfill is working.
+
 ## Storage growth
 
 Measured on this workstation: **371,276 detections** occupy **588 MB** in PostgreSQL
