@@ -48,6 +48,12 @@ Live verification on 2026-10-30: `VIIRS_SNPP_NRT` and `MODIS_NRT` ingested for N
 (2.5,4.0,14.7,13.9) across 2026-10-29 → 2026-10-30; 4,100 observations in scope produced 659
 candidate pairs (29 probable, 157 possible) and 587 estimated events (158 seen by both sensors).
 
+## Cloud and datasets
+
+Three deployment modes (`local`, `hybrid`, `cloud`) are pure configuration. Local and S3/R2 storage
+sit behind one interface, detections export to partitioned Parquet (Zstandard), and synchronisation
+verifies size and SHA-256 before recording success. See [docs/cloud.md](docs/cloud.md).
+
 ## Database
 
 Eleven million detections occupy 18 GB in PostgreSQL; day- and cell-level rollups keep the

@@ -169,6 +169,20 @@ MODULES: tuple[ModuleInfo, ...] = (
         ],
     },
     {
+        "key": "cloud-readiness",
+        "label": "Cloud Readiness",
+        "route": "/infrastructure",
+        "phase": "Phase 9",
+        "status": "ready",
+        "summary": "Deployment modes, Parquet datasets and verified cloud synchronisation.",
+        "planned": [
+            "Local, hybrid and cloud profiles from configuration",
+            "Local and S3/R2 storage behind one interface",
+            "Parquet export with Zstandard and per-dataset manifests",
+            "Verified, resumable and allocation-aware synchronisation",
+        ],
+    },
+    {
         "key": "settings",
         "label": "Settings",
         "route": "/settings",

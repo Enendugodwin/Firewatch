@@ -5,6 +5,7 @@ import { AnalyticsPage } from "@/pages/AnalyticsPage";
 import { AnomaliesPage } from "@/pages/AnomaliesPage";
 import { AssistantPage } from "@/pages/AssistantPage";
 import { CalendarPage } from "@/pages/CalendarPage";
+import { CloudReadinessPage } from "@/pages/CloudReadinessPage";
 import { ExposurePage } from "@/pages/ExposurePage";
 import { FireMapPage } from "@/pages/FireMapPage";
 import { HarmonizationPage } from "@/pages/HarmonizationPage";
@@ -31,6 +32,7 @@ export function App() {
         <Route path="reports" element={<ReportsPage />} />
         <Route path="assistant" element={<AssistantPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="infrastructure" element={<CloudReadinessPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

@@ -1,360 +1,105 @@
-# FIREWATCH X — Cloud Integration Preparation, Data Analysis and Performance Optimisation
+# FIREWATCH X — Complete Data Architecture, Transient Processing, Compression, Analytics and Cloud Integration
 
-## PROJECT OBJECTIVE
+## 1. PROJECT OBJECTIVE
 
-Upgrade the existing FIREWATCH X application in two major areas:
+Upgrade the existing FIREWATCH X application to create a scalable, storage-efficient and high-performance global fire intelligence platform using NASA MODIS and VIIRS hotspot observations.
 
-**WORKSTREAM 1: CLOUD INTEGRATION PREPARATION**
+The implementation must address five interconnected objectives:
 
-Prepare the application for deployment using Cloudflare R2 (initial allocation: 25 GB) and PostgreSQL (initial allocation: 1 GB), while retaining the ability to operate entirely on a local computer.
+1. Efficient data compression and long-term storage.
+2. Automated transient data ingestion and processing.
+3. High-performance harmonisation and analytical processing.
+4. Fast geographical searches, historical calendars and anomaly detection.
+5. Local-first development with optional Cloudflare R2 and PostgreSQL cloud deployment.
 
-The application must support local, hybrid and cloud deployment configurations without requiring major code changes between environments.
+The existing database contains approximately 11.34 million hotspot observations, with substantial storage consumption from `fire_observations` and `raw_observations`.
 
-**WORKSTREAM 2: ADVANCED DATA ANALYSIS AND HIGH-PERFORMANCE PROCESSING**
+The target initial cloud allocation is:
 
-Redesign and optimise the NASA FIRMS ingestion, MODIS/VIIRS harmonisation, data analysis, historical calendar and anomaly detection pipelines.
+| Infrastructure | Capacity |
+|---|---:|
+| Cloudflare R2 | 25 GB |
+| PostgreSQL | 1 GB |
+| Local storage | Available local disk |
+| Analytical engine | DuckDB |
+| Processing | Python and Polars |
 
-The objective is to process extensive historical datasets efficiently, minimise memory and storage consumption, improve analytical speed and make the application responsive even when working with millions of hotspot observations.
+Do not rebuild the application unnecessarily. Inspect the existing FIREWATCH X repository, preserve its functional features and optimise the current implementation.
 
-Do not build a new application from scratch. Inspect and improve the existing FIREWATCH X codebase while preserving all working features.
+The final application must process large historical NASA datasets without loading the entire dataset into memory or requiring all observations to be stored in PostgreSQL.
 
 ---
 
-# WORKSTREAM 1: CLOUD INTEGRATION PREPARATION
-
-## 1. Architecture and environment separation
-
-Implement a cloud-ready architecture with three operational modes.
-
-### LOCAL MODE
-
-The entire application operates on the user's computer.
-
-- Local PostgreSQL.
-- Local Parquet data storage.
-- Local DuckDB analytical engine.
-- Local processing workers.
-- Local FastAPI backend.
-- Local React frontend.
-- No requirement for Cloudflare credentials.
-
-Historical data ingestion, harmonisation and analytics must work locally.
-
-### HYBRID MODE
-
-The application supports a combination of local processing and cloud infrastructure.
-
-- Large historical datasets can remain local.
-- Selected datasets can be uploaded to Cloudflare R2.
-- Analytical summaries can be synchronised to cloud PostgreSQL.
-- New observations can be processed locally or remotely.
-- The application can access locally retained and cloud-hosted datasets through a common data access layer.
-
-### CLOUD MODE
-
-The application operates online.
-
-- Cloudflare R2 stores selected raw, processed and harmonized datasets.
-- Production PostgreSQL stores application records and analytical summaries.
-- Backend API runs on a persistent hosting service.
-- Background workers execute scheduled ingestion and processing.
-- Frontend is deployed separately.
-- Users can access the platform through the public application.
-
-Switching between modes must be controlled through configuration, not hardcoded application logic.
-
-## 2. Storage abstraction layer
-
-Create a unified storage interface so that application services do not depend directly on a particular storage provider.
-
-Implement the following storage providers:
-
-- Local filesystem storage.
-- S3-compatible object storage.
-- Cloudflare R2 storage.
-
-Required operations:
-
-- Upload file.
-- Download file.
-- Delete file.
-- Check whether a file exists.
-- Retrieve file metadata.
-- Calculate available storage where supported.
-- List datasets.
-- Verify checksums.
-- Generate temporary signed download URLs.
-
-Use an adapter pattern.
-
-Example:
-
-```python
-class StorageProvider:
-    def upload(self, source, destination):
-        raise NotImplementedError
-
-    def download(self, source, destination):
-        raise NotImplementedError
-
-    def exists(self, path):
-        raise NotImplementedError
-
-    def delete(self, path):
-        raise NotImplementedError
-
-    def get_metadata(self, path):
-        raise NotImplementedError
-
-    def calculate_checksum(self, path):
-        raise NotImplementedError
-```
-
-Implement separate local and R2 adapters.
-
-The rest of the application must interact with the storage interface rather than directly calling provider-specific SDKs.
-
-## 3. Cloudflare R2 preparation
-
-Prepare Cloudflare R2 integration using its S3-compatible API.
-
-Environment variables:
-
-```env
-STORAGE_MODE=local
-
-R2_ACCOUNT_ID=
-R2_ACCESS_KEY_ID=
-R2_SECRET_ACCESS_KEY=
-R2_BUCKET_NAME=
-R2_ENDPOINT_URL=
-
-DATABASE_MODE=local
-LOCAL_DATA_DIRECTORY=./data
-DATABASE_URL=
-CLOUD_DATABASE_URL=
-```
-
-Credentials must remain server-side.
-
-Implement connection testing and configuration validation.
-
-The application must work normally when R2 credentials are absent and `STORAGE_MODE=local`.
-
-Do not require cloud access merely to start the application.
-
-## 4. Dataset organisation
-
-Standardise local and cloud dataset structures.
-
-```text
-firewatch-data/
-│
-├── raw/
-│   ├── modis/
-│   ├── viirs_snpp/
-│   ├── viirs_noaa20/
-│   └── viirs_noaa21/
-│
-├── harmonized/
-│   ├── year=YYYY/
-│   │   └── month=MM/
-│
-├── analytics/
-│   ├── global/
-│   ├── country/
-│   ├── regional/
-│   ├── daily/
-│   ├── monthly/
-│   ├── yearly/
-│   └── anomalies/
-│
-├── manifests/
-│
-├── exports/
-│
-└── temporary/
-```
-
-Use Parquet with Zstandard compression for large analytical datasets.
-
-Partition datasets by sensor, year and month where appropriate.
-
-Avoid excessive partitioning that creates thousands of tiny files.
-
-Consolidate small files into larger analytical files when practical.
-
-## 5. Cloud synchronisation manager
-
-Develop a dedicated Cloud Synchronisation Manager.
-
-It must compare local datasets against cloud datasets and identify:
-
-- Files available locally but missing in R2.
-- Files already synchronised.
-- Files with modified contents.
-- Files with different checksums.
-- Files requiring replacement.
-- Files selected for deployment.
-
-Generate a deployment manifest containing:
-
-- Dataset identifier.
-- Original source.
-- Sensor.
-- Date coverage.
-- Partition information.
-- Record count.
-- File size.
-- SHA-256 checksum.
-- Schema version.
-- Processing version.
-- Local storage location.
-- Cloud object location.
-- Synchronisation status.
-
-Support:
-
-1. Scan local datasets.
-2. Preview deployment.
-3. Select datasets.
-4. Calculate expected upload size.
-5. Check remaining cloud capacity.
-6. Upload selected datasets.
-7. Resume failed uploads.
-8. Verify uploaded objects.
-9. Update cloud metadata.
-10. Generate a synchronisation report.
-
-Implement multipart uploads for large files where appropriate.
-
-Synchronisation must be idempotent.
-
-Never assume that an upload succeeded merely because an upload request returned without an exception. Verify the remote object and its expected size and checksum.
-
-Never delete local datasets after synchronisation.
-
-## 6. PostgreSQL cloud preparation
-
-Support separate local and production database connections.
-
-Use SQLAlchemy and Alembic migrations.
-
-Implement:
-
-- Environment-specific connection configuration.
-- Connection pooling.
-- Database migration execution.
-- Schema version tracking.
-- Batch imports.
-- Transactional upserts.
-- Duplicate prevention.
-- Data integrity checks.
-
-PostgreSQL must primarily contain:
-
-- User and authentication records.
-- Geographic region metadata.
-- Sensor metadata.
-- Dataset manifests.
-- Processing history.
-- Ingestion job records.
-- Harmonisation metadata.
-- Daily statistics.
-- Monthly statistics.
-- Yearly statistics.
-- Regional statistics.
-- Historical baselines.
-- Anomaly records.
-- Application settings.
-
-Do not transfer millions of individual hotspot observations into PostgreSQL.
-
-Detailed hotspot observations should remain in Parquet storage.
-
-Optimise the production schema for the initial 1 GB allocation.
-
-## 7. Cloud deployment readiness dashboard
-
-Create a new section:
-
-**Infrastructure → Cloud Readiness**
-
-Display:
-
-- Current deployment mode.
-- Local storage usage.
-- R2 storage consumption.
-- R2 remaining capacity.
-- Local database size.
-- Production database size.
-- Pending files.
-- Files already uploaded.
-- Failed synchronisation jobs.
-- Number of records awaiting transfer.
-- Estimated deployment size.
-- Last successful synchronisation.
-
-Create actions:
-
-- Test R2 connection.
-- Test PostgreSQL connection.
-- Scan local datasets.
-- Preview cloud deployment.
-- Select datasets.
-- Synchronise datasets.
-- Synchronise database.
-- Verify deployment.
-- View deployment history.
-
-Warn before any operation that might exceed the allocated storage.
-
-Do not automatically delete historical records to create storage space.
+# 2. TARGET ARCHITECTURE
+
+Implement the following architecture:
+
+NASA FIRMS
+    |
+    v
+DATA AVAILABILITY CHECK
+    |
+    v
+TRANSIENT INGESTION ENGINE
+    |
+    v
+TEMPORARY RAW STORAGE
+    |
+    v
+DATA VALIDATION
+    |
+    v
+NORMALISATION
+    |
+    v
+DEDUPLICATION
+    |
+    v
+MODIS / VIIRS HARMONISATION
+    |
+    v
+ANALYTICAL PROCESSING
+    |
+    +--------------------------+
+    |                          |
+    v                          v
+HARMONIZED OBSERVATIONS    ANALYTICS ENGINE
+    |                          |
+    v                          v
+PARQUET + ZSTD             STATISTICS / ANOMALIES
+    |                          |
+    v                          v
+LOCAL STORAGE / R2         POSTGRESQL
+    |                          |
+    +------------+-------------+
+                 |
+                 v
+          OUTPUT VERIFICATION
+                 |
+                 v
+       DELETE TEMPORARY RAW DATA
+                 |
+                 v
+          UPDATE MANIFESTS
+                 |
+                 v
+             FIREWATCH X
+
+DuckDB queries the retained Parquet observations.
+
+PostgreSQL serves application metadata, precomputed statistics, calendar records, regional baselines and anomaly results.
+
+FastAPI routes requests to the appropriate data source.
+
+The frontend receives only the records and aggregates required for each interaction.
 
 ---
 
-# WORKSTREAM 2: DATA ANALYSIS AND HIGH-PERFORMANCE PROCESSING
+# WORKSTREAM 1 — TRANSIENT DATA INGESTION AND PROCESSING
 
-## 8. Audit and benchmark the existing processing engine
+## 3. IMPLEMENT AN AUTOMATED TRANSIENT INGESTION ENGINE
 
-Before changing the analytical implementation, inspect the existing pipeline.
-
-Identify:
-
-- Slow ingestion operations.
-- Repeated downloads.
-- Unnecessary data transformations.
-- Full-dataset reads.
-- Excessive memory consumption.
-- Repeated database queries.
-- Repeated calculations.
-- Inefficient Parquet partitioning.
-- Duplicate records.
-- Slow map queries.
-- Slow calendar generation.
-- Inefficient anomaly detection.
-
-Create a performance baseline.
-
-Measure:
-
-- Records processed per second.
-- Processing duration per day of data.
-- Peak RAM consumption.
-- CPU utilisation.
-- Temporary disk usage.
-- Parquet file size.
-- Analytics query duration.
-- Database query duration.
-- API response time.
-
-Implement measurable improvements and record before-and-after results.
-
-Do not invent performance improvements or report unmeasured benchmark results.
-
-## 9. High-performance ingestion engine
-
-Redesign the ingestion engine to process NASA FIRMS data in manageable batches.
+Build a dedicated ingestion and processing engine that downloads NASA FIRMS observations, processes them in controlled batches, saves the required outputs and deletes temporary raw downloads after successful verification.
 
 Support:
 
@@ -364,588 +109,1066 @@ Support:
 - VIIRS NOAA-20.
 - VIIRS NOAA-21.
 
-Implement the following capabilities:
+Support both historical ingestion and scheduled incremental ingestion.
 
-### Incremental ingestion
+The ingestion engine must not require the complete historical archive to be downloaded before processing begins.
 
-Only retrieve new or previously unavailable observations.
+Process observations in manageable source, date and geographical partitions.
 
-Avoid repeatedly downloading historical data.
+## 4. PROCESSING LIFECYCLE
 
-Track ingestion checkpoints by sensor, date and product.
+Every ingestion job must follow this lifecycle:
 
-### Parallel processing
+### Stage 1: Data availability discovery
 
-Support controlled parallel processing of independent date and sensor partitions.
+Before downloading data:
 
-Use configurable worker counts.
+1. Check NASA FIRMS product availability.
+2. Identify the requested date range.
+3. Identify available sensors and satellite products.
+4. Identify missing or unavailable dates.
+5. Create ingestion partitions.
+6. Check whether the partition has already been successfully processed.
+7. Skip previously completed partitions unless explicitly reprocessing.
 
-Avoid launching more parallel tasks than available CPU and memory resources can safely support.
+Maintain the distinction between:
 
-### Streaming and chunked processing
+- Available data.
+- Available data with zero observations.
+- Missing data.
+- Data not yet available.
+- Failed requests.
+- Incomplete processing.
 
-Never load the complete historical dataset into RAM.
+Never interpret a missing day as zero fire activity.
 
-Use Polars lazy and streaming operations where supported.
+### Stage 2: Temporary download
 
-Read only the required columns.
+Download the selected NASA data into a dedicated temporary workspace.
 
-Process large files in manageable batches.
+Example:
 
-### Failure recovery
+```text
+firewatch/
+└── temporary/
+    └── jobs/
+        └── job_id/
+            ├── source_manifest.json
+            ├── modis.csv
+            ├── viirs_snpp.csv
+            ├── viirs_noaa20.csv
+            ├── viirs_noaa21.csv
+            └── processing.log
+```
 
-Maintain checkpoints.
+Requirements:
 
-Allow failed batches to resume.
+- Use bounded download batches.
+- Validate download responses.
+- Handle empty datasets.
+- Handle rate limiting.
+- Retry temporary failures.
+- Preserve failed downloads for recovery.
+- Prevent simultaneous jobs from overwriting each other's files.
 
-Use idempotent writes.
+Temporary data must never be accessible through the public frontend.
 
-Prevent duplicate ingestion after interrupted operations.
+### Stage 3: Data validation
 
-### Temporary data management
+Validate the downloaded records before processing.
 
-Download raw NASA files into temporary storage.
+Check:
 
-After successful processing:
-
-1. Validate downloaded data.
-2. Normalise the schema.
-3. Harmonise observations.
-4. Generate analytical outputs.
-5. Save harmonized Parquet files.
-6. Upload outputs to the configured storage provider.
-7. Verify file integrity.
-8. Commit analytical database records.
-9. Record processing metadata.
-10. Delete temporary raw files.
-
-If any critical stage fails, retain the temporary data and allow processing to resume.
-
----
-
-## 10. Data processing and analytical engine
-
-Use an optimised combination of:
-
-- Python.
-- Polars.
-- DuckDB.
-- NumPy.
-- SciPy.
-- GeoPandas.
-- Shapely.
-- PyProj.
-
-Use Polars for efficient transformations and columnar data processing.
-
-Use DuckDB for analytical SQL queries against partitioned Parquet datasets.
-
-Use GeoPandas and spatial libraries only when spatial operations require them.
-
-Avoid converting large Polars or DuckDB datasets unnecessarily into Pandas DataFrames.
-
-Apply:
-
-- Predicate pushdown.
-- Projection pushdown.
-- Partition pruning.
-- Lazy execution.
-- Batch processing.
-- Efficient data types.
-- Reusable analytical intermediate results.
-- Query result caching.
-
-Ensure the engine can analyse selected remote Parquet partitions without downloading the entire dataset.
-
-Use local temporary copies only where necessary.
-
-Manage query concurrency and temporary storage.
-
-## 11. MODIS and VIIRS harmonisation improvements
-
-Preserve the scientific methodology.
-
-The objective is to create a consistent analytical time series without hiding the sensor of origin.
-
-Maintain both original and harmonized representations.
-
-For every observation, preserve:
-
-- Observation identifier.
-- Original sensor.
-- Satellite platform.
-- Acquisition date and time.
+- File structure.
+- Expected columns.
+- Sensor and product identity.
 - Latitude and longitude.
-- Original confidence value.
+- Acquisition date and time.
+- FRP values.
+- Brightness measurements.
+- Confidence fields.
+- Satellite identifiers.
+- Processing collection/version.
+- Duplicate records.
+- Malformed rows.
+
+Record rejected rows and their rejection reasons.
+
+Do not silently discard invalid observations.
+
+### Stage 4: Normalisation
+
+Convert source records into the FIREWATCH X canonical observation schema.
+
+Preserve:
+
+- Observation ID.
+- Source ID.
+- Source record ID.
+- Source product.
+- Sensor.
+- Satellite.
+- Latitude.
+- Longitude.
+- Acquisition timestamp in UTC.
+- Original confidence.
 - Confidence category.
 - Brightness temperature.
-- Fire radiative power.
-- Scan and track dimensions where available.
-- Spatial resolution.
-- Processing collection/version.
-- Data quality flags.
+- Brightness channel.
+- FRP.
+- Scan and track.
+- Day/night.
+- Processing version.
+- Quality flags.
+- Ingestion timestamp.
+- Synthetic-data indicator.
 
-Implement cross-sensor association using configurable spatial and temporal criteria.
+Do not conflate MODIS and VIIRS confidence semantics or brightness channels.
+
+### Stage 5: Deduplication
+
+Implement idempotent deduplication.
+
+Use the existing source fingerprint approach based on canonical source fields.
+
+Maintain uniqueness at the appropriate source/product level.
+
+Support re-ingestion of overlapping NASA windows without creating duplicate observations.
 
 Record:
 
-- Matched observations.
-- Possible matches.
-- Unmatched observations.
-- Rejected candidate matches.
-- Matching score.
-- Distance.
-- Time difference.
-- Methodology version.
+- Records received.
+- Records inserted.
+- Existing duplicates.
+- Records rejected.
+- Records changed by updated source collections.
 
-Do not treat a matching score as a statistical probability unless the model has been independently calibrated.
+If NASA provides corrected observations or new processing versions, support controlled replacement or versioned reprocessing rather than silently overwriting historical information.
 
-Do not automatically remove detections solely because they are geographically close.
+---
 
-Preserve raw sensor-specific counts and harmonized analytical counts separately.
+# 5. MODIS / VIIRS HARMONISATION
 
-Implement reproducible harmonisation runs.
+Harmonisation must execute as part of the ingestion pipeline.
 
-## 12. Historical burning activity calendar optimisation
+Implement the documented FIREWATCH X matching methodology.
 
-The calendar must not calculate its historical results from millions of individual detections on every page load.
+Compare observations using:
 
-Create a precomputation engine.
+- Spatial distance.
+- Temporal difference.
+- Observation footprint where available.
+- Sensor characteristics.
+- Observation quality.
+- Spatial resolution.
 
-Generate:
+Preserve original sensor-specific observations.
 
-- Daily statistics.
-- Monthly statistics.
-- Yearly statistics.
-- Seasonal statistics.
-- Country-level statistics.
-- Regional statistics.
-- Sensor-specific statistics.
-- Harmonized activity statistics.
+Create separate harmonization outputs.
 
-The calendar must support the historical period from the earliest available MODIS observations to the present, subject to actual dataset coverage.
+Classify candidate associations as:
 
-When new observations arrive, update only the affected aggregation partitions.
+- Probable match.
+- Possible match.
+- Unmatched.
+- Rejected.
 
-Do not rebuild every historical year for each incremental ingestion.
+Store:
 
-Provide the following calendar metrics as independent selectable views:
+- Observation A identifier.
+- Observation B identifier.
+- Temporal difference.
+- Spatial distance.
+- Footprint overlap where available.
+- Association score.
+- Matching components.
+- Matching status.
+- Algorithm version.
 
-1. Raw MODIS detections.
-2. Raw VIIRS detections.
-3. Combined raw detections.
-4. Harmonized detection statistics.
-5. Estimated fire-event statistics, where the event-grouping methodology supports them.
-6. Aggregate fire radiative power.
+Do not interpret the association score as the probability that two detections represent the same physical fire unless independently calibrated.
 
-Clearly explain that hotspot observations are satellite detections, not necessarily unique fires.
+Do not remove detections simply because they are geographically close.
 
-Distinguish zero detections from unavailable, incomplete or failed data.
+## 5.1 Cross-day harmonisation
 
-## 13. Advanced anomaly detection engine
+The processing engine must account for observations acquired near day boundaries.
 
-Implement an advanced anomaly analysis module.
+Do not assume that independently processing each UTC day will always identify all relevant cross-sensor matches.
 
-Support:
+Implement configurable overlapping temporal windows for candidate matching.
 
-### Temporal anomalies
+For example, observations near the end of one day may need to be compared with observations from the beginning of the next day.
 
-Identify unusual increases and decreases in regional hotspot activity.
+Support late-arriving observations and recalculation of affected matching partitions.
 
-### Seasonal anomalies
+Historical event grouping must not be fragmented simply because processing was performed in daily batches.
 
-Compare observations with appropriate historical seasonal baselines.
+---
 
-### Spatial anomalies
+# 6. ANALYTICS EXECUTION
 
-Identify unusual concentrations of activity in geographical grid cells or regions.
+After normalisation and harmonisation, execute the analytical pipeline.
 
-### Fire radiative power anomalies
+Generate the following outputs.
 
-Identify unusual changes in FRP relative to historical observations.
+### Daily analytics
 
-### Sensor anomalies
+- Global detection count.
+- MODIS detection count.
+- VIIRS detection count.
+- Harmonized detection statistics.
+- Country-level detections.
+- Regional detections.
+- Daily average FRP.
+- Daily aggregate FRP.
+- Confidence distribution.
+- Day/night distribution.
+- Sensor distribution.
+- Data completeness.
 
-Identify differences that might result from sensor availability, acquisition patterns or detection characteristics.
+### Monthly and yearly analytics
 
-Use appropriate methods such as:
+- Monthly detection trends.
+- Annual detection trends.
+- Seasonal activity.
+- Year-over-year comparisons.
+- Sensor-specific historical comparisons.
+- Regional activity rankings.
+- Historical FRP changes.
 
-- Median and median absolute deviation.
-- Robust Z-scores.
+### Spatial analytics
+
+- Daily H3 cell activity.
+- Monthly H3 cell activity.
+- Geographic hotspot density.
+- Regional activity summaries.
+- Spatial concentration changes.
+
+### Intelligence analytics
+
+- Historical anomalies.
+- Seasonal anomalies.
+- Spatial anomalies.
+- Unusual FRP activity.
+- Sensor-specific anomalies.
+
+Do not calculate every analytical metric from scratch on every application request.
+
+Use incremental aggregation and reusable analytical intermediate results.
+
+---
+
+# 7. ANOMALY DETECTION IN THE PROCESSING PIPELINE
+
+Execute anomaly detection after the relevant daily and regional aggregates have been generated.
+
+Use existing historical baselines.
+
+Implement:
+
+- Robust Z-score using MAD.
+- Rolling historical comparisons.
 - Seasonal baselines.
-- Rolling windows.
-- Quantile thresholds.
-- Isolation Forest as an optional supplementary method.
+- Historical quantiles.
+- FRP anomaly analysis.
+- Spatial anomaly analysis.
+- Optional Isolation Forest.
 
-Use adequate historical samples before declaring an anomaly.
+Each anomaly must contain:
 
-Handle zero MAD and insufficient baseline data.
-
-Each anomaly record must contain:
-
-- Region.
-- Observation period.
+- Region identifier.
+- Analysis period.
 - Metric.
 - Observed value.
-- Expected baseline.
-- Deviation.
+- Expected value.
+- Historical baseline.
+- Deviation score.
 - Severity.
-- Number of baseline observations.
+- Sample count.
 - Data completeness.
 - Detection method.
 - Algorithm version.
 - Supporting evidence.
-- Explanation.
 
-Do not label every increase in hotspot activity an emergency.
+Do not generate authoritative emergency claims from satellite detection statistics.
 
-Present anomalies as analytical indicators requiring interpretation.
+Anomaly results must be analytical indicators with explanatory evidence.
 
-## 14. Advanced geographical analytics
+If the available historical baseline is insufficient, record the limitation instead of generating an unsupported anomaly.
 
-Optimise geographical analysis for global datasets.
+Recalculate affected anomaly records when historical corrections or new observations change the relevant baseline.
+
+---
+
+# 8. DURABLE OUTPUT STORAGE
+
+After processing, save the required information in the configured permanent storage destinations.
+
+## 8.1 Harmonized observations
+
+Store individual harmonized observations in Apache Parquet.
+
+Use Zstandard compression.
+
+Preserve all required canonical fields and original provenance.
+
+## 8.2 Analytical records
+
+Store compact analytical records in PostgreSQL.
+
+Populate:
+
+- daily_activity
+- monthly_activity
+- yearly_activity
+- country_fire_statistics
+- regional_fire_statistics
+- cell_activity
+- regional_baselines
+- anomalies
+- ingestion_runs
+- ingestion_partitions
+- source_availability
+- dataset_catalog
+- algorithm_runs
+
+## 8.3 Harmonisation outputs
+
+Store cross-sensor associations and event membership records in an efficient structure.
+
+Keep compact metadata in PostgreSQL.
+
+Use Parquet for larger matching or event-observation datasets if their growth makes relational storage unsuitable.
+
+Preserve the existing observation identifiers.
+
+## 8.4 Data manifests
+
+For every processed partition, create a manifest containing:
+
+- Dataset identifier.
+- Original NASA source.
+- Sensor and satellite.
+- Source product.
+- Observation date range.
+- Geographical coverage.
+- Input record count.
+- Accepted record count.
+- Rejected record count.
+- Duplicate count.
+- Harmonized record count.
+- Output file locations.
+- Output file sizes.
+- Output SHA-256 checksums.
+- Schema version.
+- Harmonisation version.
+- Analytics version.
+- Processing start time.
+- Processing completion time.
+- Job status.
+
+Manifests must allow FIREWATCH X to identify exactly which data has been processed.
+
+---
+
+# 9. MANDATORY VERIFICATION BEFORE RAW DATA DELETION
+
+This is a critical requirement.
+
+Temporary raw data must never be deleted merely because the processing script completed.
+
+Before cleanup, verify:
+
+1. Original download was completed and validated.
+2. Normalisation completed successfully.
+3. Harmonisation completed successfully or its permitted partial status is documented.
+4. Expected output counts have been calculated.
+5. Canonical observations were successfully written.
+6. Durable Parquet files exist in the configured permanent storage.
+7. Parquet file sizes and checksums are valid.
+8. The Parquet files can be read back successfully.
+9. PostgreSQL analytical transactions committed successfully.
+10. Daily and regional aggregates reconcile to the processed observations.
+11. Anomaly results were saved where the available baseline supports them.
+12. Dataset manifests were successfully recorded.
+13. Ingestion and algorithm versions were recorded.
+14. The complete processing job is marked as committed.
+
+Only after these requirements pass may the temporary raw downloads and intermediate files be deleted.
+
+For Cloudflare R2, verify the remote object itself. Do not rely only on a successful upload response.
+
+Where possible, verify SHA-256 by reading the uploaded object or using a verified object checksum. Do not assume the ETag is always a SHA-256 digest, particularly for multipart uploads.
+
+Use staged outputs and write the final dataset manifest only after all required outputs have been verified.
+
+If any critical verification fails:
+
+- Preserve temporary raw files.
+- Preserve intermediate outputs needed for recovery.
+- Mark the job as failed or partially completed.
+- Record the failure reason.
+- Allow recovery and resumption.
+- Avoid duplicate database records or Parquet files.
+
+---
+
+# 10. TRANSIENT STORAGE MANAGEMENT
+
+Create a separate temporary storage manager.
+
+Use an isolated directory for each job.
+
+Support:
+
+- Temporary download files.
+- Extracted files.
+- Normalised processing batches.
+- Intermediate harmonisation outputs.
+- Temporary DuckDB files.
+- Temporary export files.
+
+Delete successful intermediate files automatically.
+
+Preserve failed-job workspaces until recovery or an administrator-approved cleanup.
+
+Implement configurable temporary storage limits.
+
+Do not allow multiple processing jobs to consume all available disk space.
+
+Track:
+
+- Temporary storage consumed.
+- Number of active jobs.
+- Number of failed jobs.
+- Files awaiting cleanup.
+- Temporary files older than the configured threshold.
+- Storage reclaimed after cleanup.
+
+Temporary data and permanent Parquet datasets must use different storage directories and permissions.
+
+---
+
+# 11. RAW DATA RETENTION MODES
+
+Support two explicit raw-data retention policies.
+
+### MODE A — TRANSIENT RAW PROCESSING
+
+Default for cost-efficient ingestion.
+
+- Download original NASA data temporarily.
+- Validate and process it.
+- Retain normalised and harmonized observation records.
+- Retain processing provenance and manifests.
+- Generate analytical outputs.
+- Delete temporary raw downloads after verification.
+
+This mode preserves the processed observation history but does not guarantee the ability to reconstruct the exact original NASA response.
+
+### MODE B — HISTORICAL SOURCE ARCHIVAL
+
+Optional for scientific reproducibility.
+
+- Download NASA raw data temporarily.
+- Process and harmonise it.
+- Archive the original source files or equivalent original source rows in compressed storage.
+- Verify the archive.
+- Retain archive checksums and source metadata.
+- Delete the temporary working copy only after archival verification.
+
+Allow the administrator to select a mode globally or for specific source products.
+
+Do not maintain duplicated JSONB raw payloads in PostgreSQL and Parquet.
+
+---
+
+# 12. FAILURE RECOVERY AND INCREMENTAL PROCESSING
+
+Implement a persistent processing state machine.
+
+Suggested states:
+
+DISCOVERED
+DOWNLOADING
+VALIDATING
+NORMALISING
+DEDUPLICATING
+HARMONISING
+ANALYSING
+WRITING_OUTPUTS
+VERIFYING_OUTPUTS
+COMMITTING
+CLEANUP_PENDING
+SUCCEEDED
+FAILED
+PARTIAL
+
+Persist job state in PostgreSQL.
+
+A worker restart must not cause an already completed batch to be downloaded and processed again unnecessarily.
+
+Support:
+
+- Checkpoints.
+- Retries.
+- Resume operations.
+- Idempotent outputs.
+- Failure logs.
+- Partial completion.
+- Reprocessing selected dates.
+- Reprocessing selected sensors.
+- Corrected NASA data.
+- Algorithm version upgrades.
+
+If one sensor product fails but another completes, record the partial state accurately. Do not mark the entire observation date as complete without explaining the missing source.
+
+For cross-sensor matching, allow matching jobs to run after the required overlapping observation partitions become available.
+
+---
+
+# WORKSTREAM 2 — COMPRESSION AND DATA STORAGE
+
+## 13. PARQUET COMPRESSION
+
+Use Apache Parquet with Zstandard compression.
+
+Start with ZSTD level 3.
+
+Benchmark against Snappy and gzip-compressed CSV using representative real NASA data.
+
+Measure:
+
+- Original file size.
+- Compressed file size.
+- Compression ratio.
+- Compression duration.
+- Decompression duration.
+- Query performance.
+- Memory consumption.
+
+Use appropriate types:
+
+- Float64 for latitude and longitude.
+- UTC timestamps.
+- Nullable integers for numeric confidence fields.
+- Float32 or Float64 for FRP and temperatures after precision validation.
+- Dictionary encoding for repeated sensor, source, satellite and category fields.
+
+Preserve scientifically relevant precision.
+
+## 14. PARQUET ORGANISATION
+
+Use the following general structure:
+
+```text
+firewatch-data/
+│
+├── observations/
+│   ├── sensor=MODIS/
+│   │   └── year=YYYY/month=MM/
+│   └── sensor=VIIRS/
+│       └── satellite=SNPP/year=YYYY/month=MM/
+│
+├── raw_archive/
+│
+├── harmonized/
+│   └── year=YYYY/month=MM/
+│
+├── matches/
+│
+├── events/
+│
+├── analytics/
+│   ├── daily/
+│   ├── monthly/
+│   ├── yearly/
+│   ├── regional/
+│   ├── country/
+│   └── anomalies/
+│
+├── spatial/
+│   ├── h3_daily/
+│   ├── h3_monthly/
+│   └── map_tiles/
+│
+└── manifests/
+```
+
+Avoid excessive small files.
+
+Target Parquet files of approximately 128–512 MB where practical.
+
+Start by benchmarking row groups of 100,000–250,000 records.
+
+Use partition pruning and sorting by acquisition time and/or spatial identifier.
+
+---
+
+# WORKSTREAM 3 — POSTGRESQL AND DUCKDB
+
+## 15. POSTGRESQL OPTIMISATION
+
+The 1 GB production PostgreSQL database must contain:
+
+- User accounts.
+- Application configuration.
+- Geographic metadata.
+- Sensor metadata.
+- Dataset manifests.
+- Ingestion job records.
+- Processing history.
+- Daily statistics.
+- Monthly statistics.
+- Yearly statistics.
+- Regional statistics.
+- Historical baselines.
+- Anomaly records.
+- Compact harmonisation metadata.
+
+Do not retain all individual hotspot observations in production PostgreSQL.
+
+Investigate the current 11.34 million row duplication between `fire_observations` and `raw_observations`.
+
+Migrate and verify the data before removing any redundant structures.
+
+Optimise indexes, storage types and aggregation tables.
+
+Use Alembic migrations and transactional upserts.
+
+## 16. DUCKDB QUERY ENGINE
+
+Use DuckDB for detailed observation queries against Parquet datasets.
+
+Use Polars for efficient transformations and data preparation.
 
 Implement:
 
-- Geographic bounding-box filtering.
-- Country and administrative-region filtering.
-- Spatial grid aggregation.
-- Regional hotspot density.
-- Geographic clustering.
-- Historical spatial comparisons.
-- Nearby hotspot searches.
-- Geographic heatmaps.
+- Date-range filtering.
+- Sensor filtering.
+- Satellite filtering.
+- Geographical filtering.
+- FRP filtering.
+- Confidence filtering.
+- Historical comparisons.
+- Cross-sensor analysis.
+- CSV exports.
+- GeoJSON exports.
 
-Use spatial indexing, bounding-box pre-filtering and appropriate coordinate reference systems.
+Use predicate pushdown, projection pushdown, partition pruning and controlled query concurrency.
 
-Consider H3 or an equivalent hierarchical spatial grid for fast regional aggregation.
+Support local Parquet queries and remote R2 queries where supported.
 
-Retain original hotspot coordinates for detailed exploration.
+Never download the entire R2 dataset merely to answer a small geographical query.
 
-Do not use spatial simplification in a way that destroys scientific observation accuracy.
+---
 
-## 15. Optimise the interactive map
+# WORKSTREAM 4 — ADVANCED ANALYTICS AND QUERY PERFORMANCE
 
-The global fire map must not load every hotspot observation into browser memory.
+## 17. INCREMENTAL HISTORICAL ANALYTICS
 
-Implement:
+Implement precomputed analytics for:
 
-- Viewport-based API queries.
-- Server-side geographic filtering.
-- Zoom-dependent aggregation.
-- Hotspot clustering.
-- Heatmap layers.
-- Spatial grid summaries.
-- Vector tiles where appropriate.
-- Lazy loading.
-- Request cancellation when the map viewport changes.
-- Caching of frequently requested geographic areas.
+- Global daily activity.
+- Global monthly activity.
+- Annual activity.
+- Seasonal activity.
+- Country activity.
+- Regional activity.
+- Sensor-specific activity.
+- H3 spatial activity.
+- Fire radiative power.
+- Historical anomalies.
 
-At low zoom levels, show aggregated activity.
+When new observations are processed, update only affected daily, monthly and spatial partitions.
 
-At higher zoom levels, show individual hotspot observations.
+Do not rebuild the entire historical calendar after every ingestion.
 
-Only retrieve full observation details when the user selects an individual detection.
+Distinguish zero detections from unavailable data.
 
-Maintain MODIS/VIIRS filters and observation provenance.
+Maintain separate MODIS and VIIRS figures and clearly labelled combined detection counts.
 
-## 16. Optimise API performance
+## 18. SPATIAL QUERY OPTIMISATION
 
-Review and optimise existing FastAPI endpoints.
+Replace dependence on the existing 2-degree grid alone with hierarchical H3 spatial aggregation.
 
-Implement:
+Maintain configurable spatial resolutions.
 
-- Pagination.
-- Date and geographical filtering.
-- Efficient SQL queries.
-- Asynchronous I/O where beneficial.
-- Connection pooling.
-- Result caching.
-- Query timeouts.
-- Request validation.
-- Background report generation.
-- Appropriate response compression.
+At low map zoom:
 
-Use precomputed aggregates for dashboards and calendars.
+- Return spatial aggregate cells.
+- Return detection counts and FRP summaries.
+- Avoid returning every hotspot coordinate.
 
-Do not run large historical analytical queries synchronously inside normal frontend requests.
+At medium zoom:
 
-For expensive jobs, return a job identifier and expose processing status.
+- Retrieve more detailed spatial activity.
 
-## 17. Caching and analytical result reuse
+At high zoom:
 
-Introduce a caching strategy for repeated requests.
+- Return individual observations from Parquet.
 
-Cache:
+Use viewport-based requests, caching and request cancellation.
 
-- Global dashboard summaries.
-- Country activity summaries.
-- Regional activity summaries.
-- Monthly calendars.
+Do not load millions of hotspot coordinates into browser memory.
+
+## 19. API QUERY ROUTING
+
+Use FastAPI to route queries.
+
+PostgreSQL handles:
+
+- Dashboard.
+- Historical calendar.
 - Yearly comparisons.
-- Popular geographic map queries.
-- Repeated anomaly summaries.
+- Regional summaries.
+- Anomaly records.
+- Historical baselines.
+- Ingestion status.
 
-Invalidate or update relevant cache entries when new data changes the underlying analytical results.
+DuckDB handles:
 
-Include dataset version and query parameters in cache keys where needed.
+- Individual hotspot searches.
+- Custom date and sensor filters.
+- Detailed geographical queries.
+- FRP filtering.
+- Observation-level comparisons.
+- CSV and GeoJSON exports.
 
-Avoid serving stale statistics without identifying their data freshness.
+Large exports and analyses must use background jobs.
 
----
-
-# 18. RESOURCE OPTIMISATION
-
-The system must be configured for a resource-constrained local development environment.
-
-Use conservative defaults for worker count, memory and concurrency.
-
-Provide configurable:
-
-- Maximum worker processes.
-- Batch size.
-- Maximum memory budget.
-- DuckDB threads.
-- Query concurrency.
-- Temporary storage directory.
-- Cache size.
-- Processing timeouts.
-
-Support processing without requiring the entire historical dataset in RAM.
-
-Avoid loading large files simultaneously into multiple processing workers.
-
-Monitor CPU, RAM and disk utilisation.
-
-Automatically reduce processing concurrency when resource limits are approached.
-
-The system must remain usable while background ingestion and analytics execute.
+Return a job identifier and expose processing status.
 
 ---
 
-# 19. DATA QUALITY, SCIENTIFIC VALIDATION AND TRACEABILITY
+# WORKSTREAM 5 — LOCAL AND CLOUD INTEGRATION
 
-Optimisation must never compromise scientific accuracy.
+## 20. LOCAL-FIRST ARCHITECTURE
 
-Implement validation for:
+Support three modes:
 
-- Coordinates.
-- Timestamps.
-- Duplicate observations.
-- Sensor identity.
-- Confidence classification.
-- FRP units.
-- Spatial resolution.
-- Missing dates.
-- Missing products.
-- Incomplete ingestion.
-- Aggregation accuracy.
-- Harmonisation consistency.
+LOCAL:
+All data processing and storage take place locally.
 
-For each analytical output, preserve:
+HYBRID:
+Data is processed locally and selected datasets are synchronised to Cloudflare R2 and production PostgreSQL.
 
-- Input dataset identifiers.
-- Processing date.
-- Sensor sources.
-- Data coverage.
-- Algorithm version.
-- Methodology version.
-- Record count.
+CLOUD:
+The application and selected datasets are hosted online.
 
-Maintain the distinction between:
+Use the same storage abstractions and query interfaces across all modes.
 
-- No detected hotspots.
-- No data available.
-- Incomplete data.
-- Processing failure.
-- Data not yet published.
+## 21. CLOUDFLARE R2
 
-Recalculate analytical outputs when corrections or updated source collections require it.
+Implement the S3-compatible storage adapter.
+
+Support:
+
+- Uploads.
+- Downloads.
+- File metadata.
+- Checksums.
+- Multipart uploads.
+- Resumable transfers.
+- Dataset manifests.
+- Storage monitoring.
+- Selective synchronisation.
+
+Never expose R2 credentials in the frontend.
+
+Never delete local datasets automatically after synchronisation.
+
+## 22. CLOUD SYNCHRONISATION
+
+Build a Cloud Deployment Manager.
+
+It must:
+
+1. Scan local datasets.
+2. Compare local manifests against cloud manifests.
+3. Identify missing or changed files.
+4. Calculate expected upload size.
+5. Check available storage.
+6. Allow selective dataset deployment.
+7. Upload the selected datasets.
+8. Verify uploaded objects.
+9. Synchronise analytical database records.
+10. Verify cloud availability.
+11. Record deployment history.
+
+If the 25 GB R2 allocation is insufficient, block the upload and explain the storage requirement.
 
 ---
 
-# 20. ADMINISTRATIVE PERFORMANCE DASHBOARD
+# WORKSTREAM 6 — MONITORING AND ADMINISTRATION
+
+## 23. DATA PIPELINE DASHBOARD
 
 Create a dedicated dashboard showing:
 
-### Processing performance
-- Total records processed.
+- Active ingestion jobs.
+- Current processing stage.
+- Downloaded observations.
+- Validated observations.
+- Rejected observations.
+- Duplicate observations.
+- Harmonized observations.
+- Generated anomalies.
+- Parquet files generated.
 - Processing speed.
-- Jobs running.
-- Jobs completed.
-- Failed jobs.
-- Average processing time.
-- Peak RAM usage.
-- CPU utilisation.
+- RAM consumption.
+- CPU consumption.
+- Temporary disk consumption.
+- Successful cleanup operations.
+- Failed processing jobs.
+- Last successful ingestion.
 
-### Analytics
-- Daily aggregates generated.
-- Monthly aggregates generated.
-- Yearly aggregates generated.
-- Anomalies identified.
-- Regions analysed.
-- Harmonisation runs completed.
+Allow administrators to inspect each job and view its execution logs.
 
-### Data infrastructure
-- Local storage usage.
-- Cloud storage usage.
+Provide controls to:
+
+- Start historical ingestion.
+- Start incremental ingestion.
+- Retry failed jobs.
+- Resume interrupted jobs.
+- Reprocess selected partitions.
+- Run harmonisation.
+- Rebuild selected aggregates.
+- Inspect and verify outputs.
+- Manage temporary files.
+
+## 24. STORAGE DASHBOARD
+
+Display:
+
+- Local dataset size.
+- R2 usage.
+- Remaining R2 capacity.
 - PostgreSQL usage.
-- Parquet file count.
-- Total retained observations.
-- Temporary files pending deletion.
-- Dataset synchronisation status.
+- Parquet compression ratio.
+- Number of retained observations.
+- Temporary storage.
+- Files awaiting cleanup.
+- Dataset growth.
 
-Allow administrators to inspect processing jobs and their execution logs.
+Use configurable warnings at 70%, 85% and 95% capacity.
 
----
-
-# 21. TESTING AND BENCHMARKING
-
-Create automated tests for both workstreams.
-
-### Cloud integration
-- Local storage adapter.
-- R2 adapter.
-- R2 uploads and downloads.
-- Checksum verification.
-- Synchronisation manifests.
-- Resumable uploads.
-- Storage capacity checks.
-- Database synchronisation.
-
-### Processing performance
-- Large file processing.
-- Streaming operations.
-- Parallel partition processing.
-- Memory consumption.
-- DuckDB query performance.
-- Polars processing performance.
-- Incremental aggregation.
-
-### Analytics
-- Calendar accuracy.
-- Regional aggregates.
-- Seasonal analysis.
-- Anomaly detection.
-- FRP aggregation.
-- Sensor comparisons.
-- Harmonisation correctness.
-
-### Frontend
-- Cloud readiness dashboard.
-- Storage dashboard.
-- Processing dashboard.
-- Historical calendar.
-- Map interactions.
-- Regional analytics.
-- Anomaly inspection.
-
-Use representative synthetic fixtures for automated tests, clearly labelled as synthetic. Use real NASA FIRMS datasets for scientific validation.
-
-Run benchmarks at several dataset sizes, such as 100,000, 1 million and 10 million observations where hardware and available data permit.
-
-Report actual measurements rather than promising arbitrary performance numbers.
+Never automatically delete permanent historical observations.
 
 ---
 
-# 22. IMPLEMENTATION PHASES
+# WORKSTREAM 7 — VALIDATION AND TESTING
 
-Execute both workstreams in this order.
+## 25. TRANSIENT PIPELINE TESTS
 
-**Phase 1 — Codebase and performance assessment**
+Test:
 
-Inspect the existing code, architecture, ingestion pipeline, database usage and performance bottlenecks.
+- NASA download success.
+- Empty source responses.
+- Invalid source responses.
+- Validation failures.
+- Duplicate observations.
+- Partial downloads.
+- Failed uploads.
+- Database commit failures.
+- Parquet corruption.
+- Interrupted processing.
+- Resumed processing.
+- Temporary file cleanup.
+- Cross-day harmonisation.
+- Late-arriving observations.
+- Reprocessing after methodology changes.
 
-Produce an implementation plan and baseline measurements.
+Explicitly test that raw data is never deleted before durable outputs and metadata are verified.
 
-**Phase 2 — Storage and deployment abstraction**
+## 26. STORAGE AND QUERY TESTS
 
-Implement local filesystem storage, R2 adapter, configuration profiles and database separation.
+Test:
 
-**Phase 3 — Cloud synchronisation preparation**
+- ZSTD compression.
+- Parquet read/write accuracy.
+- Local storage.
+- R2 storage.
+- DuckDB date queries.
+- Spatial queries.
+- H3 aggregation.
+- PostgreSQL aggregation.
+- Large CSV exports.
+- Historical calendar generation.
 
-Implement manifests, checksums, dataset inventory, deployment preview and resumable transfers.
+## 27. SCIENTIFIC VALIDATION
 
-**Phase 4 — Processing engine optimisation**
+Ensure:
 
-Improve batch processing, Polars transformations, DuckDB queries, memory management and incremental ingestion.
-
-**Phase 5 — Harmonisation optimisation**
-
-Improve MODIS/VIIRS matching, provenance, quality checks and reproducibility.
-
-**Phase 6 — Analytical engine**
-
-Implement precomputed statistics, historical calendar optimisation, anomaly detection and regional analysis.
-
-**Phase 7 — API and map optimisation**
-
-Implement efficient endpoints, caching, viewport filtering and aggregated map rendering.
-
-**Phase 8 — Administrative dashboards**
-
-Create cloud readiness, storage monitoring and processing performance interfaces.
-
-**Phase 9 — Testing and scientific validation**
-
-Run integration, load, data integrity and analytical accuracy tests.
-
-**Phase 10 — Documentation and deployment preparation**
-
-Complete deployment configurations, documentation and local-to-cloud migration instructions.
-
-Do not proceed past a critical failure in an earlier phase.
+- MODIS/VIIRS sensor identity is preserved.
+- Confidence values are correctly interpreted.
+- FRP units are preserved.
+- Coordinates and UTC timestamps are correct.
+- Observation IDs and source fingerprints remain consistent.
+- Duplicate records are not counted twice.
+- Zero observations are distinguishable from unavailable data.
+- Harmonisation results are reproducible.
+- Anomaly outputs expose their baselines and evidence.
+- All synthetic records remain explicitly labelled.
 
 ---
 
-# 23. FINAL ACCEPTANCE CRITERIA
+# WORKSTREAM 8 — SAFE MIGRATION
 
-The implementation is complete only when:
+## 28. MIGRATE THE EXISTING 11.34 MILLION OBSERVATIONS
 
-1. FIREWATCH X runs locally without cloud credentials.
-2. The application is ready to integrate with Cloudflare R2.
-3. Local and cloud storage use the same storage interface.
-4. Local datasets can be selectively synchronised to the cloud.
-5. Cloud uploads are verified and resumable.
-6. Local and production PostgreSQL databases remain separate.
-7. Large historical datasets can be processed in batches.
-8. Processing does not require loading the complete dataset into RAM.
-9. Polars and DuckDB are used efficiently for their respective workloads.
-10. MODIS and VIIRS provenance is retained.
-11. Harmonisation is reproducible.
-12. The historical calendar is driven by precomputed statistics.
-13. Incremental ingestion updates only affected analytical partitions.
-14. Anomaly detection uses documented historical baselines.
-15. The global map does not load the complete dataset into the browser.
-16. The backend uses efficient queries and caching.
-17. Processing failures can resume without data duplication.
-18. Temporary raw data is deleted only after successful output verification.
-19. Storage and processing utilisation are visible in the application.
-20. All changes pass automated tests and scientific validation.
+Migration must be staged.
 
-# 24. FINAL DELIVERY REPORT
+1. Back up PostgreSQL.
+2. Profile actual table and index sizes.
+3. Select one representative month of data.
+4. Export the month into Parquet.
+5. Benchmark compression and queries.
+6. Validate every record and important measurement.
+7. Test the complete transient processing lifecycle.
+8. Migrate the remaining observation partitions in batches.
+9. Switch the application query layer to DuckDB.
+10. Validate historical calendars, maps and exports.
+11. Retire redundant PostgreSQL payloads and tables only after acceptance testing.
+
+Preserve observation UUIDs and source fingerprints.
+
+Do not attempt to migrate all records in one massive RAM-consuming operation.
+
+---
+
+# WORKSTREAM 9 — PERFORMANCE BENCHMARKS
+
+## 29. REQUIRED MEASUREMENTS
+
+Benchmark the original and new architecture using representative real datasets.
+
+Test at 100,000, 1 million and 10 million observations where feasible.
+
+Report:
+
+- Original PostgreSQL storage.
+- New Parquet storage.
+- Compression ratio.
+- Temporary storage peak.
+- RAM peak.
+- Processing records per second.
+- Harmonisation duration.
+- Analytics duration.
+- Query response times.
+- Calendar response time.
+- Geographic query response time.
+- CSV export duration.
+- Cleanup duration.
+- R2 storage consumption.
+
+Do not invent performance measurements.
+
+Use benchmarks to select optimal batch sizes, compression levels, file sizes, row groups, worker counts and DuckDB memory limits.
+
+---
+
+# WORKSTREAM 10 — IMPLEMENTATION ORDER
+
+Execute implementation in the following sequence.
+
+### Phase 1 — Existing system assessment
+Inspect the repository, current schema, storage usage, queries and processing pipeline.
+
+### Phase 2 — Transient ingestion foundation
+Implement temporary workspaces, job states, checkpoints, validation and recovery.
+
+### Phase 3 — Processing and harmonisation
+Implement normalisation, deduplication and cross-sensor matching.
+
+### Phase 4 — Permanent output storage
+Implement Parquet generation, compression, manifests and output verification.
+
+### Phase 5 — Analytics generation and PostgreSQL population
+Generate statistics, anomalies, baselines and spatial summaries.
+
+### Phase 6 — Safe cleanup
+Implement deletion of temporary raw downloads only after all mandatory verification succeeds.
+
+### Phase 7 — DuckDB and Polars optimisation
+Implement efficient detailed queries and high-performance transformations.
+
+### Phase 8 — PostgreSQL optimisation
+Move detailed observations out of PostgreSQL and retain compact analytical tables.
+
+### Phase 9 — Map and API optimisation
+Implement H3, spatial aggregation, query routing and caching.
+
+### Phase 10 — Local/cloud storage abstraction
+Implement local filesystem and Cloudflare R2 adapters.
+
+### Phase 11 — Cloud synchronisation
+Implement selective data transfers, checksums, deployment manifests and recovery.
+
+### Phase 12 — Migration and validation
+Migrate all existing observations in controlled batches and validate all output.
+
+### Phase 13 — Documentation and deployment
+Complete deployment instructions, testing and operational documentation.
+
+Do not skip stages or delete data to make development easier.
+
+---
+
+# 30. FINAL ACCEPTANCE CRITERIA
+
+The final implementation must demonstrate that:
+
+1. FIREWATCH X operates entirely locally.
+2. NASA FIRMS data is ingested in manageable batches.
+3. Raw downloads are stored temporarily.
+4. Data validation and normalisation are performed automatically.
+5. MODIS and VIIRS are harmonised while preserving provenance.
+6. Analytics and anomalies are generated automatically.
+7. Harmonized observations are saved in compressed Parquet.
+8. PostgreSQL is populated with compact analytical results.
+9. Parquet outputs and database records are verified.
+10. Temporary raw downloads are deleted only after successful verification.
+11. Failed processing jobs preserve their source files and can resume.
+12. Duplicate records are prevented.
+13. Cross-day harmonisation is supported.
+14. Historical calendar calculations are incremental.
+15. DuckDB can query detailed observations efficiently.
+16. The global map uses spatial aggregation at appropriate zoom levels.
+17. Cloudflare R2 synchronisation is selective and resumable.
+18. Production PostgreSQL stores metadata and precomputed statistics, not the complete observation archive.
+19. The application remains compatible with the initial 25 GB R2 and 1 GB PostgreSQL allocations for the selected cloud dataset.
+20. Data integrity and scientific correctness are verified using actual NASA observations.
+
+---
+
+# 31. FINAL DELIVERY
 
 At completion, provide:
 
-- Existing architecture assessment.
-- New cloud-ready architecture.
-- Updated repository structure.
-- Storage abstraction implementation.
-- Cloudflare R2 configuration instructions.
-- PostgreSQL configuration instructions.
-- Cloud synchronisation instructions.
-- DuckDB and Polars optimisation details.
-- Updated ingestion and harmonisation workflows.
-- Updated analytics and anomaly detection methods.
-- Performance benchmarks before and after optimisation.
-- RAM and disk consumption measurements.
-- Test results.
+- Architecture assessment.
+- Revised data flow.
+- Updated database schema.
+- Transient ingestion implementation.
+- Job-state and recovery implementation.
+- Data validation and harmonisation implementation.
+- Parquet compression benchmark.
+- Storage migration report.
+- DuckDB query implementation.
+- Polars processing implementation.
+- PostgreSQL optimisation.
+- Calendar and anomaly optimisation.
+- H3 spatial analysis.
+- Cloudflare R2 integration.
+- Synchronisation manager.
+- Storage and pipeline dashboards.
+- Automated test results.
+- Before-and-after performance benchmarks.
+- Deployment documentation.
 - Known limitations.
-- Local execution instructions.
-- Cloud deployment preparation instructions.
 
-Do not stop at documentation or mockups.
+Do not stop at a plan, diagram or mockup.
 
-Implement the actual functionality, connect the frontend to the backend, run migrations, execute tests and verify real data processing.
+Implement working functionality, connect the services, run migrations, execute tests and validate the pipeline with real NASA FIRMS observations.
 
-The final deliverable must be a fully functional, locally operable, cloud-ready and performance-optimised FIREWATCH X platform.
+The final deliverable must be a fully functional, locally operable, cloud-ready FIREWATCH X platform capable of processing extensive MODIS and VIIRS historical data while minimising persistent raw storage, PostgreSQL consumption, processing overhead and analytical query latency.

@@ -10,6 +10,7 @@ import {
   Radar,
   Search,
   Settings2,
+  Cloud,
   ShieldAlert,
   Sparkles,
 } from "lucide-react";
@@ -138,6 +139,19 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: Sparkles,
         phase: "Phase 7",
         group: "Investigate with tools",
+      },
+    ],
+  },
+  {
+    title: "Infrastructure",
+    items: [
+      {
+        key: "cloud-readiness",
+        label: "Cloud Readiness",
+        to: "/infrastructure",
+        icon: Cloud,
+        phase: "Phase 9",
+        group: "Storage, datasets and sync",
       },
     ],
   },

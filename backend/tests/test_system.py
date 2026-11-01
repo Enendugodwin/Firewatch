@@ -42,6 +42,7 @@ def test_module_registry_covers_every_product_module(client: TestClient) -> None
         "exposure",
         "reports",
         "assistant",
+        "cloud-readiness",
         "settings",
     ]
     for module in modules:

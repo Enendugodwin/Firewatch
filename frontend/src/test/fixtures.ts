@@ -538,6 +538,60 @@ export function installFetchMock(options: MockOptions = {}) {
         notes: [],
       });
     }
+    if (url.includes("/api/v1/infrastructure/status")) {
+      return json({
+        deployment_mode: "local",
+        database_mode: "local",
+        storage: {
+          mode: "local",
+          local_directory: "./data",
+          database_mode: "local",
+          r2_bucket: null,
+          r2_configured: false,
+          available: true,
+          provider: "local",
+          used_bytes: 41_000_000,
+          free_bytes: 130_000_000_000,
+          allocation_bytes: 26_843_545_600,
+        },
+        database: {
+          dialect: "postgresql",
+          size_bytes: 19_218_764_259,
+          tables: 12,
+          cloud_database_configured: false,
+        },
+        rollups: { available: true, rows: 1646, dialect: "postgresql" },
+      });
+    }
+    if (url.includes("/api/v1/infrastructure/datasets")) {
+      return json({
+        root: "./data/firewatch-data",
+        count: 1,
+        total_bytes: 41_335_227,
+        records: 1_120_880,
+        datasets: [
+          {
+            dataset: "detections-2026-10",
+            path: "harmonized/year=2026/month=10/detections.parquet",
+            kind: "harmonized",
+            sensor: "all",
+            coverage_start: "2026-10-01",
+            coverage_end: "2026-10-31",
+            partition: "year=2026/month=10",
+            records: 1_120_880,
+            size_bytes: 41_335_227,
+            checksum: "abcdef1234567890abcdef",
+            schema_version: "detections-parquet-v1",
+            processing_version: "export-v1",
+            local_path: "./data/firewatch-data/harmonized/year=2026/month=10/detections.parquet",
+            sync_status: "missing",
+          },
+        ],
+      });
+    }
+    if (url.includes("/api/v1/infrastructure/storage/test")) {
+      return json({ ok: true, provider: "local", root: "./data", free_bytes: 130_000_000_000 });
+    }
     if (url.includes("/api/v1/analytics/summary")) return json(analytics);
     if (/\/api\/v1\/anomalies(\?|$)/.test(url)) return json(anomalies);
     if (url.includes("/api/v1/calendar/months")) {

@@ -37,7 +37,11 @@ Thumbs.db
 *.swp
 *~
 
-# --- runtime output --------------------------------------------------------
+# --- datasets and runtime output -------------------------------------------
+data/
+firewatch-data/
+
+
 *.log
 logs/
 artifacts/

@@ -57,6 +57,24 @@ class Settings(BaseSettings):
 
     redis_url: str = "redis://localhost:6379/0"
 
+    # --- deployment profiles -------------------------------------------------
+    #: local | hybrid | cloud. Only configuration changes between them.
+    deployment_mode: str = "local"
+    #: local | r2 | s3
+    storage_mode: str = "local"
+    #: local | cloud | split  (split = local writes, cloud reads summaries)
+    database_mode: str = "local"
+    local_data_directory: str = "./data"
+    cloud_database_url: str | None = None
+    #: Cloudflare R2 (S3-compatible). Absent credentials mean local-only.
+    r2_account_id: str | None = None
+    r2_access_key_id: str | None = None
+    r2_secret_access_key: str | None = None
+    r2_bucket_name: str | None = None
+    r2_endpoint_url: str | None = None
+    #: Allocation used to warn before exceeding the plan (bytes).
+    r2_allocation_bytes: int = 25 * 1024**3
+
     # --- NASA FIRMS (Phase 2) ------------------------------------------------
     firms_map_key: str | None = None
     firms_base_url: str = "https://firms.modaps.eosdis.nasa.gov/api"

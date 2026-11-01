@@ -22,6 +22,7 @@ from app.api.v1 import (
     fires,
     geo,
     harmonization,
+    infrastructure,
     regions,
     reports,
     system,
@@ -34,6 +35,7 @@ api_router.include_router(fires.router)
 api_router.include_router(geo.router)
 api_router.include_router(calendar.router)
 api_router.include_router(harmonization.router)
+api_router.include_router(infrastructure.router)
 api_router.include_router(analytics.router)
 api_router.include_router(anomalies.router)
 api_router.include_router(regions.router)
