@@ -17,13 +17,13 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, Literal, cast
 
-from sqlalchemy import Select, case, func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.db.dialect import dialect_name, utc_day
-from app.db.models import DataSource, FireObservation, SourceAvailability
+from app.db.models import DataSource, SourceAvailability
 from app.services.observation_queries import ObservationFilters
+from app.services.rollups import activity_rows, day_of
 
 Granularity = Literal["day", "week", "month", "year"]
 
@@ -116,42 +116,40 @@ def _as_date(value: Any) -> date | None:
 
 def daily_metrics(session: Session, filters: ObservationFilters) -> dict[date, dict[str, Any]]:
     """
-    One grouped query; the SQL date function is portable across SQLite/PostgreSQL.
-
-    Only the five columns the aggregation needs are selected, so SQLite never
-    materialises a wide intermediate table for the whole range.
+    Day buckets for the calendar, anomaly engine and reports. Reads the daily
+    rollup when the filters allow it, otherwise scans the observations.
     """
-    dialect = dialect_name(session)
-    day_expression = utc_day(FireObservation.acquired_at, dialect)
-    day = day_expression.label("day")
-    statement = filters.apply(
-        select(
-            day,
-            func.count().label("detections"),
-            func.sum(case((FireObservation.sensor == "MODIS", 1), else_=0)).label("modis"),
-            func.sum(case((FireObservation.sensor == "VIIRS", 1), else_=0)).label("viirs"),
-            func.sum(FireObservation.frp_mw).label("frp_sum_mw"),
-            func.max(FireObservation.frp_mw).label("frp_max_mw"),
-            func.sum(case((FireObservation.confidence_category == "high", 1), else_=0)).label(
-                "high_confidence"
-            ),
-        )
-    ).group_by(day_expression)
+    rows = activity_rows(session, filters)
 
-    rows: dict[date, dict[str, Any]] = {}
-    for raw_day, detections, modis, viirs, frp_sum, frp_max, high in session.execute(statement):
-        parsed = _as_date(raw_day)
-        if parsed is None:
-            continue
-        rows[parsed] = {
-            "detections": int(detections or 0),
-            "modis": int(modis or 0),
-            "viirs": int(viirs or 0),
-            "frp_sum_mw": float(frp_sum or 0.0),
-            "frp_max_mw": float(frp_max) if frp_max is not None else None,
-            "high_confidence": int(high or 0),
-        }
-    return rows
+    daily: dict[date, dict[str, Any]] = {}
+    for row in rows:
+        day = day_of(row.day)
+        count = int(row.detections or 0)
+        frp_sum = float(row.frp_sum_mw or 0.0)
+        frp_max = float(row.frp_max_mw) if row.frp_max_mw is not None else None
+
+        bucket = daily.setdefault(
+            day,
+            {
+                "detections": 0,
+                "modis": 0,
+                "viirs": 0,
+                "frp_sum_mw": 0.0,
+                "frp_max_mw": None,
+                "high_confidence": 0,
+            },
+        )
+        bucket["detections"] += count
+        if row.sensor == "MODIS":
+            bucket["modis"] += count
+        elif row.sensor == "VIIRS":
+            bucket["viirs"] += count
+        bucket["frp_sum_mw"] += frp_sum
+        if frp_max is not None and (bucket["frp_max_mw"] is None or frp_max > bucket["frp_max_mw"]):
+            bucket["frp_max_mw"] = frp_max
+        if (row.confidence_category or "").lower() == "high":
+            bucket["high_confidence"] += count
+    return daily
 
 
 def _availability(

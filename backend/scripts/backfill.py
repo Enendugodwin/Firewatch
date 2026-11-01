@@ -136,6 +136,15 @@ def main() -> int:
             )
 
     overall = time.perf_counter() - started
+    if totals["inserted"]:
+        from app.db.session import session_scope
+        from app.services.rollups import refresh_rollup
+
+        print("\nRefreshing the daily activity rollup ...")
+        with session_scope() as session:
+            refreshed = refresh_rollup(session)
+        print("rollup refreshed" if refreshed else "rollup not available (SQLite)")
+
     print("\nSummary")
     for code in codes:
         values = per_source.get(code)

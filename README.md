@@ -50,6 +50,9 @@ candidate pairs (29 probable, 157 possible) and 587 estimated events (158 seen b
 
 ## Database
 
+Eleven million detections occupy 18 GB in PostgreSQL; day- and cell-level rollups keep the
+dashboard interactive (analytics 0.24 s, calendar 0.05 s, report 0.17 s).
+
 The live workstation runs **PostgreSQL 16** (588 MB for 371k detections); SQLite remains the
 zero-setup option for tests and CI. See [docs/operations.md](docs/operations.md) for starting
 the local cluster, migrating, copying SQLite data across, backups and the 30-day storage

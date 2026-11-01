@@ -12,10 +12,11 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.dialect import dialect_name, grid_index, utc_day
+from app.db.dialect import dialect_name, grid_index
 from app.db.models import FireObservation
 from app.services.normalization import satellite_label
 from app.services.observation_queries import ObservationFilters
+from app.services.rollups import activity_rows, cell_rows, day_of
 
 #: Rankings use a coarse grid, not administrative boundaries: a "cell" is a
 #: geographic area, never a country.
@@ -37,6 +38,21 @@ def _top_cells(
     """Ranked cells. Aggregated directly over the table: wrapping a wide select
     in a subquery makes SQLite materialise every row first."""
     cell = RANKING_CELL_DEGREES
+    rolled = cell_rows(session, filters, limit=limit)
+    if rolled is not None:
+        return [
+            {
+                "latitude": round((float(row.lat_index) + 0.5) * cell - 90.0, 4),
+                "longitude": round((float(row.lon_index) + 0.5) * cell - 180.0, 4),
+                "detections": int(row.detections or 0),
+                "frp_sum_mw": round(float(row.frp_sum_mw or 0.0), 2),
+                "frp_max_mw": round(float(row.frp_max_mw), 2)
+                if row.frp_max_mw is not None
+                else None,
+            }
+            for row in rolled
+        ]
+
     dialect = dialect_name(session)
     lon_index = grid_index(FireObservation.longitude, 180.0, cell, dialect)
     lat_index = grid_index(FireObservation.latitude, 90.0, cell, dialect)
@@ -66,40 +82,14 @@ def _top_cells(
     return cells
 
 
-def _grouped_scan(
-    session: Session, filters: ObservationFilters
-) -> dict[str, Any]:
+def _grouped_scan(session: Session, filters: ObservationFilters) -> dict[str, Any]:
     """
-    One pass over the filtered rows, grouped by day and the dimensions every
-    breakdown needs. Ten million rows cannot afford one scan per breakdown, so
-    the day series, sensor split, confidence, day/night, satellites and products
-    are all derived from this single result.
+    Rows grouped by day and the dimensions every breakdown needs, from the daily
+    rollup when possible. Ten million rows cannot afford one scan per breakdown,
+    so the series, sensor split, confidence, day/night, satellites and products
+    all come from this single result.
     """
-    dialect = dialect_name(session)
-    day = utc_day(FireObservation.acquired_at, dialect)
-
-    rows = session.execute(
-        filters.apply(
-            select(
-                day.label("day"),
-                FireObservation.sensor,
-                FireObservation.confidence_category,
-                FireObservation.daynight,
-                FireObservation.satellite,
-                FireObservation.source_code,
-                func.count().label("detections"),
-                func.sum(FireObservation.frp_mw).label("frp_sum_mw"),
-                func.max(FireObservation.frp_mw).label("frp_max_mw"),
-            )
-        ).group_by(
-            day,
-            FireObservation.sensor,
-            FireObservation.confidence_category,
-            FireObservation.daynight,
-            FireObservation.satellite,
-            FireObservation.source_code,
-        )
-    ).all()
+    rows = activity_rows(session, filters)
 
     daily: dict[Any, dict[str, Any]] = {}
     confidence = {"high": 0, "nominal": 0, "low": 0, "unknown": 0}
@@ -108,9 +98,7 @@ def _grouped_scan(
     products: dict[str, int] = {}
 
     for row in rows:
-        day_value = row.day
-        if not isinstance(day_value, date):
-            day_value = date.fromisoformat(str(day_value)[:10])
+        day_value = day_of(row.day)
         count = int(row.detections or 0)
         frp_sum = float(row.frp_sum_mw or 0.0)
         frp_max = float(row.frp_max_mw) if row.frp_max_mw is not None else None

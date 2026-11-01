@@ -89,6 +89,21 @@ cd backend
 skips partitions that already succeeded. `backfill_status` shows the same view as
 a progress bar and is safe to run while the backfill is working.
 
+## Aggregation rollups
+
+Eleven million detections cannot be grouped by day on every page load. PostgreSQL keeps two
+materialized views, refreshed after each ingestion:
+
+| Matview | Grain | Serves |
+| --- | --- | --- |
+| `daily_activity` | UTC day × sensor × confidence × day/night × satellite × product | calendar, analytics series, anomaly engine, reports |
+| `cell_activity` | UTC day × 2° cell | analytics ranking |
+
+`app/services/rollups.py` chooses the rollup only when the request can be answered from it;
+a `bbox` or a per-detection `min_frp` falls back to the live scan so a filtered answer is never
+approximated. Measured on 11.3 M rows: analytics 26 s → **0.24 s**, calendar 9.8 s → **0.05 s**,
+anomalies 13 s → **0.05 s**, report 34 s → **0.17 s**.
+
 ## Storage growth
 
 Measured on this workstation: **371,276 detections** occupy **588 MB** in PostgreSQL

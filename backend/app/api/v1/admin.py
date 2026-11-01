@@ -28,6 +28,7 @@ from app.services import harmonization as harmonization_service
 from app.services.firms.tiles import WORLD, Tile, global_tiles
 from app.services.ingestion import ingest_range, sync_availability
 from app.services.observation_queries import BBox
+from app.services.rollups import refresh_rollup
 from app.services.sources import FIRMS_SOURCES, get_source
 
 router = APIRouter(prefix="/admin/ingestion", tags=["admin"])
@@ -167,6 +168,9 @@ async def run_ingestion(
         tile=tile,
     )
 
+    if result.records_inserted:
+        refresh_rollup(session)
+
     harmonization_result = None
     events_result = None
     if request.run_harmonization and result.records_inserted:
@@ -203,6 +207,7 @@ async def run_ingestion(
 async def run_all_sources(
     request: IngestAllRequest,
     settings: Settings = Depends(get_settings),
+    session: Session = Depends(get_session),
 ) -> IngestAllResponse:
     """
     One request, every product. Sources run sequentially so the database is not
@@ -325,6 +330,9 @@ async def run_all_sources(
                 is_synthetic=result.is_synthetic,
             )
         )
+
+    if inserted_total:
+        refresh_rollup(session)
 
     harmonization_result = None
     events_result = None

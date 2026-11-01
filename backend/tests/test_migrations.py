@@ -39,7 +39,7 @@ def test_migration_is_applied_once(migrated: Path) -> None:
     with get_engine().connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
-    assert revision == "0004_watched_assets"
+    assert revision == "0007_cell_activity_rollup"
 
 
 def test_seed_is_idempotent(migrated: Path) -> None:

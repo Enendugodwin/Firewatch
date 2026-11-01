@@ -87,6 +87,8 @@ through 2026-08-31 while `MODIS_NRT` covered 2026-10-30, so a recent date is gen
 | Spike detection | Seeded 40-day baseline + 10× day flags exactly that day (severity high/critical) |
 | Gap handling | Baseline excludes days without availability rather than counting them as zero |
 | Query cost | Analytics summary reduced from ~4.6 s to ~1.2 s after removing wide subqueries |
+| Rollup | On 11.3 M rows: analytics 26 s → 0.24 s, calendar 9.8 s → 0.05 s, anomalies 13 s → 0.05 s, report 34 s → 0.17 s |
+| Rollup fallback | bbox / min_frp requests use the live scan, so filtered answers stay exact |
 
 ### Calendar verification (2026-10-31)
 
