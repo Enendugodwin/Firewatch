@@ -15,6 +15,11 @@ from app.db.models.ingestion import (
     SourceAvailability,
 )
 from app.db.models.observation import FireObservation
+from app.db.models.regions import (
+    GeographicRegion,
+    RegionalCellStatistic,
+    RegionalDailyStatistic,
+)
 
 __all__ = [
     "AlgorithmRun",
@@ -22,10 +27,13 @@ __all__ = [
     "EventObservation",
     "FireEvent",
     "FireObservation",
+    "GeographicRegion",
     "IngestionPartition",
     "IngestionRun",
     "ObservationMatch",
     "RawObservation",
+    "RegionalCellStatistic",
+    "RegionalDailyStatistic",
     "SourceAvailability",
     "WatchedAsset",
 ]

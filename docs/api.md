@@ -118,6 +118,31 @@ Every bucket in the range is returned, including empty ones, with `state`
 metrics: detections, MODIS, VIIRS, FRP sum, FRP max and high-confidence count. Filters are the same
 as `/fires` (`bbox`, `sensor`, `satellite`, `min_frp`, `daynight`, `min_confidence`, `synthetic`).
 
+### Regional intelligence
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/regions` | Ranking of approximate gazetteer boxes, with `region_id` for the engine |
+| GET | `/regions/catalog` | Selectable regions; `level`, `q`, `limit` |
+| POST | `/regions/custom` | `name`, GeoJSON `geometry`, optional `level`; validated polygon |
+| POST | `/regions/radius` | `name`, `latitude`, `longitude`, `radius_km` (0.05–2000) |
+| GET | `/regions/{id}` | Boundary metadata; `include_geometry=true` adds the GeoJSON |
+| POST | `/regions/{id}/analyze` | Body: `start_date`, `end_date`, `sensor?`, `synthetic?`; writes regional statistics |
+| GET | `/regions/{id}/overview` | Totals, coverage, peak month, trend verdict, anomaly count |
+| GET | `/regions/{id}/daily` | Daily rows from the materialised statistics |
+| GET | `/regions/{id}/monthly` | Monthly counts, FRP, coverage and expected days |
+| GET | `/regions/{id}/yearly` | Annual counts, completeness and year-over-year change |
+| GET | `/regions/{id}/seasonality` | Monthly climatology + day-of-year profile with sufficiency gates |
+| GET | `/regions/{id}/trends` | Mann–Kendall, Sen's slope, rolling means, seasonal trends |
+| GET | `/regions/{id}/anomalies` | Same-month robust-z anomalies |
+| GET | `/regions/{id}/spatial-activity` | 0.5° recurring-activity grid inside the polygon |
+| GET | `/regions/{id}/sensor-comparison` | MODIS/VIIRS totals, spans and monthly correlation |
+| GET | `/regions/{id}/export` | Monthly + yearly CSV |
+
+Read endpoints return `status: "not_analyzed"` with a `requirements.note` until the
+window has been analysed; they never return an invented zero. See
+[`regional.md`](regional.md) for the method and the measured timings.
+
 ### Analytics and anomalies
 
 | Method | Path | Notes |

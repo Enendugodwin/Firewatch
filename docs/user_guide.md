@@ -158,6 +158,40 @@ have a seasonal shape?" It recomputes over the same window and filters as the gr
 - **Caveat**: the footer repeats the language rules for the current metric (detections are not
   fires; FRP totals depend on the sensor mix).
 
+## Regional Intelligence
+
+Answers "how is fire activity changing in *this* place, and is this time of year
+normally like this?" for a country, an imported boundary, or a radius.
+
+- **Regions**: the catalogue is seeded from the offline gazetteer as *approximate
+  boxes*, labelled `(approx.)`. Import a GeoJSON boundary or create a radius to get
+  exact counts. A polygon's bounding box is only used to prefilter candidates; the
+  counts come from the polygon.
+- **Analyse period**: the first visit has no statistics. *Analyse period* runs one
+  pass over the observations for the header period and stores regional daily
+  statistics; every later view reads those rows, so the page stays fast. Nothing is
+  estimated before the run — the panel says `not analyzed`.
+- **Overview**: detections, coverage (analysed days, not zero-filled), peak month
+  and the number of detected anomalies. A peak is only shown when a multi-year
+  climatology exists.
+- **Monthly seasonality**: twelve bars, each the mean of yearly monthly means. A
+  month needs two years of coverage; dashed bars are withheld, and the note says
+  why. With one year the status is `single year` and no peak or trough is claimed.
+- **Year × month heatmap**: rows are years, columns months; a dashed cell means no
+  analysed coverage, never zero.
+- **Long-term trend**: Mann–Kendall on complete years with Sen's slope and a
+  p-value. Fewer than eight complete years shows `insufficient years`; year-over-year
+  changes are still listed without a significance claim.
+- **Anomalies**: each month compared with the *same calendar month* in other years.
+  Without four other years, no anomaly is claimed.
+- **Sensor comparison**: MODIS and VIIRS totals, active days and a monthly
+  correlation where both are present. Correlation is agreement in time, not
+  calibrated equivalence.
+- **Recurring activity cells**: a 0.5° screening grid inside the boundary with
+  years-seen and a recurrence share. It is a plain grid, not an H3 index.
+- **Export**: *CSV* downloads the monthly and yearly rows for the current region,
+  period and sensor.
+
 ## Data Query (Intelligence)
 
 The query workspace reads the stored detections directly.

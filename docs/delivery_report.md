@@ -92,6 +92,8 @@ allocation.
 | Export throughput | 1,120,880 rows → 41.3 MB in **29 s** |
 | Parquet vs PostgreSQL for the same rows | 41 MB vs ≈ 1.86 GB (1,660 B/row) — ~40× smaller |
 | Calendar intelligence (trend + anomalies + seasonality) | 61 days over 11.3 M rows → **0.25 s** via the rollup |
+| Regional analysis (Nigeria, 12° box) | 68 643 candidates → 3.7 s once; then overview **0.24 s**, monthly/yearly 10 ms |
+| Regional reads | `overview` 0.24 s, `seasonality` 23 ms, `sensor-comparison` 19 ms |
 
 Parquet counts match PostgreSQL **day by day** (UTC) — verified after pinning DuckDB's time zone.
 
@@ -110,15 +112,18 @@ Parquet counts match PostgreSQL **day by day** (UTC) — verified after pinning 
   (`services/trends.py`). Each analysis has its own sufficiency gate: no slope under ten observed
   days, no anomaly without a baseline, and no seasonal index until at least two years observed a
   month on five or more days. Missing days break the trend line instead of being drawn as zero.
+- The regional engine (`services/regional.py`, `services/geometry.py`) stores GeoJSON boundaries,
+  analyses a region once into `regional_daily_statistics` + `regional_cell_statistics`, and serves
+  every read from those rows. The polygon is authoritative; PostGIS is not required.
 
 ## 9. Tests
 
-- Backend: **177 passed** (storage round-trip, traversal guard, sync idempotence, allocation block,
+- Backend: **189 passed** (storage round-trip, traversal guard, sync idempotence, allocation block,
   checksum change detection, Parquet export + DuckDB read, infrastructure API, calendar months,
-  calendar intelligence + seasonality gates, anomaly baselines, bulk ingestion, CSV exports,
-  reports/regions/exposure/assistant).
-- Frontend: **64 passed** across 10 files; `tsc --noEmit` clean; production build OK.
-- Ruff and mypy (80 files) clean.
+  calendar intelligence + seasonality gates, regional geometry/analysis/trend tests, anomaly
+  baselines, bulk ingestion, CSV exports, reports/regions/exposure/assistant).
+- Frontend: **67 passed** across 11 files; `tsc --noEmit` clean; production build OK.
+- Ruff and mypy (84 files) clean.
 
 ## 10. Resource notes
 

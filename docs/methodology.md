@@ -68,7 +68,7 @@ Every event keeps its member observation ids, first/last detection, centroid and
 count, and **separate** maximum and aggregate FRP. An event is an estimate; it never implies
 continuous monitoring between overpasses.
 
-## 5. Calendar metrics (Phase 5 — planned)
+## 5. Calendar metrics (implemented)
 
 Six independent metrics, never one blended number: raw MODIS, raw VIIRS, combined raw, probable
 match groups, estimated events, aggregate FRP. Every cell carries completeness so missing data is
@@ -108,13 +108,40 @@ Isolation Forest remains an optional secondary model, never the sole basis for a
 anomaly exposes observed/expected values, sample size, baseline period, method, model version,
 evidence ids and completeness.
 
-## 7. Exposure screening (Phase 6 — planned)
+## 7. Regional analysis (implemented)
+
+Regional statistics are computed once per region and period, then stored
+(`regional_daily_statistics`, `regional_cell_statistics`). Reads never scan the
+observation table.
+
+- **Exactness** — a SQL bounding-box prefilter selects candidates; Shapely
+  `contains_xy` applies the actual polygon. The box never produces a published
+  count. Boundaries are stored as GeoJSON because PostGIS is absent.
+- **Coverage** — a month contributes to climatology only when ≥ 80% of the
+  *requested* days in that month are covered; a year is complete at ≥ 90%.
+- **Trend** — Mann–Kendall with tie correction on complete years, p-value from the
+  normal approximation, Sen's slope as the median of pairwise slopes, and lag-1
+  serial correlation reported because the test assumes independence. Fewer than
+  eight complete years returns `insufficient_years`.
+- **Seasonality** — mean of yearly monthly means, with median and p90; the index is
+  the month mean over the mean of usable months. Peak and trough require six
+  qualifying months and two years.
+- **Anomalies** — each month against the same calendar month in other years, robust
+  z with `1.4826 × MAD`; a negative deviation is `below_baseline`.
+- **Spatial** — a 0.5° equirectangular grid (H3 is not installed), with
+  years-seen and a recurrence share over the analysed span.
+- **Sensors** — per-sensor series and monthly Pearson correlation where both have
+  coverage; combined series are labelled and never assumed interchangeable.
+
+
+
+## 8. Exposure screening
 
 PostGIS geodesic distance from detections to settlements and infrastructure, reported in
 configurable bands (0–1, 1–5, 5–10, 10–25 km) and labelled **geographic screening**. A nearby
 hotspot may be an agricultural burn, industrial heat or a false positive; proximity is not threat.
 
-## 8. Language rules
+## 9. Language rules
 
 - Counts are detections, not fires.
 - Sensor totals are not interchangeable.

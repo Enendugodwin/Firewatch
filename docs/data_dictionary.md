@@ -107,12 +107,29 @@ Audit trail for harmonization and event grouping: `kind`, `status`, `parameters`
 analysis `scope`: bbox and dates), `stats`, `algorithm_version`, `is_synthetic`,
 `error_message`.
 
+### `geographic_regions`
+
+Selectable analysis boundary: `slug`, `name`, `level` (country/state/province/custom/radius),
+`boundary_kind` (`polygon` / `circle` / `bbox`), `geometry` (GeoJSON MultiPolygon — PostGIS is not
+installed), `bbox_*`, `area_km2` (planar approximation), `vertices`, `boundary_version`, `source`,
+`is_approximate`, `last_analyzed_at`, `last_analysis_algorithm`.
+
+### `regional_daily_statistics`
+
+One region × date × sensor (`MODIS`, `VIIRS`, `ALL`): `detection_count`, `frp_sum_mw`,
+`frp_max_mw`, `high_confidence_count`, `coverage` (sources observed/missing), `algorithm_version`,
+`computed_at`. Unique on `(region_id, activity_date, sensor)`.
+
+### `regional_cell_statistics`
+
+Region × 0.5° cell: `detection_count`, `frp_sum_mw`, `frp_max_mw`, `years_with_detections`,
+`first_year`, `last_year`, `algorithm_version`. A plain screening grid, not H3.
+
 ## Planned tables
 
 | Table | Purpose |
 | --- | --- |
-| `geographic_regions` | Countries, admin areas, custom polygons as PostGIS geometry |
-| `daily_fire_statistics` | Per region/date/sensor aggregates with completeness |
+| `daily_fire_statistics` | Per region/date/sensor aggregates with completeness (superseded by `regional_daily_statistics`) |
 | `regional_baselines` | Mean, median, SD, MAD, quantiles, model version |
 | `anomalies` | Observed vs expected, deviation score, evidence, method |
 | `infrastructure_assets`, `exposure_assessments` | Assets and geodesic distance results |

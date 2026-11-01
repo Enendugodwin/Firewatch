@@ -562,6 +562,200 @@ export function installFetchMock(options: MockOptions = {}) {
         notes: ["Counts are thermal detections, not confirmed fires."],
       });
     }
+    if (url.includes("/api/v1/regions/catalog")) {
+      return json({
+        regions: [
+          {
+            id: "region-ng",
+            slug: "country-ng",
+            name: "Nigeria",
+            level: "country",
+            boundary_kind: "bbox",
+            bbox: [2.68, 3.08, 14.68, 15.08],
+            area_km2: 1_750_298,
+            vertices: 5,
+            boundary_version: "gazetteer-v1",
+            source: "gazetteer",
+            is_approximate: true,
+            notes: "Approximate centroid box.",
+            last_analyzed_at: "2026-11-01T00:00:00Z",
+            last_analysis_algorithm: "regional-stats-v1",
+            grid_degrees: 0.5,
+          },
+        ],
+        total: 1,
+        note: "Gazetteer regions are approximate boxes.",
+      });
+    }
+    if (url.includes("/api/v1/regions/") && url.includes("/analyze")) {
+      return json({
+        status: "ok",
+        region_id: "region-ng",
+        window: { start: "2026-09-02", end: "2026-11-01" },
+        sensors: ["MODIS", "VIIRS"],
+        synthetic: false,
+        scanned_candidates: 68643,
+        detections_in_region: 68642,
+        days_covered: 61,
+        days_requested: 61,
+        rows_written: 183,
+        cells: 385,
+        algorithm_version: "regional-stats-v1",
+        notes: ["Counts are detections, not fires."],
+      });
+    }
+    if (url.includes("/api/v1/regions/") && url.includes("/overview")) {
+      return json({
+        status: "ok",
+        region: { id: "region-ng", name: "Nigeria", level: "country" },
+        window: { start: "2026-09-02", end: "2026-11-01", sensor: "ALL" },
+        totals: {
+          detections: 68642,
+          frp_sum_mw: 48211.3,
+          frp_max_mw: 421.5,
+          high_confidence: 12054,
+          active_days: 61,
+          covered_days: 61,
+          requested_days: 61,
+          coverage: 1,
+        },
+        peak_month: { month: 10, mean_detections: 1200.5, years: 1 },
+        trend: {
+          status: "insufficient_years",
+          direction: "unknown",
+          p_value: null,
+          sen_slope_per_year: null,
+          complete_years: 0,
+          note: "A significance test needs 8 complete years.",
+        },
+        anomalies: { status: "insufficient_history", count: 0, evaluated_months: 0 },
+        sensor_note: "Combined detections are never assumed interchangeable.",
+        notes: ["Counts are detections, not fires."],
+      });
+    }
+    if (url.includes("/api/v1/regions/") && url.includes("/monthly")) {
+      return json({
+        status: "ok",
+        region: { id: "region-ng", name: "Nigeria" },
+        window: { start: "2026-09-02", end: "2026-11-01", sensor: "ALL" },
+        months: [
+          { year: 2026, month: 9, detections: 1200, frp_sum_mw: 900, frp_max_mw: 100, high_confidence: 200, covered_days: 29, active_days: 29, days_in_month: 30, expected_days: 29, coverage: 1 },
+          { year: 2026, month: 10, detections: 4100, frp_sum_mw: 3100, frp_max_mw: 421.5, high_confidence: 800, covered_days: 31, active_days: 31, days_in_month: 31, expected_days: 31, coverage: 1 },
+        ],
+        notes: [],
+      });
+    }
+    if (url.includes("/api/v1/regions/") && url.includes("/yearly")) {
+      return json({
+        status: "ok",
+        region: { id: "region-ng", name: "Nigeria" },
+        window: { start: "2026-09-02", end: "2026-11-01", sensor: "ALL" },
+        years: [
+          { year: 2026, detections: 5300, frp_sum_mw: 4000, frp_max_mw: 421.5, high_confidence: 1000, covered_days: 60, active_days: 60, days_in_year: 365, coverage: 0.16, complete: false, yoy_change: null },
+        ],
+        notes: [],
+      });
+    }
+    if (url.includes("/api/v1/regions/") && url.includes("/seasonality")) {
+      return json({
+        status: "single_year",
+        region: { id: "region-ng", name: "Nigeria" },
+        window: { start: "2026-09-02", end: "2026-11-01", sensor: "ALL" },
+        method: "monthly-climatology",
+        version: "regional-stats-v1",
+        years: [2026],
+        months: Array.from({ length: 12 }, (_, index) => ({
+          month: index + 1,
+          mean: index === 9 ? 4100 : index === 8 ? 1200 : null,
+          median: null,
+          p90: null,
+          years: index === 9 || index === 8 ? 1 : 0,
+          sufficient: false,
+          index: null,
+        })),
+        peak_month: null,
+        trough_month: null,
+        seasonal_amplitude: null,
+        sufficient_months: 0,
+        required_months: 6,
+        day_of_year: { smoothing_days: 15, coverage: "±7 days", points: [] },
+        requirements: {
+          needed_years: 2,
+          available_years: 1,
+          note: "Only one year of coverage is available; this is not a climatology.",
+        },
+      });
+    }
+    if (url.includes("/api/v1/regions/") && url.includes("/trends")) {
+      return json({
+        status: "insufficient_years",
+        region: { id: "region-ng", name: "Nigeria" },
+        window: { start: "2026-09-02", end: "2026-11-01", sensor: "ALL" },
+        annual: [{ year: 2026, detections: 5300, complete: false, coverage: 0.16 }],
+        yoy: [],
+        rolling: { daily_30: [], daily_90: [], monthly_12: [] },
+        mann_kendall: {
+          status: "insufficient_data",
+          n: 1,
+          s: null,
+          z: null,
+          p_value: null,
+          trend: "unknown",
+          sen_slope_per_year: null,
+          sen_slope_per_decade: null,
+          serial_correlation: null,
+        },
+        significant: false,
+        seasonal_trends: [],
+        requirements: {
+          needed_years: 8,
+          available_complete_years: 0,
+          note: "A significance test needs 8 complete years.",
+        },
+        caveats: ["Mann–Kendall assumes independent observations."],
+      });
+    }
+    if (url.includes("/api/v1/regions/") && url.includes("/anomalies")) {
+      return json({
+        status: "insufficient_history",
+        region: { id: "region-ng", name: "Nigeria" },
+        window: { start: "2026-09-02", end: "2026-11-01", sensor: "ALL" },
+        evaluated_months: 0,
+        count: 0,
+        anomalies: [],
+        requirements: {
+          needed_baseline_years: 4,
+          note: "A same-month baseline needs 4 other years; this window does not have them.",
+        },
+        notes: [],
+      });
+    }
+    if (url.includes("/api/v1/regions/") && url.includes("/spatial-activity")) {
+      return json({
+        status: "ok",
+        region: { id: "region-ng", name: "Nigeria" },
+        grid_degrees: 0.5,
+        cells: [
+          { lat_index: 197, lon_index: 378, latitude: 8.75, longitude: 9.25, detections: 1200, frp_sum_mw: 900, frp_max_mw: 42.1, years_with_detections: 1, recurrence: 1, first_year: 2026, last_year: 2026 },
+        ],
+        returned: 1,
+        notes: ["This is a 0.5° screening grid."],
+      });
+    }
+    if (url.includes("/api/v1/regions/") && url.includes("/sensor-comparison")) {
+      return json({
+        status: "ok",
+        region: { id: "region-ng", name: "Nigeria" },
+        window: { start: "2026-09-02", end: "2026-11-01" },
+        sensors: {
+          MODIS: { detections: 3074, active_days: 60, covered_days: 61, first_date: "2026-09-02", last_date: "2026-11-01" },
+          VIIRS: { detections: 65568, active_days: 61, covered_days: 61, first_date: "2026-09-02", last_date: "2026-11-01" },
+        },
+        correlation: { pearson_r: 0.9462, months: 3, method: "monthly totals" },
+        notes: [],
+        requirements: { note: "Both sensors are present." },
+      });
+    }
     if (url.includes("/api/v1/regions")) {
       return json({
         regions: [
@@ -575,6 +769,7 @@ export function installFetchMock(options: MockOptions = {}) {
             frp_sum_mw: 52.4,
             frp_max_mw: 18.2,
             active_days: 1,
+            region_id: "region-ng",
           },
         ],
         note: "Regions are approximate centroid boxes from the offline gazetteer.",

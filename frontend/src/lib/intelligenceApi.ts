@@ -38,6 +38,7 @@ export interface RegionProfile {
   frp_sum_mw: number;
   frp_max_mw: number | null;
   active_days: number;
+  region_id?: string | null;
 }
 
 export interface RegionsResponse {
