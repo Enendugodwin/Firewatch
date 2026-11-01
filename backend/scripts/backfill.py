@@ -119,6 +119,8 @@ def main() -> int:
             source_totals["received"] += result.records_received
             source_totals["inserted"] += result.records_inserted
             source_totals["rejected"] += result.records_rejected
+            if result.status == "failed":
+                totals["failed"] += 1
             totals["received"] += result.records_received
             totals["inserted"] += result.records_inserted
             totals["rejected"] += result.records_rejected
