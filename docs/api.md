@@ -135,6 +135,20 @@ history the engine falls back to a leave-one-out baseline over the evaluated win
 (`method.baseline_source = within_window`, needs `min_window_days`, default 4) and says so;
 with too few days even for that it returns `status: insufficient_history` and `requirements`.
 
+### Reports, regions, exposure and assistant
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/reports/summary` | Snapshot: headline totals, series, ranked cells, matches, anomalies, coverage |
+| GET | `/reports/export` | `format=markdown|json` download of the same report |
+| GET | `/regions` | Country profiles over approximate centroid boxes (labelled as such) |
+| GET/POST/DELETE | `/exposure/assets` | Watched assets for screening |
+| GET | `/exposure/screen` | Detections within `radius_km` of each asset |
+| POST | `/assistant/chat` | Deterministic question answering over the aggregates |
+
+No endpoint calls a language model: `/assistant/chat` matches a fixed intent set and answers from
+the database, reporting `method: deterministic`, the intent and the exact scope.
+
 ### Harmonization
 
 | Method | Path | Notes |

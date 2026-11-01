@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Download, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { ObservationDialog } from "@/components/calendar/ObservationDialog";
@@ -11,7 +11,12 @@ import { Panel, StatTile } from "@/components/ui/Panel";
 import { apiFetch } from "@/lib/api";
 import type { CalendarResponse } from "@/lib/calendarApi";
 import { formatCount, formatFrp } from "@/lib/format";
-import { DEFAULT_OBSERVATION_QUERY, observationParams, type ObservationQuery } from "@/lib/query";
+import {
+  DEFAULT_OBSERVATION_QUERY,
+  detectionExportUrl,
+  observationParams,
+  type ObservationQuery,
+} from "@/lib/query";
 import { useUiStore } from "@/store/ui";
 import type { Observation, ObservationPage } from "@/types/api";
 
@@ -60,6 +65,13 @@ export function QueryPage() {
   const totals = summary.data?.totals;
   const rows = observations.data?.items ?? [];
   const matched = observations.data?.total ?? null;
+
+  // Export the whole match set, not the 200 rows on screen.
+  const exportParams = useMemo(() => {
+    const next = new URLSearchParams(params);
+    next.set("limit", String(Math.min(matched ?? 100_000, 500_000)));
+    return next;
+  }, [params, matched]);
 
   return (
     <>
@@ -112,7 +124,20 @@ export function QueryPage() {
             ? `Showing the most recent ${formatCount(rows.length)} of ${formatCount(observations.data.total)}.`
             : "Most recent matches for the current query."
         }
-        actions={<Badge tone="neutral">{formatCount(matched ?? 0)} matched</Badge>}
+        actions={
+          <div className="flex items-center gap-2">
+            <Badge tone="neutral">{formatCount(matched ?? 0)} matched</Badge>
+            <a
+              href={detectionExportUrl(exportParams)}
+              download
+              className="btn-glass inline-flex items-center gap-1.5 px-2.5 py-[4px] text-3xs"
+              title="Download every match for this query as CSV"
+            >
+              <Download className="size-3" aria-hidden />
+              Export CSV
+            </a>
+          </div>
+        }
       >
         {observations.isError ? (
           <p className="text-2xs text-danger">Could not run this query. Check the API.</p>

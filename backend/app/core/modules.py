@@ -119,7 +119,7 @@ MODULES: tuple[ModuleInfo, ...] = (
         "label": "Regional Intelligence",
         "route": "/regions",
         "phase": "Phase 6",
-        "status": "scaffolded",
+        "status": "ready",
         "summary": "Geographic and environmental profiles per region.",
         "planned": [
             "Country, admin-area and custom polygon selection",
@@ -133,7 +133,7 @@ MODULES: tuple[ModuleInfo, ...] = (
         "label": "Exposure Analysis",
         "route": "/exposure",
         "phase": "Phase 6",
-        "status": "scaffolded",
+        "status": "ready",
         "summary": "Proximity of detections to settlements and infrastructure.",
         "planned": [
             "Configurable distance bands",
@@ -147,7 +147,7 @@ MODULES: tuple[ModuleInfo, ...] = (
         "label": "Reports",
         "route": "/reports",
         "phase": "Phase 7",
-        "status": "scaffolded",
+        "status": "ready",
         "summary": "Generated fire intelligence reports and exports.",
         "planned": [
             "Report templates with methodology and limitations",
@@ -160,7 +160,7 @@ MODULES: tuple[ModuleInfo, ...] = (
         "label": "AI Assistant",
         "route": "/assistant",
         "phase": "Phase 7",
-        "status": "scaffolded",
+        "status": "ready",
         "summary": "Natural-language investigation over real application data.",
         "planned": [
             "Tool-calling over approved analytical functions only",

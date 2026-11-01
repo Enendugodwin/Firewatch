@@ -1,34 +1,34 @@
-"""The API must fail loudly rather than serve plausible-looking placeholders."""
+"""The API must fail loudly rather than serve plausible-looking placeholders.
+
+Every module is delivered now, so this file guards the opposite contract: the
+endpoints answer with real shapes, and nothing returns a fabricated row.
+"""
 
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-#: Routes whose module has not been built yet. Delivered phases (2-5) are
-#: exercised in their own test modules instead.
-PENDING_ENDPOINTS = [
-    "/api/v1/regions",
-    "/api/v1/exposure",
-    "/api/v1/reports",
-]
 
-
-def test_pending_modules_return_structured_not_implemented(client: TestClient) -> None:
-    for path in PENDING_ENDPOINTS:
+def test_every_module_endpoint_answers(client: TestClient) -> None:
+    for path in (
+        "/api/v1/regions?start_date=2026-10-27&end_date=2026-10-31",
+        "/api/v1/exposure",
+        "/api/v1/reports",
+    ):
         response = client.get(path)
-        assert response.status_code == 501, path
-        error = response.json()["error"]
-        assert error["code"] == "not_implemented", path
-        assert error["details"]["current_phase"] == "Phase 6", path
-        assert error["details"]["planned_for_phase"].startswith("Phase "), path
-        assert error["request_id"], path
+        assert response.status_code == 200, path
+        body = response.json()
+        assert "error" not in body, path
 
 
-def test_assistant_chat_is_not_implemented_yet(client: TestClient) -> None:
-    response = client.post("/api/v1/assistant/chat")
+def test_assistant_is_deterministic_and_says_so(client: TestClient) -> None:
+    response = client.post("/api/v1/assistant/chat", json={"question": "how many detections"})
 
-    assert response.status_code == 501
-    assert response.json()["error"]["details"]["module"] == "AI assistant"
+    assert response.status_code == 200
+    body = response.json()
+    assert body["method"] == "deterministic"
+    assert body["intent"] == "totals"
+    assert body["capabilities"]
 
 
 def test_unknown_route_uses_the_error_envelope(client: TestClient) -> None:
@@ -38,11 +38,11 @@ def test_unknown_route_uses_the_error_envelope(client: TestClient) -> None:
     assert response.json()["error"]["code"] == "not_found"
 
 
-def test_pending_endpoints_never_leak_sample_measurements(client: TestClient) -> None:
-    body = client.get("/api/v1/regions").json()
+def test_empty_database_is_reported_not_invented(client: TestClient) -> None:
+    body = client.get("/api/v1/regions?start_date=2026-10-27&end_date=2026-10-31").json()
 
-    assert set(body) == {"error"}
-    assert "items" not in body and "features" not in body
+    assert all(region["detections"] == 0 for region in body["regions"])
+    assert body["note"]
 
 
 def test_observation_routes_are_live_and_empty_not_faked(client: TestClient) -> None:

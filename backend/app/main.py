@@ -19,6 +19,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestContextMiddleware
+from app.core.rate_limit import RateLimitMiddleware
 from app.db.session import dispose_engine
 
 logger = get_logger(__name__)
@@ -86,6 +87,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
 
+    if settings.rate_limit_per_minute > 0:
+        app.add_middleware(RateLimitMiddleware, limit=settings.rate_limit_per_minute)
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,

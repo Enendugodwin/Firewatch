@@ -189,6 +189,30 @@ On **Sensor Intelligence → Cross-sensor associations**, *Export CSV* downloads
 both observations' ids, sensors, satellites, coordinates, acquisition times, FRP, confidence,
 algorithm version and creation time.
 
+## Reports
+
+*Reports* builds a briefing for the header period: totals, daily series, ranked cells, sensor mix,
+stored matches/events, coverage and anomalies. **Markdown** and **JSON** buttons download exactly
+that document. Nothing in it is model-written.
+
+## Regional Intelligence
+
+Countries are ranked by detections for the period. A region is the **approximate centroid box**
+from the offline gazetteer (±6°), not an administrative boundary — neighbouring countries can
+overlap, and the page says so.
+
+## Exposure Analysis
+
+Register the places you care about (name, coordinates, category), then screen them: the page shows
+how many detections fell within 50 km, the strongest FRP and the nearest detection. There is no
+bundled population or infrastructure dataset, so this is proximity, not a risk score.
+
+## AI Assistant
+
+Ask "how many detections in Nigeria?", "top activity cells", "compare MODIS and VIIRS", "any
+anomalies?" and similar. Answers are computed from the same aggregates as the screens; each reply
+states its intent, scope and that the method is deterministic.
+
 ## Sensor Intelligence
 
 This is the Phase 3 workspace and the technical centrepiece of the first milestones.

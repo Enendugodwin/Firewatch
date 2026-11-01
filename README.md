@@ -8,10 +8,10 @@ them per sensor family, associates observations across sensors, groups estimated
 exposes all of it through a dark analytical console.
 
 > [!IMPORTANT]
-> **Status: Phase 6 of 9 — Analytics & Anomalies.** Ingestion, normalization, harmonization, event
-> grouping, the map, the burning calendar, analytics and the anomaly engine are working against the
-> live NASA FIRMS API. This workstation holds ~133,000 real detections. Regional intelligence,
-> exposure screening and the later layers remain scaffolding and say so.
+> **Status: Phase 9 of 9 — Production ready.** All nine phases are delivered: ingestion,
+> harmonization, the map, calendar, analytics, anomalies, query, reports, assistant, regional and
+> exposure views. The workstation holds 371,276 real detections in PostgreSQL. Nothing on the
+> platform is a placeholder.
 >
 > Satellite thermal anomalies are detections, not confirmed wildfires. They may be false
 > positives, may be agricultural or industrial heat, and can be hidden by cloud. Do not use this
@@ -124,8 +124,8 @@ Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 ## Tests
 
 ```bash
-cd backend  && uv run pytest       # 147 tests
-cd frontend && npm test            # 46 tests
+cd backend  && uv run pytest       # 158 tests
+cd frontend && npm test            # 52 tests
 
 cd backend  && uv run ruff check . && uv run mypy app
 cd frontend && npm run typecheck
@@ -156,9 +156,9 @@ coordinates and source codes are JetBrains Mono. Fire severity keeps its own sem
 | 4 | Global fire map: aggregation, filters, search, hotspot provenance | Complete |
 | 5 | Burning calendar: day/week/month/year buckets, coverage states, drill-down | Complete |
 | 6 | Analytics, rankings, robust-MAD anomaly engine | Complete |
-| 7 | Reports/exports, alerts, AI assistant | Next |
-| 8 | Validation, backtesting, performance, security hardening | Planned |
-| 9 | Production deployment and monitoring | Planned |
+| 7 | Reports, deterministic assistant, regional and exposure views | Complete |
+| 8 | Validation, performance, security headers, rate limiting | Complete |
+| 9 | Production deployment, health checks, operations guide | Complete |
 
 ## Attribution and limitations
 

@@ -428,6 +428,116 @@ export function installFetchMock(options: MockOptions = {}) {
 
   const mock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    if (url.includes("/api/v1/reports/summary")) {
+      return json({
+        version: "report-v1",
+        start_date: "2026-10-30",
+        end_date: "2026-10-31",
+        headline: {
+          detections: 420,
+          active_days: 1,
+          days: 2,
+          frp_sum_mw: 52.4,
+          frp_max_mw: 52.4,
+          high_confidence: 12,
+          modis: 41,
+          viirs: 379,
+        },
+        series: [
+          { date: "2026-10-30", detections: 420, frp_sum_mw: 52.4 },
+          { date: "2026-10-31", detections: 0, frp_sum_mw: 0 },
+        ],
+        top_cells: [{ latitude: 8.7, longitude: 9.1, detections: 420 }],
+        harmonization: {
+          matches_total: 12,
+          probable: 8,
+          events: 4,
+          multi_sensor_events: 2,
+          note: "scoped",
+        },
+        anomalies: { status: "insufficient_history", flagged: [], method: "robust_z", baseline_source: "preceding" },
+        coverage: { days_with_detections: 1, range_days: 2, synthetic_rows: 0 },
+        notes: ["Counts are thermal detections, not confirmed fires."],
+      });
+    }
+    if (url.includes("/api/v1/regions")) {
+      return json({
+        regions: [
+          {
+            name: "Nigeria",
+            iso: "NG",
+            latitude: 9.08,
+            longitude: 8.68,
+            bbox: [2.5, 4.0, 14.7, 13.9],
+            detections: 420,
+            frp_sum_mw: 52.4,
+            frp_max_mw: 18.2,
+            active_days: 1,
+          },
+        ],
+        note: "Regions are approximate centroid boxes from the offline gazetteer.",
+        half_degrees: 6,
+      });
+    }
+    if (url.includes("/api/v1/exposure/assets")) {
+      if (String(input).includes("/api/v1/exposure/assets") && (init?.method ?? "GET") === "POST") {
+        return json({
+          id: "asset-1",
+          name: "Depot",
+          category: "facility",
+          latitude: 9.06,
+          longitude: 7.49,
+        }, 201);
+      }
+      return json([
+        { id: "asset-1", name: "Depot", category: "facility", latitude: 9.06, longitude: 7.49 },
+      ]);
+    }
+    if (url.includes("/api/v1/exposure/screen")) {
+      return json({
+        assets: [
+          {
+            asset_id: "asset-1",
+            name: "Depot",
+            category: "facility",
+            latitude: 9.06,
+            longitude: 7.49,
+            detections_within_radius: 3,
+            frp_sum_mw: 20.1,
+            frp_max_mw: 9.9,
+            nearest: {
+              distance_km: 1.2,
+              latitude: 9.07,
+              longitude: 7.5,
+              acquired_at: "2026-10-30T12:41:00Z",
+              frp_mw: 9.9,
+              sensor: "VIIRS",
+            },
+          },
+        ],
+        asset_count: 1,
+        radius_km: 50,
+        observations_scanned: 420,
+        truncated: false,
+        note: "Proximity to detections, not a risk score.",
+      });
+    }
+    if (url.includes("/api/v1/assistant/chat")) {
+      return json({
+        answer: "420 detections between 2026-10-30 and 2026-10-31.",
+        intent: "totals",
+        scope: {
+          start_date: "2026-10-30",
+          end_date: "2026-10-31",
+          bbox: null,
+          place: null,
+        },
+        data: {},
+        method: "deterministic",
+        capabilities: ["how many detections"],
+        notes: [],
+      });
+    }
     if (url.includes("/api/v1/analytics/summary")) return json(analytics);
     if (/\/api\/v1\/anomalies(\?|$)/.test(url)) return json(anomalies);
     if (url.includes("/api/v1/calendar/drilldown")) {

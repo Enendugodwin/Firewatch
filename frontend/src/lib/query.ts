@@ -62,6 +62,11 @@ export function observationParams(
   return params;
 }
 
+/** Same filters, same scope: the CSV is exactly the set the table shows. */
+export function detectionExportUrl(params: URLSearchParams): string {
+  return `/api/v1/fires/export.csv?${params.toString()}`;
+}
+
 export function activeFilterCount(query: ObservationQuery): number {
   return [
     query.startAt,

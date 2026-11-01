@@ -43,6 +43,8 @@ class Settings(BaseSettings):
         ]
     )
     docs_enabled: bool = True
+    #: Per-client request limit; 0 disables the limiter (tests keep it off).
+    rate_limit_per_minute: int = 0
 
     # --- persistence ---------------------------------------------------------
     # Production runs PostgreSQL + PostGIS. The default is a local SQLite file so

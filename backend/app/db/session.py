@@ -29,6 +29,9 @@ def get_engine() -> Engine:
         # SQLite has no server-side pool; allow cross-thread use for tests/dev.
         kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
     else:
+        # Timestamps are stored as timestamptz; pin the session time zone to UTC
+        # so API responses never depend on the server's local zone.
+        kwargs["connect_args"] = {"options": "-c timezone=UTC"}
         kwargs["pool_size"] = settings.database_pool_size
         kwargs["pool_timeout"] = settings.database_pool_timeout
         kwargs["pool_recycle"] = 1800

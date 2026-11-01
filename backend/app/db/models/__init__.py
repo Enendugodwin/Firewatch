@@ -1,6 +1,7 @@
 """ORM models."""
 
 from app.db.models.data_source import DataSource
+from app.db.models.exposure import WatchedAsset
 from app.db.models.harmonization import (
     AlgorithmRun,
     EventObservation,
@@ -26,4 +27,5 @@ __all__ = [
     "ObservationMatch",
     "RawObservation",
     "SourceAvailability",
+    "WatchedAsset",
 ]

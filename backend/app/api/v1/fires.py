@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+import csv
+import io
+from collections.abc import Iterator
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.db.models import FireObservation
-from app.db.session import get_session
+from app.db.session import get_session, get_session_factory
 from app.schemas.map import AggregateResponse
 from app.schemas.observations import ObservationOut, ObservationPage
 from app.services.map_aggregation import aggregate_observations
+from app.services.normalization import satellite_label
 from app.services.observation_queries import (
     BBox,
     ObservationFilters,
@@ -96,7 +102,7 @@ def search_fires(
 
 @router.get("/sources", summary="Observation counts per FIRMS product")
 def fire_sources(session: Session = Depends(get_session)) -> list[dict[str, object]]:
-    from sqlalchemy import func, select
+    from sqlalchemy import select
 
     rows = session.execute(
         select(
@@ -229,6 +235,130 @@ def aggregate_fires(
     )
     result = aggregate_observations(session, filters, bbox=area, zoom=zoom, limit=limit)
     return AggregateResponse(**result)
+
+
+EXPORT_COLUMNS = [
+    "id",
+    "source_code",
+    "source_record_id",
+    "sensor",
+    "satellite",
+    "acquired_at",
+    "latitude",
+    "longitude",
+    "confidence_raw",
+    "confidence_category",
+    "brightness_temperature",
+    "brightness_channel",
+    "frp_mw",
+    "scan_km",
+    "track_km",
+    "daynight",
+    "processing_version",
+    "source_product",
+    "is_synthetic",
+]
+
+
+@router.get(
+    "/export.csv",
+    summary="Matching detections as CSV (same filters as /fires)",
+    response_class=StreamingResponse,
+)
+def export_fires(
+    bbox: str | None = Query(None, description="west,south,east,north"),
+    start_date: date | None = None,
+    end_date: date | None = None,
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
+    sensor: str | None = Query(None, description="MODIS or VIIRS"),
+    satellite: str | None = None,
+    min_frp: float | None = Query(None, ge=0),
+    daynight: str | None = Query(None, pattern="^[DdNn]$"),
+    min_confidence: str | None = Query(None, pattern="^(?i)(low|nominal|high)$"),
+    synthetic: bool | None = None,
+    limit: int = Query(100000, ge=1, le=500000),
+) -> StreamingResponse:
+    """
+    Stream the current query as CSV so an export is exactly the set the table
+    shows, not a page of it. Rows are yielded in batches from a dedicated session,
+    so a large export never buffers the whole result in memory.
+    """
+    filters = _filters(
+        bbox,
+        start_date,
+        end_date,
+        sensor,
+        satellite,
+        min_frp,
+        daynight,
+        synthetic,
+        min_confidence,
+        start_at,
+        end_at,
+    )
+
+    def generate() -> Iterator[str]:
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(EXPORT_COLUMNS)
+        yield buffer.getvalue()
+        buffer.seek(0)
+        buffer.truncate(0)
+
+        session = get_session_factory()()
+        try:
+            statement = (
+                filters.apply(select(FireObservation))
+                .order_by(FireObservation.acquired_at.desc())
+                .limit(limit)
+                .execution_options(stream_results=True)
+            )
+            for row in session.scalars(statement).yield_per(2000):
+                writer.writerow(
+                    [
+                        str(row.id),
+                        row.source_code,
+                        row.source_record_id,
+                        row.sensor,
+                        satellite_label(row.satellite) or row.satellite,
+                        row.acquired_at.isoformat(),
+                        row.latitude,
+                        row.longitude,
+                        row.confidence_raw,
+                        row.confidence_category,
+                        row.brightness_temperature,
+                        row.brightness_channel,
+                        row.frp_mw,
+                        row.scan_km,
+                        row.track_km,
+                        row.daynight.upper()[:1] if row.daynight else None,
+                        row.processing_version,
+                        row.source_product,
+                        bool(row.is_synthetic),
+                    ]
+                )
+                # Emit in ~64 KB chunks: one yield per row makes Starlette flush
+                # thousands of tiny chunks and dominates the export time.
+                if buffer.tell() >= 64_000:
+                    yield buffer.getvalue()
+                    buffer.seek(0)
+                    buffer.truncate(0)
+
+            if buffer.tell():
+                yield buffer.getvalue()
+        finally:
+            session.close()
+
+    filename = "firewatch-detections.csv"
+    return StreamingResponse(
+        generate(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Total-Count": str(limit),
+        },
+    )
 
 
 @router.get("/{observation_id}", response_model=ObservationOut, summary="Observation details")

@@ -29,6 +29,7 @@ def test_migrations_create_the_full_schema(migrated: Path) -> None:
         "fire_events",
         "event_observations",
         "algorithm_runs",
+        "watched_assets",
         "alembic_version",
     ):
         assert expected in tables, expected
@@ -38,7 +39,7 @@ def test_migration_is_applied_once(migrated: Path) -> None:
     with get_engine().connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
-    assert revision == "0003_availability_status_width"
+    assert revision == "0004_watched_assets"
 
 
 def test_seed_is_idempotent(migrated: Path) -> None:

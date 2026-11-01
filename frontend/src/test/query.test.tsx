@@ -160,6 +160,22 @@ describe("data query page", () => {
     });
   });
 
+  it("exports the matching detections with the current scope", async () => {
+    renderApp("/query");
+    await screen.findByText(/2026-10-30 12:41Z/);
+
+    fireEvent.change(screen.getByLabelText(/^sensor$/i), { target: { value: "VIIRS" } });
+    fireEvent.click(screen.getByRole("button", { name: /apply query/i }));
+
+    await waitFor(() => {
+      const link = screen.getByRole("link", { name: /export csv/i });
+      const href = link.getAttribute("href") ?? "";
+      expect(href).toContain("/api/v1/fires/export.csv?");
+      expect(href).toContain("sensor=VIIRS");
+      expect(link).toHaveAttribute("download");
+    });
+  });
+
   it("constrains the query to a searched region", async () => {
     renderApp("/query");
     await screen.findByText(/2026-10-30 12:41Z/);

@@ -81,6 +81,25 @@ it). Most of the footprint is provenance: `fire_observations` 341 MB and `raw_ob
     -d firewatch --clean --if-exists firewatch-20261101.dump
 ```
 
+## Deployment
+
+`docker-compose.yml` runs PostgreSQL (PostGIS image), Redis, the API, a Celery worker and the web
+build. The API has an HTTP healthcheck against `/ready` (database reachability) and the web service
+probes itself; both are gated behind `service_healthy` dependencies.
+
+Without Docker, run the API and the Vite/dev server directly (see the quick start) and point
+`DATABASE_URL` at PostgreSQL as described above. `/health` is liveness, `/ready` is readiness, and
+`/api/v1/system/status` reports phase, dialect and data freshness.
+
+## Security posture
+
+- Structured security headers on every response; API responses are `no-store`.
+- Optional per-client rate limiting (`RATE_LIMIT_PER_MINUTE`, off by default) returning `429` with
+  `Retry-After` and `X-RateLimit-*` headers.
+- `CORS_ORIGINS` is an explicit allow-list; the browser never holds the FIRMS key.
+- The web GUI has no authentication of its own: bind it to localhost or put it behind an
+  authenticating proxy before exposing it.
+
 ## Pushing to GitHub
 
 The repository has no remote yet. Create the GitHub repo (empty, no README), then:

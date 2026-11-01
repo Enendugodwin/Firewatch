@@ -30,10 +30,13 @@ VIIRS_CONFIDENCE = {"h": "high", "n": "nominal", "l": "low"}
 #: the name already ("Terra"/"Aqua"), so these keys only match the coded values.
 VIIRS_SATELLITE_CODES = {
     "N": "Suomi-NPP",
-    "1": "NOAA-20",
-    "2": "NOAA-21",
+    "NPP": "Suomi-NPP",
     "SNPP": "Suomi-NPP",
+    "1": "NOAA-20",
+    "N20": "NOAA-20",
     "JPSS1": "NOAA-20",
+    "2": "NOAA-21",
+    "N21": "NOAA-21",
     "JPSS2": "NOAA-21",
 }
 

@@ -18,8 +18,8 @@ def test_status_reports_no_data_instead_of_fake_activity(client: TestClient) -> 
 def test_status_exposes_phase_and_capabilities(client: TestClient) -> None:
     body = client.get("/api/v1/system/status").json()
 
-    assert body["phase"] == "6"
-    assert body["phase_name"] == "Analytics & Anomalies"
+    assert body["phase"] == "9"
+    assert body["phase_name"] == "Production Ready"
     assert body["capabilities"]["authentication"] is False
     # Ingestion is implemented; it reports unavailable until a MAP_KEY exists.
     assert body["capabilities"]["ingestion"] is False
@@ -60,13 +60,10 @@ def test_only_delivered_modules_claim_readiness(client: TestClient) -> None:
     assert modules["calendar"]["status"] == "ready"
     assert modules["analytics"]["status"] == "ready"
     assert modules["anomalies"]["status"] == "ready"
-    for key in (
-        "regions",
-        "exposure",
-        "reports",
-        "assistant",
-    ):
-        assert modules[key]["status"] == "scaffolded", key
+    for key in ("regions", "exposure", "reports", "assistant"):
+        assert modules[key]["status"] == "ready", key
+    # Settings is the only module that stays in progress by design.
+    assert modules["settings"]["status"] == "in_progress"
 
 
 def test_sources_are_registered_but_empty(client: TestClient) -> None:

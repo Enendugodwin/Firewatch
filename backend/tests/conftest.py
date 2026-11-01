@@ -69,6 +69,7 @@ OBSERVATION_TABLES = (
     "ingestion_partitions",
     "ingestion_runs",
     "algorithm_runs",
+    "watched_assets",
 )
 
 
