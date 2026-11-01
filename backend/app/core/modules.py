@@ -69,7 +69,8 @@ MODULES: tuple[ModuleInfo, ...] = (
             "Six metrics per bucket: detections, MODIS, VIIRS, FRP sum, FRP max, high confidence",
             "Bucket drill-down to the source observations with full provenance",
             "Coverage states from source availability: active, quiet, unobserved",
-            "Multi-year and seasonal comparison (next: seasonal baselines in Phase 6)",
+            "Trend (Theil–Sen), anomaly markers and a seasonal profile with sufficiency gates",
+            "Seasonal climatology requires two or more years of observed months",
         ],
     },
     {

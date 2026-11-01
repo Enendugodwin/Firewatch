@@ -150,3 +150,143 @@ export function intensity(value: number, max: number): number {
   if (max <= 0 || value <= 0) return 0;
   return Math.min(1, Math.sqrt(value / max));
 }
+
+/* ------------------------------------------------------------------ */
+/* Fire-calendar intelligence: trend, anomalies and seasonal patterns  */
+/* ------------------------------------------------------------------ */
+
+export type TrendDirection = "rising" | "falling" | "flat" | "unknown";
+export type TrendStatus = "ok" | "insufficient_history";
+export type SeasonalityStatus = "ok" | "partial" | "single_year" | "insufficient_history";
+
+export interface TrendRequirement {
+  needed_observations?: number;
+  available_observations?: number;
+  note?: string;
+  [key: string]: unknown;
+}
+
+export interface TrendPoint {
+  date: string;
+  value: number | null;
+  observed: boolean;
+  trailing_mean: number | null;
+  severity: string;
+}
+
+export interface TrendBlock {
+  status: TrendStatus;
+  method: string;
+  version: string;
+  metric: string;
+  observations: number;
+  slope_per_day: number | null;
+  slope_per_30_days: number | null;
+  direction: TrendDirection;
+  change_ratio: number | null;
+  confidence: "low" | "medium" | "high";
+  coverage: number;
+  level_median?: number | null;
+  flat_band_per_30_days?: number | null;
+  requirements: TrendRequirement;
+  series: TrendPoint[];
+}
+
+export interface SeasonMonth {
+  month: number;
+  label: string;
+  mean: number | null;
+  years: number;
+  sufficient: boolean;
+  index: number | null;
+}
+
+export interface SeasonalityBlock {
+  status: SeasonalityStatus;
+  method: string;
+  version: string;
+  metric: string;
+  years: number[];
+  years_requested: number;
+  first_year: number;
+  last_year: number;
+  months: SeasonMonth[];
+  baseline_mean: number | null;
+  sufficient_months: number;
+  required_months: number;
+  peak_month: string | null;
+  trough_month: string | null;
+  seasonal_amplitude: number | null;
+  requirements: {
+    needed_years?: number;
+    available_years?: number;
+    needed_days_per_month_year?: number;
+    note?: string;
+    [key: string]: unknown;
+  };
+}
+
+export interface CalendarAnomalyItem {
+  date: string;
+  observed: number;
+  expected: number;
+  deviation: number;
+  robust_z: number | null;
+  severity: string;
+  explanation: string | null;
+}
+
+export interface CalendarAnomalyBlock {
+  status: string | null;
+  method: { name?: string; version?: string; [key: string]: unknown } | null;
+  baseline: { median?: number; days?: number; [key: string]: unknown } | null;
+  count: number;
+  items: CalendarAnomalyItem[];
+  evaluated_days: number;
+  requirements: { note?: string; [key: string]: unknown } | null;
+}
+
+export interface CalendarIntelligenceWindow {
+  start: string;
+  end: string;
+  days: number;
+  observed_days: number;
+  missing_days: number;
+  coverage: number;
+  metric: string;
+  history_start: string;
+}
+
+export interface CalendarIntelligence {
+  status: string;
+  method: { name?: string; version?: string };
+  window: CalendarIntelligenceWindow;
+  trend: TrendBlock;
+  anomalies: CalendarAnomalyBlock;
+  seasonality: SeasonalityBlock;
+  notes: string[];
+}
+
+export interface IntelligenceOptions {
+  metric?: CalendarMetric;
+  seasonYears?: number;
+  baselineDays?: number;
+}
+
+export function fetchCalendarIntelligence(
+  query: CalendarQuery,
+  options: IntelligenceOptions = {},
+  signal?: AbortSignal,
+) {
+  const params = calendarParams(query, {
+    metric: options.metric ?? "detections",
+    season_years: options.seasonYears ?? 5,
+    baseline_days: options.baselineDays ?? 30,
+  });
+  params.delete("granularity");
+  return apiFetch<CalendarIntelligence>(
+    `/api/v1/calendar/intelligence?${params.toString()}`,
+    { signal },
+  );
+}
+

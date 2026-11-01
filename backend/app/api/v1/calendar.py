@@ -13,6 +13,7 @@ from app.db.session import get_session
 from app.schemas.calendar import (
     CalendarBucket,
     CalendarDrilldown,
+    CalendarIntelligenceResponse,
     CalendarMonth,
     CalendarResponse,
 )
@@ -25,6 +26,7 @@ from app.services.observation_queries import (
     observation_to_dict,
     search_observations,
 )
+from app.services.trends import calendar_intelligence as calendar_intelligence_service
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
 
@@ -97,6 +99,60 @@ def calendar_activity(
         granularity=parsed_granularity,
     )
     return CalendarResponse(**result)
+
+
+@router.get(
+    "/intelligence",
+    response_model=CalendarIntelligenceResponse,
+    summary="Trend, anomaly markers and seasonal profile for a calendar window",
+)
+def calendar_intelligence(
+    start_date: date = Query(..., description="First evaluated day (UTC)"),
+    end_date: date = Query(..., description="Last evaluated day (UTC)"),
+    metric: str = Query("detections", pattern="^(detections|frp|high_confidence)$"),
+    season_years: int = Query(
+        5, ge=1, le=6, description="Calendar years included in the seasonal profile"
+    ),
+    baseline_days: int = Query(30, ge=7, le=365, description="Anomaly baseline window"),
+    z_threshold: float = Query(3.0, ge=1, le=20, description="Anomaly severity threshold"),
+    bbox: str | None = Query(None, description="west,south,east,north"),
+    sensor: str | None = Query(None, description="MODIS or VIIRS"),
+    satellite: str | None = None,
+    min_frp: float | None = Query(None, ge=0),
+    daynight: str | None = Query(None, pattern="^[DdNn]$"),
+    min_confidence: str | None = Query(None, pattern="^(?i)(low|nominal|high)$"),
+    synthetic: bool | None = Query(None, description="Filter labelled fixture data"),
+    session: Session = Depends(get_session),
+) -> CalendarIntelligenceResponse:
+    """
+    Three analyses over one window, each with its own sufficiency gate:
+
+    * trend — Theil–Sen slope over observed days (gaps excluded, never zero);
+    * anomalies — the robust-z engine, marked per day for the calendar cells;
+    * seasonality — monthly climatology, withheld unless at least two years
+      actually observed each month.
+    """
+    calendar_service.validate_span(start_date, end_date)
+    filters = _filters(
+        bbox,
+        sensor,
+        satellite,
+        min_frp,
+        daynight,
+        min_confidence,
+        synthetic,
+    )
+    result = calendar_intelligence_service(
+        session,
+        filters,
+        start=start_date,
+        end=end_date,
+        metric=metric,
+        season_years=season_years,
+        baseline_days=baseline_days,
+        z_threshold=z_threshold,
+    )
+    return CalendarIntelligenceResponse(**result)
 
 
 @router.get(

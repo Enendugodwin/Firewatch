@@ -2,6 +2,7 @@ import { AlertTriangle, X } from "lucide-react";
 
 import { ObservationDialog } from "@/components/calendar/ObservationDialog";
 import { Badge } from "@/components/ui/Badge";
+import { LoadingBlock } from "@/components/ui/LoadingCue";
 import { DataRow } from "@/components/ui/Panel";
 import type { CalendarDrilldown } from "@/lib/calendarApi";
 import { formatCount, formatFrp } from "@/lib/format";
@@ -66,7 +67,9 @@ export function BucketPanel({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-[14px] py-[10px]">
-        {loading ? <p className="text-2xs text-muted">Loading detections…</p> : null}
+        {loading ? (
+          <LoadingBlock label="Loading detections for this bucket…" lines={3} />
+        ) : null}
         {error ? (
           <div className="flex items-start gap-2 text-2xs text-danger">
             <AlertTriangle className="mt-[1px] size-3 shrink-0" aria-hidden />

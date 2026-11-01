@@ -138,6 +138,23 @@ The calendar answers "how much burning, when?" over the stored history.
 - **Export**: the drill-down and the query table both offer CSV downloads of the exact scope.
 - **Scope**: counts are detections, not fires, for the period selected in the header.
 
+### Trends, anomalies and seasonality
+
+Below the calendar, one panel answers "is activity changing, was any day unusual, and does the year
+have a seasonal shape?" It recomputes over the same window and filters as the grid, shows a
+**loading cue with placeholders** while the calculation runs, and states what it could not measure.
+
+- **Trend**: a Theil–Sen slope over observed days, shown per day and per 30 days, with direction
+  (`rising`, `falling`, `flat`), a first-to-last ratio and a confidence level. Missing days break the
+  sparkline instead of being drawn as zero. Fewer than ten observed days says so and shows no slope.
+- **Anomalies**: the robust-z engine marks every day that exceeds the threshold (|z| ≥ 3), both as
+  dots on the sparkline and as a list; selecting an entry jumps the calendar to that month.
+- **Seasonality**: twelve monthly bars. A month is only shaded when at least two years observed it
+  on five or more days. With a single year the panel says `single year` and claims no index, peak or
+  trough — a profile is not a climatology.
+- **Caveat**: the footer repeats the language rules for the current metric (detections are not
+  fires; FRP totals depend on the sensor mix).
+
 ## Data Query (Intelligence)
 
 The query workspace reads the stored detections directly.

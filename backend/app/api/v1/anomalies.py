@@ -31,7 +31,7 @@ def list_anomalies(
     min_baseline_days: int = Query(DEFAULT_MIN_BASELINE_DAYS, ge=2, le=365),
     min_window_days: int = Query(DEFAULT_MIN_WINDOW_DAYS, ge=3, le=365),
     z_threshold: float = Query(DEFAULT_Z_THRESHOLD, ge=1, le=20),
-    metric: str = Query("detections", pattern="^(detections|frp)$"),
+    metric: str = Query("detections", pattern="^(detections|frp|high_confidence)$"),
     bbox: str | None = Query(None, description="west,south,east,north"),
     sensor: str | None = Query(None, description="MODIS or VIIRS"),
     satellite: str | None = None,

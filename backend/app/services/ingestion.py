@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -92,6 +94,85 @@ def _existing(
     return found
 
 
+def _bulk_insert(
+    session: Session, model, rows: list[dict], *, conflict_columns: tuple[str, ...]
+) -> int:
+    """
+    Insert many rows with duplicate protection, as fast as the engine allows.
+
+    PostgreSQL takes a COPY into a temporary table followed by one
+    ``INSERT … SELECT … ON CONFLICT DO NOTHING``: a single round trip per batch,
+    which is roughly an order of magnitude faster than row-at-a-time inserts.
+    SQLite uses a chunked executemany with the same conflict rule.
+    """
+    if not rows:
+        return 0
+
+    dialect = session.get_bind().dialect.name
+    if dialect == "postgresql":
+        return _copy_insert(session, model, rows, conflict_columns)
+    return _executemany_insert(session, model, rows, conflict_columns)
+
+
+def _executemany_insert(
+    session: Session, model, rows: list[dict], conflict_columns: tuple[str, ...]
+) -> int:
+    from sqlalchemy import insert as plain_insert
+    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+    statement: Any = plain_insert(model)
+    if session.get_bind().dialect.name == "sqlite":
+        statement = sqlite_insert(model).on_conflict_do_nothing(
+            index_elements=list(conflict_columns)
+        )
+    try:
+        result = session.execute(statement.returning(model.id), rows)
+        return len(result.fetchall())
+    except Exception:  # pragma: no cover - RETURNING unsupported path
+        session.execute(statement, rows)
+        return len(rows)
+
+
+def _copy_insert(
+    session: Session, model, rows: list[dict], conflict_columns: tuple[str, ...]
+) -> int:
+    from psycopg.types.json import Jsonb
+
+    table = model.__table__
+    # Rows may omit the primary key (it is normally assigned in Python); COPY
+    # needs it, so supply one rather than violating the not-null constraint.
+    if "id" in table.columns and "id" not in rows[0]:
+        for row in rows:
+            row.setdefault("id", uuid.uuid4())
+    columns = [column.name for column in table.columns if column.name in rows[0]]
+    staging = f"_stage_{table.name}"
+    column_list = ", ".join(columns)
+
+    connection = session.connection()
+    dbapi = connection.connection.driver_connection
+    assert dbapi is not None  # a live session always has a DBAPI connection
+    dbapi.execute(
+        f"CREATE TEMP TABLE {staging} (LIKE {table.name} INCLUDING DEFAULTS) ON COMMIT DROP"
+    )
+
+    def adapt(column_name: str, value: Any) -> Any:
+        if isinstance(value, (dict, list)):
+            return Jsonb(value)
+        return value
+
+    with dbapi.cursor() as cursor:
+        with cursor.copy(f"COPY {staging} ({column_list}) FROM STDIN") as copy:
+            for row in rows:
+                copy.write_row([adapt(name, row.get(name)) for name in columns])
+        cursor.execute(
+            f"INSERT INTO {table.name} ({column_list}) "
+            f"SELECT {column_list} FROM {staging} ON CONFLICT DO NOTHING"
+        )
+        inserted = int(cursor.rowcount or 0)
+        cursor.execute(f"DROP TABLE IF EXISTS {staging}")
+    return inserted
+
+
 def _store_response(
     session: Session,
     *,
@@ -106,7 +187,8 @@ def _store_response(
     if registry_source is None:
         raise FirmsError(f"Unsupported source {source_code!r}")
 
-    accepted: list[dict] = []
+    raw_rows: list[dict] = []
+    fire_rows: list[dict] = []
     seen_in_batch: set[str] = set()
 
     for row in response.rows:
@@ -122,40 +204,40 @@ def _store_response(
         if record_id in seen_in_batch:
             continue
         seen_in_batch.add(record_id)
-        accepted.append(normalized.to_row())
 
-    if not accepted:
-        return 0
-
-    ids = [item["source_record_id"] for item in accepted]
-
-    existing_raw = _existing(session, RawObservation, source.id, ids)
-    for item in accepted:
-        if item["source_record_id"] in existing_raw:
-            continue
+        item = normalized.to_row()
         payload = item["source_payload"]
         blob = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-        session.add(
-            RawObservation(
-                run_id=run.id,
-                source_id=source.id,
-                source_record_id=item["source_record_id"],
-                content_hash=hashlib.sha256(blob).hexdigest(),
-                payload=payload,
-                is_synthetic=is_synthetic,
-            )
+        raw_rows.append(
+            {
+                "id": uuid.uuid4(),
+                "run_id": run.id,
+                "source_id": source.id,
+                "source_record_id": record_id,
+                "content_hash": hashlib.sha256(blob).hexdigest(),
+                "payload": payload,
+                "is_synthetic": is_synthetic,
+            }
+        )
+        fire_rows.append(
+            {"source_id": source.id, "run_id": run.id, "is_synthetic": is_synthetic, **item}
         )
 
-    existing = _existing(session, FireObservation, source.id, ids)
-    inserted = 0
-    for item in accepted:
-        if item["source_record_id"] in existing:
-            continue
-        session.add(
-            FireObservation(source_id=source.id, run_id=run.id, is_synthetic=is_synthetic, **item)
-        )
-        inserted += 1
+    if not fire_rows:
+        return 0
 
+    _bulk_insert(
+        session,
+        RawObservation,
+        raw_rows,
+        conflict_columns=("source_id", "source_record_id"),
+    )
+    inserted = _bulk_insert(
+        session,
+        FireObservation,
+        fire_rows,
+        conflict_columns=("source_id", "source_record_id"),
+    )
     return inserted
 
 

@@ -110,6 +110,7 @@ query is expressed. An unordered window returns `400 bad_request`.
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/calendar` | Required `start_date`, `end_date`; `granularity` day/week/month/year |
+| GET | `/calendar/intelligence` | Trend (Theil–Sen), anomaly markers and seasonal profile for the window; `metric`, `season_years`, `baseline_days`, `z_threshold` |
 | GET | `/calendar/drilldown` | `bucket_start` + `granularity`; returns the bucket plus its detections |
 
 Every bucket in the range is returned, including empty ones, with `state`

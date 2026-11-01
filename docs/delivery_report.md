@@ -91,6 +91,7 @@ allocation.
 | Parquet + DuckDB | 1.12 M rows → 41.3 MB; `count(*)` 0.007 s, sensor totals 0.012 s |
 | Export throughput | 1,120,880 rows → 41.3 MB in **29 s** |
 | Parquet vs PostgreSQL for the same rows | 41 MB vs ≈ 1.86 GB (1,660 B/row) — ~40× smaller |
+| Calendar intelligence (trend + anomalies + seasonality) | 61 days over 11.3 M rows → **0.25 s** via the rollup |
 
 Parquet counts match PostgreSQL **day by day** (UTC) — verified after pinning DuckDB's time zone.
 
@@ -105,14 +106,19 @@ Parquet counts match PostgreSQL **day by day** (UTC) — verified after pinning 
   as `below_baseline`, never as fire anomalies.
 - Calendar and analytics read the rollups; `bbox`/`min_frp` requests deliberately fall back to the
   live scan so filtered answers stay exact.
+- The calendar's intelligence panel adds a Theil–Sen trend, anomaly markers and a seasonal profile
+  (`services/trends.py`). Each analysis has its own sufficiency gate: no slope under ten observed
+  days, no anomaly without a baseline, and no seasonal index until at least two years observed a
+  month on five or more days. Missing days break the trend line instead of being drawn as zero.
 
 ## 9. Tests
 
-- Backend: **169 passed** (storage round-trip, traversal guard, sync idempotence, allocation block,
+- Backend: **177 passed** (storage round-trip, traversal guard, sync idempotence, allocation block,
   checksum change detection, Parquet export + DuckDB read, infrastructure API, calendar months,
-  anomaly baselines, bulk ingestion, CSV exports, reports/regions/exposure/assistant).
-- Frontend: **54 passed** across 9 files; `tsc --noEmit` clean; production build OK.
-- Ruff and mypy (79 files) clean.
+  calendar intelligence + seasonality gates, anomaly baselines, bulk ingestion, CSV exports,
+  reports/regions/exposure/assistant).
+- Frontend: **61 passed** across 10 files; `tsc --noEmit` clean; production build OK.
+- Ruff and mypy (80 files) clean.
 
 ## 10. Resource notes
 

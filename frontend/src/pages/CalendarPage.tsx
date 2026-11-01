@@ -5,8 +5,10 @@ import { useMemo, useState } from "react";
 import { BucketPanel } from "@/components/calendar/BucketPanel";
 import { CalendarBars } from "@/components/calendar/CalendarBars";
 import { CalendarHeat } from "@/components/calendar/CalendarHeat";
+import { CalendarIntelligence } from "@/components/calendar/CalendarIntelligence";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { LoadingBlock, LoadingCue } from "@/components/ui/LoadingCue";
 import { PageHeader } from "@/components/ui/ModuleStatus";
 import { Panel, StatTile } from "@/components/ui/Panel";
 import {
@@ -119,6 +121,14 @@ export function CalendarPage() {
   function select(bucket: CalendarBucket) {
     setSelectedId(null);
     setSelected((current) => (current?.start === bucket.start ? null : bucket));
+  }
+
+  /** Jump the calendar to the month of an anomaly and focus that month. */
+  function openDay(day: string) {
+    setGranularity("day");
+    setViewMonth(day.slice(0, 7));
+    setSelected(null);
+    setSelectedId(null);
   }
 
   function stepMonth(direction: -1 | 1) {
@@ -314,7 +324,18 @@ export function CalendarPage() {
         ) : null}
 
         {calendar.isLoading ? (
-          <p className="text-2xs text-muted">Loading buckets…</p>
+          <div className="space-y-4" aria-busy="true">
+            <LoadingCue label="Loading calendar buckets…" />
+            <div className="grid grid-cols-7 gap-1" aria-hidden>
+              {Array.from({ length: 35 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="aspect-square animate-pulse rounded-control bg-line/[0.05] motion-reduce:animate-none"
+                />
+              ))}
+            </div>
+            <LoadingBlock label="Preparing bucket totals…" lines={2} />
+          </div>
         ) : buckets.length === 0 ? (
           <EmptyState
             icon={<CalendarDays className="size-4" aria-hidden />}
@@ -350,6 +371,8 @@ export function CalendarPage() {
           </p>
         ) : null}
       </Panel>
+
+      <CalendarIntelligence query={query} metric={metric} onOpenDay={openDay} />
 
       {selected ? (
         <div className="fixed inset-0 z-40 flex justify-end">

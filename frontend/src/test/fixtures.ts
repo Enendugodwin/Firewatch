@@ -13,7 +13,7 @@ import type {
   SystemStatus,
 } from "@/types/api";
 import type { AggregateResponse } from "@/lib/mapApi";
-import type { CalendarResponse, CalendarDrilldown } from "@/lib/calendarApi";
+import type { CalendarResponse, CalendarDrilldown, CalendarIntelligence } from "@/lib/calendarApi";
 import type { AnalyticsResponse, AnomaliesResponse } from "@/lib/analyticsApi";
 
 export const MODULES: ModuleStatusItem[] = [
@@ -280,6 +280,7 @@ export interface MockOptions {
   dashboard?: DashboardOverview;
   map?: MockMap;
   calendar?: MockCalendar;
+  intelligence?: CalendarIntelligence;
   query?: MockQuery;
   analytics?: AnalyticsResponse;
   anomalies?: AnomaliesResponse;
@@ -341,8 +342,108 @@ const EMPTY_DRILLDOWN: CalendarDrilldown = {
   items: [],
 };
 
-const EMPTY_ANALYTICS: AnalyticsResponse = {
-  start_date: "2026-10-29",
+const CALENDAR_INTELLIGENCE_VALUES = [100, 105, null, 110, 115, 120, 125, 130, 135, 140, null, 200];
+const CALENDAR_INTELLIGENCE_TRAILING = [
+  100, 102.5, null, 105, 107.5, 110, 112.5, 115, 117.5, 120, null, 155.5,
+];
+
+export const CALENDAR_INTELLIGENCE: CalendarIntelligence = {
+  status: "ok",
+  method: { name: "calendar-intelligence", version: "calendar-intel-v1" },
+  window: {
+    start: "2026-10-18",
+    end: "2026-10-29",
+    days: 12,
+    observed_days: 10,
+    missing_days: 2,
+    coverage: 0.8333,
+    metric: "detections",
+    history_start: "2022-01-01",
+  },
+  trend: {
+    status: "ok",
+    method: "theil-sen",
+    version: "calendar-intel-v1",
+    metric: "detections",
+    observations: 10,
+    slope_per_day: 8.2,
+    slope_per_30_days: 246,
+    direction: "rising",
+    change_ratio: 1.6,
+    confidence: "medium",
+    coverage: 0.8333,
+    level_median: 120,
+    flat_band_per_30_days: 6,
+    requirements: { needed_observations: 10, available_observations: 10, note: "Requirement satisfied." },
+    series: CALENDAR_INTELLIGENCE_VALUES.map((value, index) => ({
+      date: `2026-10-${String(18 + index).padStart(2, "0")}`,
+      value,
+      observed: value !== null,
+      trailing_mean: CALENDAR_INTELLIGENCE_TRAILING[index] ?? null,
+      severity:
+        value === null ? "unobserved" : value === 200 ? "high" : "normal",
+    })),
+  },
+  anomalies: {
+    status: "ok",
+    method: { name: "robust_z", version: "anomaly-robust-z-v1" },
+    baseline: { days: 30, median: 110, mad: 12, scale: 17.8 },
+    count: 1,
+    items: [
+      {
+        date: "2026-10-29",
+        observed: 200,
+        expected: 120,
+        deviation: 80,
+        robust_z: 4.5,
+        severity: "high",
+        explanation: "2026-10-29: 200 detections against a baseline median of 120.0.",
+      },
+    ],
+    evaluated_days: 12,
+    requirements: { note: "Requirement satisfied." },
+  },
+  seasonality: {
+    status: "single_year",
+    method: "monthly-climatology",
+    version: "calendar-intel-v1",
+    metric: "detections",
+    years: [2026],
+    years_requested: 5,
+    first_year: 2022,
+    last_year: 2026,
+    months: [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ].map((label, index) => ({
+      month: index + 1,
+      label,
+      mean: index === 9 ? 140 : null,
+      years: index === 9 ? 1 : 0,
+      sufficient: false,
+      index: null,
+    })),
+    baseline_mean: null,
+    sufficient_months: 0,
+    required_months: 9,
+    peak_month: null,
+    trough_month: null,
+    seasonal_amplitude: null,
+    requirements: {
+      needed_years: 2,
+      available_years: 1,
+      needed_days_per_month_year: 5,
+      note: "Only one year of history is available. The monthly profile describes that year; it is not a seasonal climatology and no seasonal index, peak or trough is claimed.",
+    },
+  },
+  notes: [
+    "Counts are detections, not fires.",
+    "Missing days are excluded from the trend and the seasonal profile; they are never zero.",
+    "Trends use a Theil–Sen slope, which resists a single extreme day.",
+  ],
+};
+
+const EMPTY_ANALYTICS: AnalyticsResponse = {  start_date: "2026-10-29",
   end_date: "2026-10-31",
   totals: {
     detections: 0,
@@ -425,6 +526,7 @@ export function installFetchMock(options: MockOptions = {}) {
   const observations: ObservationPage =
     options.query?.observations ?? { items: [], total: 0, limit: 200, offset: 0 };
   const calendarDrilldown = options.calendar?.drilldown ?? EMPTY_DRILLDOWN;
+  const intelligence = options.intelligence ?? CALENDAR_INTELLIGENCE;
 
   const mock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -594,6 +696,7 @@ export function installFetchMock(options: MockOptions = {}) {
     }
     if (url.includes("/api/v1/analytics/summary")) return json(analytics);
     if (/\/api\/v1\/anomalies(\?|$)/.test(url)) return json(anomalies);
+    if (url.includes("/api/v1/calendar/intelligence")) return json(intelligence);
     if (url.includes("/api/v1/calendar/months")) {
       return json([
         {

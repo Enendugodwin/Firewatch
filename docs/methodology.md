@@ -54,6 +54,9 @@ renormalised over the available components instead of inventing geometry.
 **The score is an association score, not the probability that two detections are the same fire.**
 Results are recorded with the algorithm version, the parameters and the analysis scope.
 
+The full specification — candidate generation, every component, worked examples, the radiometric
+comparison policy and the known limitations — is in [`formula.md`](../formula.md).
+
 ## 4. Event grouping (implemented, `events-v1`)
 
 DBSCAN in a normalised space-time metric: spatial distance (metres) and temporal distance
@@ -71,20 +74,39 @@ Six independent metrics, never one blended number: raw MODIS, raw VIIRS, combine
 match groups, estimated events, aggregate FRP. Every cell carries completeness so missing data is
 not read as zero, and clicking a cell drills into observations.
 
-## 6. Baselines and anomalies (Phase 6 — planned)
+## 6. Baselines, anomalies, trends and seasonality (implemented)
 
-Per region, metric and sensor; seasonal by construction (December is never compared with a July
-baseline). Rolling 30/90-day, same period in previous years, day-of-year and monthly baselines.
-Minimum sample counts are required before any anomaly is declared.
+Per region, metric and sensor. Minimum sample counts are required before any anomaly is declared,
+and missing days are excluded rather than counted as zero.
 
 ```
 MAD = median(|xᵢ − median(X)|)
 Z_r = (x − median(X)) / (1.4826 × MAD)
 ```
 
-Zero MAD and small samples are handled explicitly. Isolation Forest is an optional secondary model,
-never the sole basis for an alert. Every anomaly exposes observed/expected values, sample size,
-baseline period, method, model version, evidence ids and completeness.
+For each evaluated day the baseline is the median of the preceding `baseline_days` **observed** days
+(default 30). When that history is too short, the engine falls back to a leave-one-out baseline over
+the window and labels it `within_window`; with too few days even for that it returns
+`insufficient_history` instead of a score. Zero MAD is handled by a standard-deviation fallback, and
+a constant baseline is reported as `unknown_scale` rather than ranked.
+
+The fire calendar adds two companion analyses, each with its own gate (`services/trends.py`,
+`calendar-intel-v1`):
+
+- **Trend** — Theil–Sen slope over observed days, expressed per day and per 30 days, with a
+  direction band (a 5% move over 30 days is `flat`), a first-to-last level ratio and a
+  low/medium/high confidence based on sample count and coverage. The median of pairwise slopes is
+  used because a single extreme day would drag a least-squares line. Fewer than 10 observed days
+  returns `insufficient_history`.
+- **Seasonality** — per calendar-month means across years, where a month's value is the mean of its
+  *yearly monthly means* so a year with more observed days does not dominate. A month counts only
+  with at least two years that each observed it on ≥ 5 days. With one year the profile is shown as
+  `single_year` and no index, peak or trough is claimed; with partial coverage it is `partial` and
+  peak/trough are withheld until ≥ 9 months qualify.
+
+Isolation Forest remains an optional secondary model, never the sole basis for an alert. Every
+anomaly exposes observed/expected values, sample size, baseline period, method, model version,
+evidence ids and completeness.
 
 ## 7. Exposure screening (Phase 6 — planned)
 

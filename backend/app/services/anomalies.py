@@ -133,7 +133,10 @@ def detect_anomalies(
     baseline_days = max(1, min(baseline_days, 365))
     min_baseline_days = max(2, min(min_baseline_days, baseline_days))
     min_window_days = max(3, min(min_window_days, 365))
-    metric = "frp_sum_mw" if metric == "frp" else "detections"
+    metric_field = {
+        "frp": "frp_sum_mw",
+        "high_confidence": "high_confidence",
+    }.get(metric, "detections")
 
     history_start = start - timedelta(days=baseline_days + 1)
     # Reports already have the day series; reuse it instead of scanning twice.
@@ -147,7 +150,7 @@ def detect_anomalies(
         "baseline_days": baseline_days,
         "min_baseline_days": min_baseline_days,
         "z_threshold": z_threshold,
-        "metric": metric,
+        "metric": metric_field,
         "mad_to_sigma": MAD_TO_SIGMA,
         "comparison": "preceding observed days, gaps excluded",
         "baseline_source": "preceding",
@@ -160,12 +163,12 @@ def detect_anomalies(
     cursor = history_start
     while cursor < start:
         if cursor in observed:
-            baseline_values.append(float(daily.get(cursor, {}).get(metric, 0.0)))
+            baseline_values.append(float(daily.get(cursor, {}).get(metric_field, 0.0)))
         cursor += timedelta(days=1)
 
     window_days = sorted(day for day in observed if start <= day <= end)
     window_values = {
-        day: float(daily.get(day, {}).get(metric, 0.0)) for day in window_days
+        day: float(daily.get(day, {}).get(metric_field, 0.0)) for day in window_days
     }
 
     if len(baseline_values) >= min_baseline_days:
@@ -227,7 +230,7 @@ def detect_anomalies(
             day += timedelta(days=1)
             continue
 
-        observed_value = window_values.get(day, float(daily.get(day, {}).get(metric, 0.0)))
+        observed_value = window_values.get(day, float(daily.get(day, {}).get(metric_field, 0.0)))
         expected = baseline
         if baseline_source == "within_window":
             others = [value for other, value in window_values.items() if other != day]
