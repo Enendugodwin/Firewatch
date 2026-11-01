@@ -117,7 +117,7 @@ Parquet counts match PostgreSQL **day by day** (UTC) — verified after pinning 
   checksum change detection, Parquet export + DuckDB read, infrastructure API, calendar months,
   calendar intelligence + seasonality gates, anomaly baselines, bulk ingestion, CSV exports,
   reports/regions/exposure/assistant).
-- Frontend: **61 passed** across 10 files; `tsc --noEmit` clean; production build OK.
+- Frontend: **64 passed** across 10 files; `tsc --noEmit` clean; production build OK.
 - Ruff and mypy (80 files) clean.
 
 ## 10. Resource notes

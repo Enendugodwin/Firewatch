@@ -2,6 +2,12 @@ import clsx from "clsx";
 
 import type { CalendarBucket, CalendarMetric } from "@/lib/calendarApi";
 import { intensity, metricValue } from "@/lib/calendarApi";
+import {
+  type SeverityByDay,
+  isRankedSeverity,
+  severityDotClass,
+  severityLabel,
+} from "@/lib/severity";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_NAMES = [
@@ -92,12 +98,14 @@ export function CalendarHeat({
   selected,
   onSelect,
   granularity = "day",
+  severityByDay,
 }: {
   buckets: CalendarBucket[];
   metric: CalendarMetric;
   selected: string | null;
   onSelect: (bucket: CalendarBucket) => void;
   granularity?: string;
+  severityByDay?: SeverityByDay;
 }) {
   const groups = groupIntoMonths(buckets);
   const max = Math.max(0, ...buckets.map((bucket) => metricValue(bucket, metric)));
@@ -152,6 +160,11 @@ export function CalendarHeat({
                 const dayNumber = Number(bucket.start.slice(8, 10));
                 const weekday = new Date(`${bucket.start}T00:00:00Z`).getUTCDay();
                 const isWeekend = weekday === 0 || weekday === 6;
+                const rawSeverity = severityByDay?.[bucket.start];
+                const severity = isRankedSeverity(rawSeverity) ? rawSeverity : null;
+                const severitySuffix = severity
+                  ? `, anomaly ${severityLabel(severity)}`
+                  : "";
 
                 return (
                   <button
@@ -159,8 +172,8 @@ export function CalendarHeat({
                     type="button"
                     onClick={() => onSelect(bucket)}
                     aria-pressed={isSelected}
-                    aria-label={`${bucket.start}: ${value} ${metric}, ${bucket.state}`}
-                    title={`${bucket.start} — ${value} ${metric} · ${bucket.state}`}
+                    aria-label={`${bucket.start}: ${value} ${metric}, ${bucket.state}${severitySuffix}`}
+                    title={`${bucket.start} — ${value} ${metric} · ${bucket.state}${severitySuffix}`}
                     className={clsx(
                       "group relative aspect-square rounded-control border text-left transition-all duration-150",
                       bucket.state === "active"
@@ -193,6 +206,15 @@ export function CalendarHeat({
                     >
                       {dayNumber}
                     </span>
+                    {severity ? (
+                      <span
+                        aria-hidden
+                        className={clsx(
+                          "absolute right-[3px] top-[3px] size-[6px] rounded-full ring-1 ring-[#0B0E16]",
+                          severityDotClass(severity),
+                        )}
+                      />
+                    ) : null}
                     {value > 0 ? (
                       <span className="absolute bottom-[3px] right-[4px] font-mono text-[9px] tabular-nums opacity-80">
                         {value >= 10000

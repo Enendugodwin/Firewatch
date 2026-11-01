@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { BucketPanel } from "@/components/calendar/BucketPanel";
 import { CalendarBars } from "@/components/calendar/CalendarBars";
 import { CalendarHeat } from "@/components/calendar/CalendarHeat";
-import { CalendarIntelligence } from "@/components/calendar/CalendarIntelligence";
+import { CalendarIntelligence, useCalendarIntelligence } from "@/components/calendar/CalendarIntelligence";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingBlock, LoadingCue } from "@/components/ui/LoadingCue";
@@ -103,6 +103,16 @@ export function CalendarPage() {
     staleTime: 30_000,
     retry: 1,
   });
+
+  // One intelligence query shared by the grid, the bars and the panel.
+  const intelligence = useCalendarIntelligence(query, metric);
+  const severityByDay = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const item of intelligence.data?.anomalies.items ?? []) {
+      map[item.date] = item.severity;
+    }
+    return map;
+  }, [intelligence.data]);
 
   const drilldown = useQuery({
     queryKey: ["calendar", "drilldown", selected?.start ?? null, query],
@@ -257,6 +267,10 @@ export function CalendarPage() {
               <span className="size-2 rounded-[2px] border border-dashed border-line/25" aria-hidden />
               no data
             </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="size-[6px] rounded-full bg-[#fbbf24]" aria-hidden />
+              anomaly
+            </span>
           </div>
         }
       >
@@ -349,6 +363,7 @@ export function CalendarPage() {
             selected={selected?.start ?? null}
             onSelect={select}
             granularity={granularity}
+            severityByDay={severityByDay}
           />
         ) : (
           <CalendarBars
@@ -357,6 +372,7 @@ export function CalendarPage() {
             granularity={granularity}
             selected={selected?.start ?? null}
             onSelect={select}
+            severityByDay={severityByDay}
           />
         )}
 
@@ -372,7 +388,7 @@ export function CalendarPage() {
         ) : null}
       </Panel>
 
-      <CalendarIntelligence query={query} metric={metric} onOpenDay={openDay} />
+      <CalendarIntelligence intelligence={intelligence} metric={metric} onOpenDay={openDay} />
 
       {selected ? (
         <div className="fixed inset-0 z-40 flex justify-end">

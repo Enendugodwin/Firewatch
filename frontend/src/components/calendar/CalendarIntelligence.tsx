@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { type UseQueryResult, useQuery } from "@tanstack/react-query";
 import { Activity, CalendarRange, Info, TrendingDown, TrendingUp } from "lucide-react";
 import { useMemo } from "react";
 
@@ -6,6 +6,7 @@ import { Badge, type Tone } from "@/components/ui/Badge";
 import { LoadingBlock } from "@/components/ui/LoadingCue";
 import { Panel } from "@/components/ui/Panel";
 import {
+  type CalendarIntelligence as CalendarIntelligencePayload,
   type CalendarMetric,
   type CalendarQuery,
   type SeasonalityBlock,
@@ -132,22 +133,25 @@ export function seasonBarHeight(month: SeasonalityBlock["months"][number], maxIn
   return month.sufficient ? 12 : 6;
 }
 
-export function CalendarIntelligence({
-  query,
-  metric,
-  onOpenDay,
-}: {
-  query: CalendarQuery;
-  metric: CalendarMetric;
-  onOpenDay: (day: string) => void;
-}) {
-  const intelligence = useQuery({
+/** Shared query so the grid, the bars and the panel read one result, not three. */
+export function useCalendarIntelligence(query: CalendarQuery, metric: CalendarMetric) {
+  return useQuery({
     queryKey: ["calendar", "intelligence", query, metric],
     queryFn: ({ signal }) => fetchCalendarIntelligence(query, { metric }, signal),
     staleTime: 60_000,
     retry: 1,
   });
+}
 
+export function CalendarIntelligence({
+  intelligence,
+  metric,
+  onOpenDay,
+}: {
+  intelligence: UseQueryResult<CalendarIntelligencePayload>;
+  metric: CalendarMetric;
+  onOpenDay: (day: string) => void;
+}) {
   const data = intelligence.data;
   const geometry = useMemo(
     () => buildSparkline(data?.trend?.series ?? []),

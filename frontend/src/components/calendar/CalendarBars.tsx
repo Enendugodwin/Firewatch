@@ -3,6 +3,12 @@ import clsx from "clsx";
 import type { CalendarBucket, CalendarMetric } from "@/lib/calendarApi";
 import { intensity, metricValue } from "@/lib/calendarApi";
 import { formatCount, formatFrp } from "@/lib/format";
+import {
+  type SeverityByDay,
+  maxSeverityInRange,
+  severityDotClass,
+  severityLabel,
+} from "@/lib/severity";
 
 function valueLabel(bucket: CalendarBucket, metric: CalendarMetric): string {
   const value = metricValue(bucket, metric);
@@ -29,12 +35,14 @@ export function CalendarBars({
   granularity,
   selected,
   onSelect,
+  severityByDay,
 }: {
   buckets: CalendarBucket[];
   metric: CalendarMetric;
   granularity: string;
   selected: string | null;
   onSelect: (bucket: CalendarBucket) => void;
+  severityByDay?: SeverityByDay;
 }) {
   const max = Math.max(0, ...buckets.map((bucket) => metricValue(bucket, metric)));
 
@@ -44,19 +52,30 @@ export function CalendarBars({
         const value = metricValue(bucket, metric);
         const t = intensity(value, max);
         const isSelected = selected === bucket.start;
+        const severity = maxSeverityInRange(severityByDay, bucket.start, bucket.end);
+        const label = periodLabel(bucket, granularity);
         return (
           <li key={bucket.start}>
             <button
               type="button"
               onClick={() => onSelect(bucket)}
               aria-pressed={isSelected}
+              aria-label={`${label}: ${value} ${metric}, ${bucket.state}${
+                severity ? `, anomaly ${severityLabel(severity)}` : ""
+              }`}
               className={clsx(
                 "group flex w-full items-center gap-3 rounded-control border border-line/[0.07] px-3 py-2 text-left transition-colors duration-150 hover:border-line/20",
                 isSelected ? "border-accent/40 bg-line/[0.04]" : "",
               )}
             >
-              <span className="w-40 shrink-0 font-mono text-3xs text-muted">
-                {periodLabel(bucket, granularity)}
+              <span className="flex w-40 shrink-0 items-center gap-1.5 font-mono text-3xs text-muted">
+                {severity ? (
+                  <span
+                    aria-hidden
+                    className={clsx("size-[6px] rounded-full", severityDotClass(severity))}
+                  />
+                ) : null}
+                {label}
               </span>
               <span className="relative h-3 flex-1 overflow-hidden rounded-full bg-line/[0.05]">
                 {bucket.state === "unobserved" ? (

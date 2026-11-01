@@ -148,7 +148,10 @@ have a seasonal shape?" It recomputes over the same window and filters as the gr
   (`rising`, `falling`, `flat`), a first-to-last ratio and a confidence level. Missing days break the
   sparkline instead of being drawn as zero. Fewer than ten observed days says so and shows no slope.
 - **Anomalies**: the robust-z engine marks every day that exceeds the threshold (|z| ≥ 3), both as
-  dots on the sparkline and as a list; selecting an entry jumps the calendar to that month.
+  dots on the sparkline and as a list; selecting an entry jumps the calendar to that month. The
+  calendar itself carries the marker too — a coloured dot on the day cell (amber for high, red for
+  critical, blue for moderate) and the strongest severity for a week/month/year bar, always named in
+  the cell's accessible label. `below_baseline` days are reported but never marked as alerts.
 - **Seasonality**: twelve monthly bars. A month is only shaded when at least two years observed it
   on five or more days. With a single year the panel says `single year` and claims no index, peak or
   trough — a profile is not a climatology.
