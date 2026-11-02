@@ -295,7 +295,13 @@ def create_custom_region(
 
 
 def create_radius_region(
-    session: Session, *, name: str, latitude: float, longitude: float, radius_km: float
+    session: Session,
+    *,
+    name: str,
+    latitude: float,
+    longitude: float,
+    radius_km: float,
+    slug: str | None = None,
 ) -> GeographicRegion:
     return create_region(
         session,
@@ -304,6 +310,7 @@ def create_radius_region(
         level="radius",
         boundary_kind="circle",
         source="radius",
+        slug=slug,
         notes=f"Radius buffer of {radius_km} km around {latitude:.4f}, {longitude:.4f}.",
     )
 

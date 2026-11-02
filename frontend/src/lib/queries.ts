@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch } from "@/lib/api";
+import { fetchHarmonizedSeries } from "@/lib/intelligenceApi";
 import type {
   AlgorithmRunOut,
   IngestAllResponse,
@@ -68,6 +69,15 @@ export function useHarmonizationSummary() {
     queryKey: queryKeys.harmonization,
     queryFn: () => apiFetch<HarmonizationSummary>("/api/v1/harmonization/summary"),
     staleTime: 30_000,
+  });
+}
+
+export function useHarmonizedSeries(start: string, end: string) {
+  return useQuery({
+    queryKey: ["harmonized-series", start, end],
+    queryFn: ({ signal }) => fetchHarmonizedSeries(start, end, signal),
+    staleTime: 60_000,
+    retry: 1,
   });
 }
 

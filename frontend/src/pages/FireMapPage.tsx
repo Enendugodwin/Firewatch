@@ -70,6 +70,7 @@ export function FireMapPage() {
   const [cells, setCells] = useState<FireCell[]>([]);
   const [meta, setMeta] = useState<Meta>(EMPTY_META);
   const [loading, setLoading] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -268,7 +269,10 @@ export function FireMapPage() {
       />
       </div>
 
-      <div className="relative h-[calc(100dvh-21rem)] min-h-[420px] overflow-hidden rounded-card border border-line/[0.1] sm:h-[calc(100dvh-17rem)] sm:min-h-[520px]">
+      <div
+        className="relative h-[calc(100dvh-21rem)] min-h-[420px] overflow-hidden rounded-card border border-line/[0.1] sm:h-[calc(100dvh-17rem)] sm:min-h-[520px]"
+        aria-busy={loading || !mapReady}
+      >
         <Suspense
           fallback={
             <div className="absolute inset-0 flex items-center justify-center bg-canvas">
@@ -282,6 +286,7 @@ export function FireMapPage() {
           <FireMapCanvas
             onReady={(handle) => {
               mapRef.current = handle;
+              setMapReady(true);
             }}
             points={points}
             cells={cells}
@@ -295,6 +300,32 @@ export function FireMapPage() {
             }
           />
         </Suspense>
+
+        {!mapReady ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-[5] animate-pulse bg-[linear-gradient(120deg,rgba(148,163,184,0.06),rgba(239,68,68,0.05),rgba(148,163,184,0.06))] motion-reduce:animate-none"
+          />
+        ) : null}
+
+        {loading || !mapReady ? (
+          <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2">
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-2 rounded-full border border-line/15 bg-panel/95 px-4 py-2 text-2xs font-light text-muted shadow-glass backdrop-blur-glass"
+            >
+              <Loader2 className="size-3.5 animate-spin text-accent motion-reduce:animate-none" aria-hidden />
+              <span>
+                {!mapReady
+                  ? "Initialising map renderer…"
+                  : meta.aggregated || view.zoom < AGGREGATE_ZOOM
+                    ? "Loading aggregated hotspots…"
+                    : "Loading hotspot detections…"}
+              </span>
+            </div>
+          </div>
+        ) : null}
 
         <div className="pointer-events-none absolute inset-0 z-10 p-3 pb-4">
           <div className="flex h-full flex-col justify-between gap-3">
@@ -351,8 +382,33 @@ export function FireMapPage() {
                   />{" "}
                   VIIRS outline
                 </span>
-                <span className="hidden sm:inline">
-                  {meta.aggregated ? "Colour = density" : "Colour = FRP"}
+                <span
+                  className="inline-flex items-center gap-1"
+                  role="group"
+                  aria-label={
+                    meta.aggregated
+                      ? "Density ramp: under 250, 250 to 1499, 1500 or more detections per cell"
+                      : "FRP ramp: under 5, 5 to 19, 20 or more megawatts"
+                  }
+                  title={
+                    meta.aggregated
+                      ? "Cell colour and size: 1–249 / 250–1499 / 1500+ detections"
+                      : "Point colour and size: <5 / 5–19 / 20+ MW"
+                  }
+                >
+                  {[MAP_THEMES[filters.theme].fire.low, MAP_THEMES[filters.theme].fire.medium, MAP_THEMES[filters.theme].fire.high].map(
+                    (colour) => (
+                      <span
+                        key={colour}
+                        className="size-1.5 rounded-full"
+                        style={{ backgroundColor: colour }}
+                        aria-hidden
+                      />
+                    ),
+                  )}
+                  <span className="hidden sm:inline">
+                    {meta.aggregated ? "density (detections/cell)" : "FRP (MW)"}
+                  </span>
                 </span>
               </div>
             </div>

@@ -101,6 +101,43 @@ export function reportExportUrl(start: string, end: string, format: "markdown" |
   return `/api/v1/reports/export?${range(start, end)}&format=${format}`;
 }
 
+export interface HarmonizedDay {
+  date: string;
+  modis: number;
+  viirs: number;
+  raw: number;
+  matched_viirs: number;
+  harmonized: number;
+  reduction_ratio: number;
+}
+
+export interface HarmonizedSeries {
+  status: "ok" | "unmatched";
+  algorithm_version: string;
+  start_date: string;
+  end_date: string;
+  definition: string;
+  days: HarmonizedDay[];
+  totals: {
+    modis: number;
+    viirs: number;
+    raw: number;
+    matched_viirs: number;
+    harmonized: number;
+    reduction_ratio: number;
+  };
+  coverage: { days: number; days_with_matches: number; association_scope_note?: string };
+  notes: string[];
+}
+
+export function fetchHarmonizedSeries(start: string, end: string, signal?: AbortSignal) {
+  const params = new URLSearchParams({ start_date: start, end_date: end });
+  return apiFetch<HarmonizedSeries>(
+    `/api/v1/harmonization/series?${params.toString()}`,
+    { signal },
+  );
+}
+
 export function fetchRegions(start: string, end: string, signal?: AbortSignal) {
   return apiFetch<RegionsResponse>(
     `/api/v1/regions?${range(start, end)}&limit=10`,

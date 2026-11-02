@@ -941,6 +941,22 @@ export function installFetchMock(options: MockOptions = {}) {
     if (url.includes("/api/v1/system/modules")) return json(MODULES);
     if (url.includes("/api/v1/system/sources")) return json(SOURCES);
     if (url.includes("/api/v1/dashboard")) return json(dashboard);
+    if (url.includes("/api/v1/harmonization/series")) {
+      return json({
+        status: "ok",
+        algorithm_version: "harmonized-series-v1",
+        start_date: "2026-10-30",
+        end_date: "2026-10-31",
+        definition:
+          "harmonized = MODIS + VIIRS - distinct VIIRS detections with at least one probable or possible MODIS association on the same UTC day",
+        days: [
+          { date: "2026-10-30", modis: 41, viirs: 379, raw: 420, matched_viirs: 12, harmonized: 408, reduction_ratio: 0.0317 },
+        ],
+        totals: { modis: 41, viirs: 379, raw: 420, matched_viirs: 12, harmonized: 408, reduction_ratio: 0.0317 },
+        coverage: { days: 1, days_with_matches: 1 },
+        notes: ["Counts are detections, not fires.", "12 VIIRS detections were also seen by MODIS."],
+      });
+    }
     if (url.includes("/api/v1/harmonization/summary")) return json(summary);
     if (url.includes("/api/v1/harmonization/matches")) return json(matches);
     if (url.includes("/api/v1/harmonization/events")) return json(events);

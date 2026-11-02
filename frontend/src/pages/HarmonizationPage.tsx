@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { LoadingBlock } from "@/components/ui/LoadingCue";
 import { PageHeader } from "@/components/ui/ModuleStatus";
 import { Panel, StatTile } from "@/components/ui/Panel";
 import { Download } from "lucide-react";
@@ -20,7 +21,7 @@ import { SyntheticBanner } from "@/components/ui/SyntheticBanner";
 import { AssociationScore } from "@/components/ui/AssociationScore";
 import { findNavItemByKey } from "@/config/nav";
 import { useUiStore } from "@/store/ui";
-import { useModules } from "@/lib/queries";
+import { useHarmonizedSeries, useModules } from "@/lib/queries";
 import {
   useAlgorithmRuns,
   useEvents,
@@ -168,6 +169,7 @@ export function HarmonizationPage() {
   const runs = useAlgorithmRuns();
   const runHarmonization = useRunHarmonization();
   const dateRange = useUiStore((state) => state.dateRange);
+  const harmonized = useHarmonizedSeries(dateRange.start, dateRange.end);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -532,6 +534,55 @@ export function HarmonizationPage() {
                     </li>
                   ) : null}
                 </ul>
+              </Panel>
+
+              <Panel
+                title="Harmonized series"
+                subtitle="Raw detections minus VIIRS detections already associated with MODIS. Raw sensor series are unchanged."
+              >
+                {harmonized.isLoading ? (
+                  <LoadingBlock label="Building the harmonized series…" lines={3} />
+                ) : harmonized.data ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {[
+                        ["MODIS", harmonized.data.totals.modis],
+                        ["VIIRS", harmonized.data.totals.viirs],
+                        ["Raw combined", harmonized.data.totals.raw],
+                        ["Harmonized", harmonized.data.totals.harmonized],
+                      ].map(([label, value]) => (
+                        <div key={String(label)} className="rounded-card border border-line/[0.07] bg-line/[0.02] px-3 py-2">
+                          <div className="text-3xs uppercase tracking-[0.1em] text-faint">{label}</div>
+                          <div className="mt-1 font-mono text-sm text-ink">{formatCount(Number(value))}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <div className="mb-1 flex items-center justify-between text-3xs text-faint">
+                        <span>raw</span>
+                        <span>
+                          {(harmonized.data.totals.reduction_ratio * 100).toFixed(1)}% cross-sensor duplicates
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-line/[0.06]">
+                        <div
+                          className="h-full rounded-full bg-accent/70"
+                          style={{
+                            width: `${
+                              harmonized.data.totals.raw
+                                ? (harmonized.data.totals.harmonized / harmonized.data.totals.raw) * 100
+                                : 0
+                            }%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-3xs font-light leading-relaxed text-faint">
+                      {harmonized.data.coverage.days_with_matches} of {harmonized.data.coverage.days} days
+                      have associations. {harmonized.data.notes[harmonized.data.notes.length - 1]}
+                    </p>
+                  </div>
+                ) : null}
               </Panel>
 
               <Panel title="Algorithm runs" subtitle="Audit trail for each pass." bodyClassName="p-0">

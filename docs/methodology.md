@@ -57,6 +57,20 @@ Results are recorded with the algorithm version, the parameters and the analysis
 The full specification — candidate generation, every component, worked examples, the radiometric
 comparison policy and the known limitations — is in [`formula.md`](../formula.md).
 
+### 3.1 Harmonised series (implemented, `harmonized-series-v1`)
+
+The association engine answers "are these the same hotspot?"; the harmonised series turns that
+into one consistent count per day without editing the raw data:
+
+```
+harmonized = MODIS + VIIRS − matched_VIIRS
+```
+
+`matched_VIIRS` is the number of distinct VIIRS detections with at least one probable or possible
+MODIS association on the same UTC day. Raw sensor series remain unchanged; days without associations
+return their raw count and the response says so. This is a documented de-duplication, not a
+calibrated fire count, because the association score is not a probability of identity.
+
 ## 4. Event grouping (implemented, `events-v1`)
 
 DBSCAN in a normalised space-time metric: spatial distance (metres) and temporal distance

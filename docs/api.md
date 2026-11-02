@@ -181,6 +181,7 @@ the database, reporting `method: deterministic`, the intent and the exact scope.
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/harmonization/summary` | Sensor totals, match counts, events, last run and its scope |
+| GET | `/harmonization/series` | Harmonised daily series: raw MODIS/VIIRS minus associated VIIRS duplicates |
 | GET | `/harmonization/matches` | `status`, `min_score`, pagination; full score components |
 | GET | `/harmonization/matches/{id}` | Evidence for one pair |
 | GET | `/harmonization/events` | Estimated events with extent and FRP aggregates |

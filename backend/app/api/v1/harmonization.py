@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import io
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
@@ -33,6 +33,8 @@ from app.schemas.observations import (
 )
 from app.services import events as events_service
 from app.services import harmonization as harmonization_service
+from app.services.calendar import validate_span
+from app.services.harmonized_series import DEFAULT_STATUSES, harmonized_daily
 from app.services.normalization import satellite_label
 from app.services.observation_queries import (
     BBox,
@@ -42,6 +44,46 @@ from app.services.observation_queries import (
 )
 
 router = APIRouter(prefix="/harmonization", tags=["harmonization"])
+
+@router.get(
+    "/series",
+    summary="Harmonised daily series: raw detections minus cross-sensor duplicates",
+)
+def harmonized_series(
+    start_date: date = Query(..., description="First day (UTC)"),
+    end_date: date = Query(..., description="Last day (UTC)"),
+    synthetic: bool = Query(False, description="Use labelled fixture observations"),
+    statuses: str | None = Query(
+        None,
+        description="Comma-separated match statuses to subtract (default probable,possible)",
+    ),
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    """
+    Raw MODIS and VIIRS stay as stored; the combined series subtracts each VIIRS
+    detection that has a cross-sensor association, so the same hotspot is not
+    counted twice. Days without associations return their raw count and say so.
+    """
+    validate_span(start_date, end_date)
+    allowed = set(DEFAULT_STATUSES)
+    selected = tuple(
+        part.strip() for part in statuses.split(",") if part.strip()
+    ) if statuses else DEFAULT_STATUSES
+    unknown = [item for item in selected if item not in allowed]
+    if unknown:
+        raise AppError(
+            "bad_request",
+            "statuses must be probable and/or possible.",
+            details={"received": unknown},
+        )
+    return harmonized_daily(
+        session,
+        start=start_date,
+        end=end_date,
+        synthetic=synthetic,
+        statuses=selected,
+    )
+
 
 
 def _brief(observation: FireObservation) -> ObservationBrief:

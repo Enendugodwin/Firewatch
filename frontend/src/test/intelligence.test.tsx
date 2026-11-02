@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { renderApp } from "@/test/render";
-import { installFetchMock } from "@/test/fixtures";
+import { EVENTS, FIXTURE_SUMMARY, MATCHES, installFetchMock } from "@/test/fixtures";
 
 beforeEach(() => {
   installFetchMock();
@@ -33,6 +33,17 @@ describe("regional intelligence", () => {
 
     expect((await screen.findAllByText("Nigeria")).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/approximate centroid boxes/i).length).toBeGreaterThan(0);
+  });
+});
+
+describe("harmonized series", () => {
+  it("shows raw versus harmonized and the duplicate share", async () => {
+    installFetchMock({ summary: FIXTURE_SUMMARY, matches: MATCHES, events: EVENTS });
+    renderApp("/harmonization");
+
+    expect(await screen.findByText(/harmonized series/i)).toBeInTheDocument();
+    expect(await screen.findByText(/cross-sensor duplicates/i)).toBeInTheDocument();
+    expect(screen.getByText("408")).toBeInTheDocument();
   });
 });
 

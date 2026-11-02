@@ -196,6 +196,19 @@ normally like this?" for a country, an imported boundary, or a radius.
 - **Export**: *CSV* downloads the monthly and yearly rows for the current region,
   period and sensor.
 
+### Map reading aids
+
+- While the renderer starts, the map shows *Initialising map renderer…*; while a viewport is
+  fetching it shows *Loading aggregated hotspots…* or *Loading hotspot detections…*. Both announce
+  themselves to assistive technology, and the previous view stays visible until the replacement
+  arrives.
+- **Colour is never the only encoding.** Cells and points also vary in size, and the legend carries
+  the numeric thresholds (`<250 / 250–1,499 / 1,500+` detections per cell, or `<5 / 5–19 / 20+ MW`).
+- Sensor outlines are blue (MODIS) and magenta (VIIRS) rather than blue/green, which is easier to
+  tell apart with red–green colour-vision deficiency.
+- Calendar shading is single-hue luminance with a `0 → peak` scale, hatched gaps and separate
+  markers for anomalies — not colour alone.
+
 ## Data Query (Intelligence)
 
 The query workspace reads the stored detections directly.

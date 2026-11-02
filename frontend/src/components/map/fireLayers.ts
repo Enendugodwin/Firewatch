@@ -25,7 +25,7 @@ export interface FireColors {
 
 export const SENSOR_COLORS = {
   MODIS: "#72A5F9",
-  VIIRS: "#60D58B",
+  VIIRS: "#E879F9",
 } as const;
 
 export function useAggregate(zoom: number): boolean {

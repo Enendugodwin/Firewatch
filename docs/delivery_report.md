@@ -115,17 +115,20 @@ Parquet counts match PostgreSQL **day by day** (UTC) — verified after pinning 
   (`services/trends.py`). Each analysis has its own sufficiency gate: no slope under ten observed
   days, no anomaly without a baseline, and no seasonal index until at least two years observed a
   month on five or more days. Missing days break the trend line instead of being drawn as zero.
+- Reference fires in `docs/validation/reference_fires.md` validate the platform against independent
+  reports (Amazon Pará: 161,066 detections, October 7x September; Kalimantan: 449,994) using
+  `scripts/validate_reference_fire.py`.
 - The regional engine (`services/regional.py`, `services/geometry.py`) stores GeoJSON boundaries,
   analyses a region once into `regional_daily_statistics` + `regional_cell_statistics`, and serves
   every read from those rows. The polygon is authoritative; PostGIS is not required.
 
 ## 9. Tests
 
-- Backend: **189 passed** (storage round-trip, traversal guard, sync idempotence, allocation block,
+- Backend: **196 passed** (storage round-trip, traversal guard, sync idempotence, allocation block,
   checksum change detection, Parquet export + DuckDB read, infrastructure API, calendar months,
   calendar intelligence + seasonality gates, regional geometry/analysis/trend tests, anomaly
   baselines, bulk ingestion, CSV exports, reports/regions/exposure/assistant).
-- Frontend: **67 passed** across 11 files; `tsc --noEmit` clean; production build OK.
+- Frontend: **68 passed** across 11 files; `tsc --noEmit` clean; production build OK.
 - Ruff and mypy (84 files) clean.
 
 ## 10. Resource notes
