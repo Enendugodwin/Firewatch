@@ -31,7 +31,12 @@ def get_engine() -> Engine:
     else:
         # Timestamps are stored as timestamptz; pin the session time zone to UTC
         # so API responses never depend on the server's local zone.
-        kwargs["connect_args"] = {"options": "-c timezone=UTC"}
+        kwargs["connect_args"] = {
+            # A runaway analytical query must fail instead of pinning a worker and
+            # exhausting the device; 60 s is above every measured read (<= 0.25 s)
+            # and above an incremental rollup refresh.
+            "options": "-c timezone=UTC -c statement_timeout=60000"
+        }
         kwargs["pool_size"] = settings.database_pool_size
         kwargs["pool_timeout"] = settings.database_pool_timeout
         kwargs["pool_recycle"] = 1800

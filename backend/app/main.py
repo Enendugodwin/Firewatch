@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api.health import router as health_router
 from app.api.v1 import api_router
@@ -87,6 +88,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
 
+    # Map payloads and calendar/monthly responses compress well and are requested
+    # repeatedly; gzip keeps the browser and the loopback link cheap.
+    app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
     if settings.rate_limit_per_minute > 0:
         app.add_middleware(RateLimitMiddleware, limit=settings.rate_limit_per_minute)
     app.add_middleware(RequestContextMiddleware)

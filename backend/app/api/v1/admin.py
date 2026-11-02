@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
+from app.core.cache import clear_caches
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
 from app.db.models import DataSource, FireObservation, IngestionRun
@@ -169,7 +170,9 @@ async def run_ingestion(
     )
 
     if result.records_inserted:
-        refresh_rollup(session)
+        # Only the ingested window is recomputed, not the whole history.
+        refresh_rollup(session, since=request.start_date)
+        clear_caches()
 
     harmonization_result = None
     events_result = None
@@ -332,7 +335,8 @@ async def run_all_sources(
         )
 
     if inserted_total:
-        refresh_rollup(session)
+        refresh_rollup(session, since=request.start_date)
+        clear_caches()
 
     harmonization_result = None
     events_result = None

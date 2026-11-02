@@ -12,6 +12,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     admin,
+    admin_performance,
     analytics,
     anomalies,
     assistant,
@@ -43,6 +44,7 @@ api_router.include_router(exposure.router)
 api_router.include_router(reports.router)
 api_router.include_router(assistant.router)
 api_router.include_router(admin.router)
+api_router.include_router(admin_performance.router)
 api_router.include_router(auth.router)
 
 __all__ = ["api_router"]

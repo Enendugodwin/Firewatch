@@ -151,7 +151,7 @@ export function FireMapPage() {
         .finally(() => {
           if (!controller.signal.aborted) setLoading(false);
         });
-    }, 220);
+    }, 260);
 
     return () => {
       window.clearTimeout(timer);

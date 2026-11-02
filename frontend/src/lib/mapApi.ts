@@ -17,6 +17,9 @@ export interface FireCell {
 export interface AggregateResponse {
   cells: FireCell[];
   cell_degrees: number;
+  requested_cell_degrees?: number;
+  source?: "rollup" | "live" | string;
+  note?: string | null;
   zoom: number;
   total_detections: number;
   returned_cells: number;

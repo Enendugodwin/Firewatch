@@ -8,7 +8,7 @@
 /** Below this zoom the map requests gridded counts instead of individual points. */
 export const AGGREGATE_ZOOM = 6;
 /** Upper bound for a single point request; above it the server truncates. */
-export const POINT_LIMIT = 5000;
+export const POINT_LIMIT = 2000;
 
 export const FIRE_COLORS = {
   low: "#FACC15",

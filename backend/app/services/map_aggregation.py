@@ -1,8 +1,16 @@
 """Server-side viewport aggregation for the global fire map.
 
-Zoomed-out views must never download the full observation set. Cells are computed
-in SQL over a shifted coordinate so truncation is equivalent to floor in both
-SQLite and PostgreSQL, keeping the same code path portable.
+Zoomed-out views must never download the full observation set. Two paths:
+
+* **Rollup path** — when the requested cell is at least 2° and the filters are
+  dimensions the cell rollup stores, aggregate the 2° rollup into the requested
+  coarser cell. A world view reads thousands of rows instead of millions.
+* **Live path** — otherwise compute cells in SQL over the observations. Cells are
+  computed over a shifted coordinate so truncation is equivalent to floor in both
+  SQLite and PostgreSQL.
+
+The response states which path answered and the cell size actually used, because
+the rollup snaps to a 2° multiple and never pretends to a finer resolution.
 """
 
 from __future__ import annotations
@@ -14,11 +22,14 @@ from sqlalchemy.orm import Session
 
 from app.db.dialect import dialect_name, grid_index
 from app.db.models import FireObservation
+from app.services import rollups
 from app.services.observation_queries import BBox, ObservationFilters
 
 #: Never aggregate finer than ~5.5 km (0.05°) or coarser than 45°.
 MIN_CELL_DEGREES = 0.05
 MAX_CELL_DEGREES = 45.0
+#: The rollup is built on 2° cells, so it cannot answer a finer map cell.
+ROLLUP_CELL_DEGREES = 2.0
 
 
 def grid_degrees(zoom: int) -> float:
@@ -26,6 +37,18 @@ def grid_degrees(zoom: int) -> float:
     zoom = max(0, min(14, int(zoom)))
     raw = 360.0 / (2 ** (zoom + 2))
     return max(MIN_CELL_DEGREES, min(MAX_CELL_DEGREES, raw))
+
+
+def rollup_cell_degrees(cell: float) -> float | None:
+    """
+    Snap a requested cell to the nearest 2° multiple the rollup can serve.
+
+    Returns None below 2°, where the rollup cannot help and the live scan is the
+    only honest answer.
+    """
+    if cell < ROLLUP_CELL_DEGREES:
+        return None
+    return max(ROLLUP_CELL_DEGREES, round(cell / ROLLUP_CELL_DEGREES) * ROLLUP_CELL_DEGREES)
 
 
 def aggregate_observations(
@@ -37,6 +60,49 @@ def aggregate_observations(
     limit: int = 6000,
 ) -> dict[str, Any]:
     cell = grid_degrees(zoom)
+    effective = rollup_cell_degrees(cell)
+    if effective is not None:
+        rollup_rows = rollups.map_cells(
+            session, filters, bbox=bbox, cell_degrees=effective, limit=limit + 1
+        )
+        if rollup_rows is not None:
+            truncated = len(rollup_rows) > limit
+            rollup_rows = rollup_rows[:limit]
+            cells = []
+            total = 0
+            for row in rollup_rows:
+                total += row["detections"]
+                cells.append(
+                    {
+                        "longitude": round(
+                            (float(row["lon_index"]) + 0.5) * effective - 180.0, 6
+                        ),
+                        "latitude": round(
+                            (float(row["lat_index"]) + 0.5) * effective - 90.0, 6
+                        ),
+                        "count": row["detections"],
+                        "modis": row["modis"],
+                        "viirs": row["viirs"],
+                        "max_frp_mw": row["max_frp_mw"],
+                        # The rollup has no per-detection timestamps.
+                        "latest_acquired_at": None,
+                    }
+                )
+            return {
+                "cells": cells,
+                "cell_degrees": effective,
+                "requested_cell_degrees": cell,
+                "zoom": int(zoom),
+                "total_detections": total,
+                "returned_cells": len(cells),
+                "truncated": truncated,
+                "bbox": bbox.as_list(),
+                "source": "rollup",
+                "note": (
+                    "Aggregated from the 2° cell rollup; the returned cell size is the "
+                    "nearest 2° multiple at or above the requested size."
+                ),
+            }
 
     # Filter once, then aggregate over that derived table so filters and
     # grouping cannot diverge.
@@ -84,9 +150,11 @@ def aggregate_observations(
     return {
         "cells": cells,
         "cell_degrees": cell,
+        "requested_cell_degrees": cell,
         "zoom": int(zoom),
         "total_detections": total,
         "returned_cells": len(cells),
         "truncated": truncated,
         "bbox": bbox.as_list(),
+        "source": "live",
     }

@@ -1,13 +1,18 @@
-"""Daily activity rollup.
+"""Daily and cell activity rollups.
 
-Eleven million rows cannot be grouped by day on every page load: a full scan takes
-~20 s. PostgreSQL keeps a materialized rollup (day × sensor × confidence ×
-day/night × satellite × product) that the calendar, analytics and the anomaly
-engine read instead, so those views answer in milliseconds.
+Eleven million rows cannot be grouped by day on every page load. PostgreSQL keeps
+two compact tables:
 
-The rollup cannot answer row-level filters (`bbox`, `min_frp`), so those requests
-fall back to the live scan. Progress is explicit: `rollup_status` reports whether
-the fast path is available and when it was last refreshed.
+* ``daily_activity`` — day × sensor × confidence × day/night × satellite × product;
+* ``cell_activity`` — day × 2° cell × sensor.
+
+They are ordinary tables, not materialized views, so ingestion recomputes only the
+days it touched (``refresh_rollup(since=...)``) instead of rebuilding the whole
+history. The calendar, analytics, anomalies and the zoomed-out map read them.
+
+The rollups cannot answer per-detection filters (`bbox`, `min_frp`) for the daily
+shape; those requests fall back to the live scan. The cell rollup *can* answer a
+bbox because a bbox maps to cell-index ranges, which is exactly what the map needs.
 """
 
 from __future__ import annotations
@@ -20,37 +25,40 @@ from sqlalchemy.orm import Session
 
 from app.db.dialect import dialect_name
 from app.db.models import FireObservation
-from app.services.observation_queries import ObservationFilters
+from app.services.observation_queries import BBox, ObservationFilters
 
 ROLLUP_NAME = "daily_activity"
 CELL_ROLLUP_NAME = "cell_activity"
 ROLLUP_MAX_AGE_MINUTES = 30
 
-#: Filters the rollup can honour. Anything else needs the live scan.
+#: Filters the daily rollup can honour. Anything else needs the live scan.
 _LIVE_ONLY_FILTERS = ("bbox", "min_frp")
 
 
-def _cell_rollup_exists(session: Session) -> bool:
+def _table_exists(session: Session, name: str) -> bool:
     if dialect_name(session) != "postgresql":
         return False
     return bool(
         session.scalar(
-            text("SELECT 1 FROM pg_matviews WHERE matviewname = :name"),
-            {"name": CELL_ROLLUP_NAME},
+            text("SELECT to_regclass(:name)"), {"name": f"public.{name}"}
         )
     )
 
 
-def cell_rows(session: Session, filters: ObservationFilters, *, limit: int) -> list[Any] | None:
-    """
-    Ranked 2° cells from the cell rollup, or None when the filters need a live
-    scan (bbox, per-detection FRP floor) or the rollup is unavailable.
-    """
-    if not supports_rollup(filters) or not _cell_rollup_exists(session):
-        return None
+def _rollup_exists(session: Session) -> bool:
+    return _table_exists(session, ROLLUP_NAME)
 
-    clauses = []
-    params: dict[str, Any] = {}
+
+def _cell_rollup_exists(session: Session) -> bool:
+    return _table_exists(session, CELL_ROLLUP_NAME)
+
+
+def supports_rollup(filters: ObservationFilters) -> bool:
+    return all(getattr(filters, name) is None for name in _LIVE_ONLY_FILTERS)
+
+
+def _day_clauses(filters: ObservationFilters, params: dict[str, Any]) -> list[str]:
+    clauses: list[str] = []
     if filters.start_date:
         clauses.append("day >= :start_date")
         params["start_date"] = filters.start_date
@@ -63,6 +71,22 @@ def cell_rows(session: Session, filters: ObservationFilters, *, limit: int) -> l
     if filters.end_at:
         clauses.append("day < :end_at")
         params["end_at"] = filters.end_at.date()
+    return clauses
+
+
+def cell_rows(session: Session, filters: ObservationFilters, *, limit: int) -> list[Any] | None:
+    """
+    Ranked 2° cells from the cell rollup, or None when the filters need a live
+    scan (per-detection FRP floor) or the rollup is unavailable.
+    """
+    if filters.min_frp is not None or not _cell_rollup_exists(session):
+        return None
+
+    params: dict[str, Any] = {}
+    clauses = _day_clauses(filters, params)
+    if filters.sensor:
+        clauses.append("sensor = :sensor")
+        params["sensor"] = filters.sensor.upper()
     if filters.synthetic is not None:
         clauses.append("is_synthetic = :synthetic")
         params["synthetic"] = filters.synthetic
@@ -78,30 +102,154 @@ def cell_rows(session: Session, filters: ObservationFilters, *, limit: int) -> l
     return list(session.execute(statement, params).all())
 
 
-def _rollup_exists(session: Session) -> bool:
-    if dialect_name(session) != "postgresql":
-        return False
-    return bool(
-        session.scalar(
-            text(
-                "SELECT 1 FROM pg_matviews WHERE matviewname = :name"
-            ),
-            {"name": ROLLUP_NAME},
-        )
+def map_cells(
+    session: Session,
+    filters: ObservationFilters,
+    *,
+    bbox: BBox,
+    cell_degrees: float,
+    limit: int,
+) -> list[dict[str, Any]] | None:
+    """
+    Aggregate the 2° cell rollup into the requested (coarser) map cell.
+
+    Returns None when the rollup cannot honour the filters, so the caller falls
+    back to the exact scan. The rollup has no day/night, confidence or satellite
+    dimensions, and no per-detection FRP.
+    """
+    if (
+        not _cell_rollup_exists(session)
+        or filters.min_frp is not None
+        or filters.daynight is not None
+        or filters.min_confidence is not None
+        or filters.satellite is not None
+    ):
+        return None
+    if cell_degrees < 2.0:
+        return None
+
+    params: dict[str, Any] = {
+        "cell": cell_degrees,
+        "limit": limit,
+        "lat_min": int((bbox.south + 90.0) // 2.0),
+        "lat_max": int((bbox.north + 90.0) // 2.0),
+        "lon_min": int((bbox.west + 180.0) // 2.0),
+        "lon_max": int((bbox.east + 180.0) // 2.0),
+    }
+    clauses = _day_clauses(filters, params)
+    clauses.extend(
+        [
+            "lat_index BETWEEN :lat_min AND :lat_max",
+            "lon_index BETWEEN :lon_min AND :lon_max",
+        ]
     )
+    if filters.sensor:
+        clauses.append("sensor = :sensor")
+        params["sensor"] = filters.sensor.upper()
+    if filters.synthetic is not None:
+        clauses.append("is_synthetic = :synthetic")
+        params["synthetic"] = filters.synthetic
+
+    statement = text(
+        f"""
+        WITH grouped AS (
+            SELECT
+                CAST(floor((lat_index * 2.0) / :cell) AS integer) AS lat_cell,
+                CAST(floor((lon_index * 2.0) / :cell) AS integer) AS lon_cell,
+                sum(detections) AS detections,
+                sum(CASE WHEN sensor = 'MODIS' THEN detections ELSE 0 END) AS modis,
+                sum(CASE WHEN sensor = 'VIIRS' THEN detections ELSE 0 END) AS viirs,
+                max(frp_max_mw) AS max_frp_mw
+            FROM {CELL_ROLLUP_NAME}
+            WHERE {' AND '.join(clauses)}
+            GROUP BY 1, 2
+        )
+        SELECT lat_cell, lon_cell, detections, modis, viirs, max_frp_mw
+        FROM grouped
+        ORDER BY detections DESC
+        LIMIT :limit
+        """
+    )
+    rows = session.execute(statement, params).all()
+    return [
+        {
+            "lat_index": int(row.lat_cell),
+            "lon_index": int(row.lon_cell),
+            "detections": int(row.detections),
+            "modis": int(row.modis or 0),
+            "viirs": int(row.viirs or 0),
+            "max_frp_mw": float(row.max_frp_mw) if row.max_frp_mw is not None else None,
+        }
+        for row in rows
+    ]
 
 
-def supports_rollup(filters: ObservationFilters) -> bool:
-    return all(getattr(filters, name) is None for name in _LIVE_ONLY_FILTERS)
+def refresh_rollup(session: Session, *, since: date | None = None) -> bool:
+    """
+    Rebuild the rollups. With ``since`` only that day and later are recomputed;
+    without it the whole history is rebuilt (backfill / first run).
 
-
-def refresh_rollup(session: Session) -> bool:
-    """Rebuild the rollup after ingestion. Safe to call on SQLite (no-op)."""
+    Safe on SQLite (no-op). Returns True when a rollup exists and was refreshed.
+    """
     if not _rollup_exists(session):
         return False
-    session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {ROLLUP_NAME}"))
+
+    if since is None:
+        session.execute(text(f"TRUNCATE TABLE {ROLLUP_NAME}"))
+        if _cell_rollup_exists(session):
+            session.execute(text(f"TRUNCATE TABLE {CELL_ROLLUP_NAME}"))
+        day_filter = ""
+        params: dict[str, Any] = {}
+    else:
+        session.execute(text(f"DELETE FROM {ROLLUP_NAME} WHERE day >= :since"), {"since": since})
+        if _cell_rollup_exists(session):
+            session.execute(
+                text(f"DELETE FROM {CELL_ROLLUP_NAME} WHERE day >= :since"), {"since": since}
+            )
+        day_filter = "WHERE CAST((acquired_at AT TIME ZONE 'UTC') AS date) >= :since"
+        params = {"since": since}
+
+    session.execute(
+        text(
+            f"""
+            INSERT INTO {ROLLUP_NAME} (
+                day, sensor, confidence_category, daynight, satellite, source_code,
+                is_synthetic, detections, frp_sum_mw, frp_max_mw
+            )
+            SELECT
+                CAST((acquired_at AT TIME ZONE 'UTC') AS date),
+                sensor, confidence_category, daynight, satellite, source_code,
+                is_synthetic, count(*)::bigint, COALESCE(sum(frp_mw), 0), max(frp_mw)
+            FROM fire_observations
+            {day_filter}
+            GROUP BY 1, 2, 3, 4, 5, 6, 7
+            """
+        ),
+        params,
+    )
+
     if _cell_rollup_exists(session):
-        session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {CELL_ROLLUP_NAME}"))
+        session.execute(
+            text(
+                f"""
+                INSERT INTO {CELL_ROLLUP_NAME} (
+                    day, lat_index, lon_index, sensor, is_synthetic,
+                    detections, frp_sum_mw, frp_max_mw
+                )
+                SELECT
+                    CAST((acquired_at AT TIME ZONE 'UTC') AS date),
+                    CAST(floor((latitude + 90.0) / 2.0) AS integer),
+                    CAST(floor((longitude + 180.0) / 2.0) AS integer),
+                    sensor, is_synthetic, count(*)::bigint,
+                    COALESCE(sum(frp_mw), 0), max(frp_mw)
+                FROM fire_observations
+                {day_filter}
+                GROUP BY 1, 2, 3, 4, 5
+                """
+            ),
+            params,
+        )
+
     session.commit()
     return True
 
@@ -110,7 +258,20 @@ def rollup_status(session: Session) -> dict[str, Any]:
     if not _rollup_exists(session):
         return {"available": False, "dialect": dialect_name(session)}
     rows = session.scalar(text(f"SELECT count(*) FROM {ROLLUP_NAME}"))
-    return {"available": True, "rows": int(rows or 0), "dialect": dialect_name(session)}
+    latest = session.scalar(text(f"SELECT max(day) FROM {ROLLUP_NAME}"))
+    cells = (
+        session.scalar(text(f"SELECT count(*) FROM {CELL_ROLLUP_NAME}"))
+        if _cell_rollup_exists(session)
+        else None
+    )
+    return {
+        "available": True,
+        "rows": int(rows or 0),
+        "cell_rows": int(cells) if cells is not None else None,
+        "latest_day": latest.isoformat() if latest is not None else None,
+        "dialect": dialect_name(session),
+        "kind": "table",
+    }
 
 
 def activity_rows(session: Session, filters: ObservationFilters) -> list[Any]:
@@ -120,20 +281,8 @@ def activity_rows(session: Session, filters: ObservationFilters) -> list[Any]:
     filters allow it; otherwise the query runs against the observations.
     """
     if supports_rollup(filters) and _rollup_exists(session):
-        clauses = []
         params: dict[str, Any] = {}
-        if filters.start_date:
-            clauses.append("day >= :start_date")
-            params["start_date"] = filters.start_date
-        if filters.end_date:
-            clauses.append("day <= :end_date")
-            params["end_date"] = filters.end_date
-        if filters.start_at:
-            clauses.append("day >= :start_at")
-            params["start_at"] = filters.start_at.date()
-        if filters.end_at:
-            clauses.append("day < :end_at")
-            params["end_at"] = filters.end_at.date()
+        clauses = _day_clauses(filters, params)
         if filters.sensor:
             clauses.append("sensor = :sensor")
             params["sensor"] = filters.sensor.upper()

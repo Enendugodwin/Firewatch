@@ -94,6 +94,9 @@ allocation.
 | Calendar intelligence (trend + anomalies + seasonality) | 61 days over 11.3 M rows → **0.25 s** via the rollup |
 | Regional analysis (Nigeria, 12° box) | 68 643 candidates → 3.7 s once; then overview **0.24 s**, monthly/yearly 10 ms |
 | Regional reads | `overview` 0.24 s, `seasonality` 23 ms, `sensor-comparison` 19 ms |
+| Map world aggregate (z2) | full scan -> **163 ms** from the cell rollup |
+| Map country aggregate (z6) | ~12 s -> **342 ms** |
+| Incremental rollups | five-day window instead of the whole history; one-time conversion 35 s |
 
 Parquet counts match PostgreSQL **day by day** (UTC) — verified after pinning DuckDB's time zone.
 

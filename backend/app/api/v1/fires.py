@@ -7,11 +7,12 @@ import io
 from collections.abc import Iterator
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.cache import MISS, TTLCache
 from app.core.errors import AppError
 from app.db.models import FireObservation
 from app.db.session import get_session, get_session_factory
@@ -27,6 +28,11 @@ from app.services.observation_queries import (
 )
 
 router = APIRouter(prefix="/fires", tags=["fires"])
+
+# A viewport is often requested twice (debounce, pan back); a short TTL removes
+# the second round trip without making ingestion changes invisible for long.
+_AGGREGATE_CACHE = TTLCache(ttl_seconds=20, max_entries=128, name="map_aggregate")
+_GEOJSON_CACHE = TTLCache(ttl_seconds=15, max_entries=64, name="map_geojson")
 
 
 def _filters(
@@ -128,6 +134,8 @@ def fire_sources(session: Session = Depends(get_session)) -> list[dict[str, obje
 
 @router.get("/geojson", summary="Map-ready GeoJSON for the current filters")
 def fires_geojson(
+    request: Request,
+    response: Response,
     bbox: str | None = Query(None, description="west,south,east,north"),
     start_date: date | None = None,
     end_date: date | None = None,
@@ -147,6 +155,11 @@ def fires_geojson(
     server-side aggregation or vector tiles so the browser never receives the
     full historical dataset.
     """
+    cache_key = request.url.query
+    cached = _GEOJSON_CACHE.get(cache_key)
+    if cached is not MISS:
+        response.headers["X-Cache"] = "hit"
+        return cached
     filters = _filters(
         bbox,
         start_date,
@@ -181,7 +194,7 @@ def fires_geojson(
                 },
             }
         )
-    return {
+    payload: dict[str, object] = {
         "type": "FeatureCollection",
         "features": features,
         "properties": {
@@ -191,6 +204,9 @@ def fires_geojson(
             "limit": limit,
         },
     }
+    _GEOJSON_CACHE.set(cache_key, payload)
+    response.headers["Cache-Control"] = "public, max-age=15"
+    return payload
 
 
 @router.get(
@@ -199,6 +215,8 @@ def fires_geojson(
     summary="Viewport aggregation for zoomed-out map views",
 )
 def aggregate_fires(
+    request: Request,
+    response: Response,
     bbox: str = Query(..., description="west,south,east,north (required)"),
     zoom: int = Query(3, ge=0, le=14),
     start_date: date | None = None,
@@ -219,6 +237,11 @@ def aggregate_fires(
 
     ``count`` is a count of detections in that cell, not a count of fires.
     """
+    cache_key = request.url.query
+    cached = _AGGREGATE_CACHE.get(cache_key)
+    if cached is not MISS:
+        response.headers["X-Cache"] = "hit"
+        return AggregateResponse(**cached)
     area = BBox.parse(bbox)
     filters = _filters(
         bbox,
@@ -234,6 +257,8 @@ def aggregate_fires(
         end_at,
     )
     result = aggregate_observations(session, filters, bbox=area, zoom=zoom, limit=limit)
+    _AGGREGATE_CACHE.set(cache_key, result)
+    response.headers["Cache-Control"] = "public, max-age=15"
     return AggregateResponse(**result)
 
 

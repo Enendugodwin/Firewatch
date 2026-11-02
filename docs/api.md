@@ -149,6 +149,7 @@ window has been analysed; they never return an invented zero. See
 | --- | --- | --- |
 | GET | `/analytics/summary` | Required `start_date`/`end_date`; totals, daily series, top cells, breakdowns |
 | GET | `/anomalies` | Required `start_date`/`end_date`; robust-z scoring with a short-history fallback |
+| GET | `/admin/performance` | Database/table sizes, rollup freshness, ingestion throughput, RSS/CPU, cache stats |
 | GET | `/harmonization/matches.csv` | CSV export of matches with both observations' provenance |
 | POST | `/admin/ingestion/run-all` | Same window for every registered source, one result per source |
 

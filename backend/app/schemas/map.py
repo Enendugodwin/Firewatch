@@ -22,8 +22,11 @@ class FireCell(BaseModel):
 class AggregateResponse(BaseModel):
     cells: list[FireCell]
     cell_degrees: float
+    requested_cell_degrees: float | None = None
     zoom: int
     total_detections: int
     returned_cells: int
     truncated: bool
     bbox: list[float]
+    source: str = Field(default="live", description="rollup or live scan")
+    note: str | None = None

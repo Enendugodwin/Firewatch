@@ -131,6 +131,9 @@ export function FireMapCanvas({
       zoom: 2.4,
       minZoom: 1,
       maxZoom: 15,
+      // Cap the render buffer: a 4K/high-DPI surface multiplied the heatmap cost and
+      // was enough to push lightweight GPUs into a driver reset.
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 1.25),
       attributionControl: { compact: true },
     });
     mapRef.current = map;
