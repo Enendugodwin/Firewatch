@@ -18,7 +18,7 @@ from app.services.geometry import (
     mask_points,
     parse_boundary,
 )
-from app.services.regional import mann_kendall
+from app.services.regional import _current_month, mann_kendall
 
 # The synthetic fixture sits around 8.5 N, 9.1 E.
 # The synthetic fixture spans 6.1-9.9 N and 7.2-10.9 E.
@@ -316,3 +316,34 @@ def test_sensor_comparison_flags_a_single_sensor_window(
     assert comparison["status"] == "single_sensor"
     assert set(comparison["sensors"]) == {"MODIS"}
     assert comparison["correlation"] is None
+
+
+def _month(year: int, month: int, detections: int, coverage: float = 1.0) -> dict:
+    return {"year": year, "month": month, "detections": detections, "coverage": coverage}
+
+
+def test_current_month_compares_with_prior_years_of_the_same_month() -> None:
+    months = [
+        _month(2022, 10, 100),
+        _month(2023, 10, 200),
+        _month(2024, 10, 300),
+        _month(2026, 10, 600),
+        _month(2026, 9, 9999),
+    ]
+    block = _current_month(months, end=date(2026, 10, 31))
+
+    assert block["status"] == "ok"
+    assert block["observed"] == 600
+    assert block["median"] == 200
+    assert block["baseline_years"] == 3
+    assert block["deviation_ratio"] == 2.0
+
+
+def test_current_month_withholds_the_comparison_without_history() -> None:
+    block = _current_month([_month(2026, 10, 600)], end=date(2026, 10, 31))
+    assert block["status"] == "insufficient_history"
+    assert block["observed"] == 600
+    assert block["median"] is None
+
+    missing = _current_month([_month(2025, 10, 100)], end=date(2026, 10, 31))
+    assert missing["status"] == "no_current_data"

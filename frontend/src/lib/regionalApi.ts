@@ -84,6 +84,17 @@ export interface RegionOverview {
     note: string;
   };
   anomalies: { status: string; count: number; evaluated_months: number };
+  current_month: {
+    year: number;
+    month: number;
+    observed: number | null;
+    median: number | null;
+    deviation_ratio: number | null;
+    baseline_years: number;
+    status: "ok" | "insufficient_history" | "no_current_data";
+    coverage?: number;
+    note: string;
+  };
   sensor_note: string;
   notes: string[];
 }

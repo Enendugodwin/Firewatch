@@ -56,6 +56,9 @@ Vertices are capped at 50 000 per region.
   recurrence share. H3 is not installed, so this is a plain grid, labelled as such.
 * **Sensor comparison** — per-sensor totals and record span, plus a Pearson
   correlation of monthly totals only where both sensors have coverage.
+* **Current month vs historical median** — the month at the end of the window is
+  compared with the median of the same calendar month in prior years. Needs three
+  prior years; otherwise the count is shown without a comparison.
 
 ## 4. Scientific guards
 

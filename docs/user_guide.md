@@ -174,6 +174,10 @@ normally like this?" for a country, an imported boundary, or a radius.
 - **Overview**: detections, coverage (analysed days, not zero-filled), peak month
   and the number of detected anomalies. A peak is only shown when a multi-year
   climatology exists.
+- **This month vs historical median**: the month at the end of the selected
+  period is compared with the median of that same calendar month in prior years,
+  with the percentage difference. Three prior years are required; otherwise the
+  observed count is shown and the comparison is explicitly withheld.
 - **Monthly seasonality**: twelve bars, each the mean of yearly monthly means. A
   month needs two years of coverage; dashed bars are withheld, and the note says
   why. With one year the status is `single year` and no peak or trough is claimed.

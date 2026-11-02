@@ -68,6 +68,8 @@ MIN_SEASONAL_YEARS = 2
 MIN_SEASONAL_MONTHS = 6
 MIN_TREND_YEARS = 8
 MIN_ANOMALY_YEARS = 4
+#: A current-vs-median headline needs this many prior years for the month.
+MIN_CURRENT_MONTH_YEARS = 3
 MAD_TO_SIGMA = 1.4826
 
 #: A month contributes to climatology only when this share of its days is covered.
@@ -1160,6 +1162,79 @@ def _anomalies(months: Sequence[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+
+def _current_month(months: Sequence[dict[str, Any]], *, end: date) -> dict[str, Any]:
+    """
+    The challenge's headline: how does the month at the end of the window compare
+    with the same calendar month in prior years?
+
+    The comparison is window-relative (the month of ``end_date``), not the wall
+    clock, so a historical analysis does not compare against today's month.
+    """
+    target_month = end.month
+    usable = [item for item in months if item["coverage"] >= MONTH_COVERAGE_FLOOR]
+    current = next(
+        (
+            item
+            for item in usable
+            if item["year"] == end.year and item["month"] == target_month
+        ),
+        None,
+    )
+    history = [
+        float(item["detections"])
+        for item in usable
+        if item["month"] == target_month and item["year"] != end.year
+    ]
+
+    if current is None:
+        return {
+            "year": end.year,
+            "month": target_month,
+            "observed": None,
+            "median": None,
+            "deviation_ratio": None,
+            "baseline_years": len(history),
+            "status": "no_current_data",
+            "note": (
+                "The month at the end of this window has no analysed coverage, so there "
+                "is nothing to compare."
+            ),
+        }
+
+    if len(history) < MIN_CURRENT_MONTH_YEARS:
+        return {
+            "year": end.year,
+            "month": target_month,
+            "observed": current["detections"],
+            "median": None,
+            "deviation_ratio": None,
+            "baseline_years": len(history),
+            "status": "insufficient_history",
+            "coverage": current["coverage"],
+            "note": (
+                f"A month-vs-median comparison needs {MIN_CURRENT_MONTH_YEARS} prior "
+                f"years for that month; this window has {len(history)}. The observed "
+                "count is shown without a comparison."
+            ),
+        }
+
+    center = float(median(history))
+    return {
+        "year": end.year,
+        "month": target_month,
+        "observed": current["detections"],
+        "median": round(center, 3),
+        "deviation_ratio": round((current["detections"] - center) / center, 4)
+        if center
+        else None,
+        "baseline_years": len(history),
+        "status": "ok",
+        "coverage": current["coverage"],
+        "note": f"Compared with the median of {len(history)} prior years for this month.",
+    }
+
+
 def _overall_status(region: GeographicRegion, rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
     return {
         "analyzed": bool(rows) or region.last_analyzed_at is not None,
@@ -1234,6 +1309,7 @@ def overview(
             "count": anomalies["count"],
             "evaluated_months": anomalies["evaluated_months"],
         },
+        "current_month": _current_month(months, end=end),
         "sensor_note": (
             "Combined detections. MODIS and VIIRS are never assumed interchangeable; "
             "see /sensor-comparison before comparing their levels."

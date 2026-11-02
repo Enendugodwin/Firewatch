@@ -340,6 +340,46 @@ export function RegionsPage() {
                 />
               </div>
 
+              <div className="mt-3 rounded-card border border-line/[0.08] bg-line/[0.02] px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="label">This month vs historical median</span>
+                  <Badge
+                    tone={
+                      overviewData!.current_month.status === "ok"
+                        ? "ok"
+                        : "neutral"
+                    }
+                  >
+                    {overviewData!.current_month.status.replaceAll("_", " ")}
+                  </Badge>
+                  <span className="font-mono text-2xs text-ink">
+                    {monthLabel(overviewData!.current_month.month)}{" "}
+                    {overviewData!.current_month.year}
+                  </span>
+                  <span className="font-mono text-2xs text-muted">
+                    {formatCount(overviewData!.current_month.observed ?? 0)} observed
+                    {overviewData!.current_month.median !== null
+                      ? ` vs median ${formatCount(overviewData!.current_month.median)}`
+                      : ""}
+                  </span>
+                  {overviewData!.current_month.deviation_ratio !== null ? (
+                    <span
+                      className={
+                        overviewData!.current_month.deviation_ratio >= 0
+                          ? "font-mono text-2xs text-accent"
+                          : "font-mono text-2xs text-azure"
+                      }
+                    >
+                      {overviewData!.current_month.deviation_ratio >= 0 ? "+" : ""}
+                      {(overviewData!.current_month.deviation_ratio * 100).toFixed(1)}%
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-3xs font-light text-faint">
+                  {overviewData!.current_month.note}
+                </p>
+              </div>
+
               <Panel
                 className="mt-4"
                 title="Monthly seasonality"

@@ -629,6 +629,17 @@ export function installFetchMock(options: MockOptions = {}) {
           note: "A significance test needs 8 complete years.",
         },
         anomalies: { status: "insufficient_history", count: 0, evaluated_months: 0 },
+        current_month: {
+          year: 2026,
+          month: 10,
+          observed: 4100,
+          median: 3000,
+          deviation_ratio: 0.3667,
+          baseline_years: 3,
+          status: "ok",
+          coverage: 1,
+          note: "Compared with the median of 3 prior years for this month.",
+        },
         sensor_note: "Combined detections are never assumed interchangeable.",
         notes: ["Counts are detections, not fires."],
       });

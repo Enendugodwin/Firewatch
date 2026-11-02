@@ -19,6 +19,10 @@ describe("regional intelligence page", () => {
     // Overview totals come from the stored regional statistics.
     expect(await screen.findByText("68,642")).toBeInTheDocument();
 
+    // The headline: this month against the historical median.
+    expect(screen.getByText(/median 3,000/)).toBeInTheDocument();
+    expect(screen.getByText("+36.7%")).toBeInTheDocument();
+
     // Seasonality refuses a climatology from one year.
     expect(await screen.findByText(/^single year$/i)).toBeInTheDocument();
     expect(screen.getByText(/this is not a climatology/i)).toBeInTheDocument();
