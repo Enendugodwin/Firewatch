@@ -200,6 +200,22 @@ the database, reporting `method: deterministic`, the intent and the exact scope.
 | GET | `/admin/ingestion/tiles` | `world` plus deterministic global tiles |
 | POST | `/admin/ingestion/availability` | Coverage window → per-date status |
 
+### Historical runs (datasets over long ranges)
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/history/datasets` | Dataset bundles (`modis_history`, `viirs_snpp_history`, `all_history`, `nrt`, ...) |
+| GET | `/history/regions` | Backfill region catalogue (bbox + note) |
+| POST | `/history/plan` | Five-day windows after coverage clamping; no ingestion |
+| POST | `/history/jobs` | Start a durable job (`202`); one queued/running job at a time (`409`) |
+| GET | `/history/jobs` | Recent jobs with status and progress |
+| GET | `/history/jobs/{id}` | One job; `progress.phase` is planning/ingesting/harmonizing/done |
+| POST | `/history/jobs/{id}/cancel` | Set the stop flag; checked between windows and days |
+| POST | `/history/jobs/{id}/resume` | Rerun a failed/cancelled job; completed work is skipped |
+| GET | `/history/jobs/{id}/summary` | Final counts, per-source inserts and harmonization summary |
+
+See [history_jobs.md](history_jobs.md) for the function, CLI and job lifecycle.
+
 ### Dashboard
 
 | Method | Path | Notes |

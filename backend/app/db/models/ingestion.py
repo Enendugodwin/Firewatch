@@ -106,3 +106,37 @@ class SourceAvailability(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("source_id", "observation_date", name="uq_source_availability_date"),
     )
+
+
+class HistoryJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A long-running backfill/harmonization request with persisted progress.
+
+    A historical run spans months and thousands of requests, so it cannot be an
+    HTTP request. The job row is the durable handle: it records the request, the
+    latest progress and the final summary, and ``cancel_requested`` is polled
+    between windows so a run can be stopped without losing completed partitions.
+    Re-running a job resumes: ingestion partitions and association days that are
+    already complete are skipped.
+    """
+
+    __tablename__ = "history_jobs"
+
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="history")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="queued")
+    datasets: Mapped[list] = mapped_column(JsonType, default=list, nullable=False)
+    region: Mapped[str | None] = mapped_column(String(64))
+    bbox: Mapped[str | None] = mapped_column(String(64))
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    harmonize: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    progress: Mapped[dict] = mapped_column(JsonType, default=dict, nullable=False)
+    summary: Mapped[dict] = mapped_column(JsonType, default=dict, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        Index("ix_history_jobs_created_at", "created_at"),
+        Index("ix_history_jobs_status", "status"),
+    )

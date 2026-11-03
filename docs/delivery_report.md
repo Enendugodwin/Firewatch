@@ -124,7 +124,7 @@ Parquet counts match PostgreSQL **day by day** (UTC) — verified after pinning 
 
 ## 9. Tests
 
-- Backend: **202 passed** (storage round-trip, traversal guard, sync idempotence, allocation block,
+- Backend: **215 passed** (storage round-trip, traversal guard, sync idempotence, allocation block,
   checksum change detection, Parquet export + DuckDB read, infrastructure API, calendar months,
   calendar intelligence + seasonality gates, regional geometry/analysis/trend tests, anomaly
   baselines, bulk ingestion, CSV exports, reports/regions/exposure/assistant).
@@ -164,6 +164,7 @@ will not mark an unprocessed day as quiet.
 | Coverage checkpoints | `harmonization_coverage`, one row per scanned day and scope |
 | Calendar | new **harmonized** metric: `detections - matched_viirs`, with `matched_viirs` per bucket |
 | Reference regions | Amazon, Kalimantan, Mediterranean, Australia, California |
+| Reusable runner | `history_runner.run_history` + CLI + durable `history_jobs` API (start, poll, cancel, resume) |
 | Consistency report | `docs/validation/accuracy.md` (12% corroboration; burned-area calibration pending) |
 
 Cross-sensor corroboration is reported as a consistency measure, not accuracy: 12% of VIIRS

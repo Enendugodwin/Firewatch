@@ -70,6 +70,7 @@ OBSERVATION_TABLES = (
     "ingestion_runs",
     "algorithm_runs",
     "harmonization_coverage",
+    "history_jobs",
     "watched_assets",
 )
 

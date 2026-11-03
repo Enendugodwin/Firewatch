@@ -54,6 +54,9 @@ Three deployment modes (`local`, `hybrid`, `cloud`) are pure configuration. Loca
 sit behind one interface, detections export to partitioned Parquet (Zstandard), and synchronisation
 verifies size and SHA-256 before recording success. See [docs/cloud.md](docs/cloud.md).
 
+Long-running historical work is started through one function, CLI or durable job API; see
+[docs/history_jobs.md](docs/history_jobs.md).
+
 ## Database
 
 Eleven million detections occupy 18 GB in PostgreSQL; day- and cell-level rollups keep the

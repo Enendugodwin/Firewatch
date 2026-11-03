@@ -382,6 +382,7 @@ def run_harmonization_range(
     force: bool = False,
     limit_processed: int | None = None,
     progress: Callable[[dict[str, Any]], None] | None = None,
+    should_stop: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     """Recompute associations one UTC day per transaction, resumably.
 
@@ -403,6 +404,7 @@ def run_harmonization_range(
         "processed": 0,
         "skipped": 0,
         "truncated_days": 0,
+        "cancelled": False,
         "observations": 0,
         "pairs": 0,
         "probable": 0,
@@ -431,6 +433,10 @@ def run_harmonization_range(
         cursor = start
         try:
             while cursor <= end:
+                if should_stop is not None and should_stop():
+                    summary["cancelled"] = True
+                    break
+
                 existing = session.get(
                     HarmonizationCoverage, (cursor, scope, is_synthetic)
                 )
@@ -504,7 +510,7 @@ def run_harmonization_range(
                     break
                 cursor += timedelta(days=1)
 
-            run.status = "succeeded"
+            run.status = "cancelled" if summary["cancelled"] else "succeeded"
             run.stats = {
                 **summary,
                 "matched_sensor_families": True,

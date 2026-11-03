@@ -10,6 +10,7 @@ from app.db.models.harmonization import (
     ObservationMatch,
 )
 from app.db.models.ingestion import (
+    HistoryJob,
     IngestionPartition,
     IngestionRun,
     RawObservation,
@@ -30,6 +31,7 @@ __all__ = [
     "FireObservation",
     "GeographicRegion",
     "HarmonizationCoverage",
+    "HistoryJob",
     "IngestionPartition",
     "IngestionRun",
     "ObservationMatch",
