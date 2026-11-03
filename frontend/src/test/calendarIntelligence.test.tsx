@@ -39,6 +39,8 @@ function dayBucket(start: string): CalendarBucket {
     detections: 100,
     modis: 40,
     viirs: 60,
+    matched_viirs: 0,
+    harmonized: 100,
     frp_sum_mw: 10,
     frp_max_mw: 5,
     high_confidence: 10,

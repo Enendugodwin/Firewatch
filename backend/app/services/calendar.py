@@ -21,7 +21,8 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.db.models import DataSource, SourceAvailability
+from app.db.dialect import dialect_name, utc_day
+from app.db.models import DataSource, FireObservation, ObservationMatch, SourceAvailability
 from app.services.observation_queries import ObservationFilters
 from app.services.rollups import activity_rows, day_of
 
@@ -29,8 +30,11 @@ Granularity = Literal["day", "week", "month", "year"]
 
 GRANULARITIES: tuple[Granularity, ...] = ("day", "week", "month", "year")
 
-#: A calendar request may span six years; past that the UI needs a specific view.
-MAX_SPAN_DAYS = 366 * 6
+#: Statuses that count as "the same hotspot seen twice" for the harmonised series.
+MATCH_STATUSES: tuple[str, ...] = ("probable", "possible")
+
+#: Matches the regional engine: a calendar may cover the whole stored archive.
+MAX_SPAN_DAYS = 366 * 30
 
 
 @dataclass(frozen=True)
@@ -98,7 +102,7 @@ def validate_span(start: date, end: date) -> None:
     if (end - start).days + 1 > MAX_SPAN_DAYS:
         raise AppError(
             "bad_request",
-            "Calendar range is too large; narrow it to six years or less.",
+            "Calendar range is too large; narrow it to 30 years or less.",
             details={"max_days": MAX_SPAN_DAYS},
         )
 
@@ -150,6 +154,38 @@ def daily_metrics(session: Session, filters: ObservationFilters) -> dict[date, d
         if (row.confidence_category or "").lower() == "high":
             bucket["high_confidence"] += count
     return daily
+
+
+def matched_viirs_by_day(
+    session: Session, filters: ObservationFilters
+) -> dict[date, int]:
+    """Distinct VIIRS detections on each day with a MODIS association.
+
+    The harmonised calendar subtracts these from the raw daily count so a hotspot
+    seen by both sensors is not counted twice. Days never scanned for
+    associations return nothing here and therefore keep their raw count.
+    """
+    if (filters.sensor or "").upper() == "MODIS":
+        # A MODIS-only view has no VIIRS detections to deduplicate.
+        return {}
+
+    day_expr = utc_day(FireObservation.acquired_at, dialect_name(session))
+    statement = (
+        select(day_expr.label("day"), func.count(func.distinct(FireObservation.id)))
+        .join(ObservationMatch, ObservationMatch.observation_b_id == FireObservation.id)
+        .where(
+            ObservationMatch.match_status.in_(MATCH_STATUSES),
+            FireObservation.sensor == "VIIRS",
+        )
+    )
+    statement = filters.apply(statement)
+
+    matched: dict[date, int] = {}
+    for raw_day, count in session.execute(statement.group_by(day_expr)):
+        day = _as_date(raw_day)
+        if day is not None:
+            matched[day] = int(count)
+    return matched
 
 
 def _availability(
@@ -219,9 +255,11 @@ def calendar_activity(
     validate_span(start, end)
 
     daily = daily_metrics(session, filters)
+    matched_by_day = matched_viirs_by_day(session, filters)
     coverage = _availability(session, start, end, filters.sensor)
 
     total_detections = 0
+    total_matched = 0
     total_modis = 0
     total_viirs = 0
     total_frp_sum = 0.0
@@ -236,6 +274,7 @@ def calendar_activity(
         detections = 0
         modis = 0
         viirs = 0
+        matched = 0
         high_confidence = 0
         frp_sum = 0.0
         frp_max: float | None = None
@@ -252,6 +291,7 @@ def calendar_activity(
                 day_max = day_metrics["frp_max_mw"]
                 if day_max is not None and (frp_max is None or day_max > frp_max):
                     frp_max = day_max
+            matched += matched_by_day.get(cursor, 0)
             cursor += timedelta(days=1)
 
         bucket_coverage = _bucket_coverage(bucket, coverage)
@@ -265,6 +305,7 @@ def calendar_activity(
         total_detections += detections
         total_modis += modis
         total_viirs += viirs
+        total_matched += matched
         total_high += high_confidence
         total_frp_sum += frp_sum
         if frp_max is not None and (total_frp_max is None or frp_max > total_frp_max):
@@ -286,6 +327,8 @@ def calendar_activity(
                 "detections": detections,
                 "modis": modis,
                 "viirs": viirs,
+                "matched_viirs": matched,
+                "harmonized": max(0, detections - matched),
                 "frp_sum_mw": round(frp_sum, 3),
                 "frp_max_mw": round(frp_max, 3) if frp_max is not None else None,
                 "high_confidence": high_confidence,
@@ -296,6 +339,8 @@ def calendar_activity(
         "detections": total_detections,
         "modis": total_modis,
         "viirs": total_viirs,
+        "matched_viirs": total_matched,
+        "harmonized": max(0, total_detections - total_matched),
         "frp_sum_mw": round(total_frp_sum, 3),
         "frp_max_mw": round(total_frp_max, 3) if total_frp_max is not None else None,
         "high_confidence": total_high,
@@ -315,5 +360,9 @@ def calendar_activity(
             "Each bucket counts thermal detections, not fires.",
             "quiet means a source observed that period with no detections; "
             "unobserved means no availability was recorded, so it is not zero.",
+            "harmonized = detections - distinct VIIRS detections with a probable or "
+            "possible MODIS association on the same day. Days not yet scanned for "
+            "associations keep their raw count, so harmonized is never below the "
+            "documented de-duplication.",
         ],
     }

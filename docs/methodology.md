@@ -84,9 +84,23 @@ continuous monitoring between overpasses.
 
 ## 5. Calendar metrics (implemented)
 
-Six independent metrics, never one blended number: raw MODIS, raw VIIRS, combined raw, probable
-match groups, estimated events, aggregate FRP. Every cell carries completeness so missing data is
-not read as zero, and clicking a cell drills into observations.
+Independent metrics, never one blended number: raw MODIS, raw VIIRS, combined raw, **harmonized**,
+probable match groups, estimated events, aggregate FRP. Every cell carries completeness so missing
+data is not read as zero, and clicking a cell drills into observations.
+
+`harmonized` is computed per bucket as `detections - matched_viirs`, where `matched_viirs` counts
+distinct VIIRS detections that have a probable or possible MODIS association on the same day,
+under the same filters. It is the same definition as `/harmonization/series`, so the calendar and
+the series cannot disagree. Days that have not been scanned for associations keep their raw count;
+the response notes this rather than implying a complete de-duplication.
+
+### 5.1 Association coverage checkpoints (implemented)
+
+The in-app pass remains a single-scope recompute with a safety cap. The archive pass
+(`scripts/harmonize_history.py`) walks one UTC day per transaction and records each processed day in
+`harmonization_coverage` (day, scope, synthetic, observations, pairs, status counts). A missing row
+means "not processed", which is different from "processed and nothing matched". Reruns skip covered
+days unless `--force` is set.
 
 ## 6. Baselines, anomalies, trends and seasonality (implemented)
 

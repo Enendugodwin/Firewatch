@@ -4,7 +4,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderApp } from "@/test/render";
 import { installFetchMock } from "@/test/fixtures";
 import { groupIntoMonths } from "@/components/calendar/CalendarHeat";
-import { intensity, metricValue } from "@/lib/calendarApi";
+import { METRIC_LABEL, intensity, metricValue } from "@/lib/calendarApi";
 import type { CalendarBucket, CalendarResponse } from "@/lib/calendarApi";
 import type { Observation } from "@/types/api";
 
@@ -18,6 +18,8 @@ function bucket(overrides: Partial<CalendarBucket> = {}): CalendarBucket {
     detections: 12,
     modis: 5,
     viirs: 7,
+    matched_viirs: 2,
+    harmonized: 10,
     frp_sum_mw: 42.5,
     frp_max_mw: 18.2,
     high_confidence: 3,
@@ -83,6 +85,8 @@ const CALENDAR: CalendarResponse = {
     detections: 12,
     modis: 5,
     viirs: 7,
+    matched_viirs: 2,
+    harmonized: 10,
     frp_sum_mw: 42.5,
     frp_max_mw: 18.2,
     high_confidence: 3,
@@ -107,6 +111,15 @@ const DRILLDOWN = {
 
 beforeEach(() => {
   installFetchMock({ calendar: { calendar: CALENDAR, drilldown: DRILLDOWN } });
+});
+
+describe("harmonized calendar metric", () => {
+  it("shades by the harmonized count and labels it", () => {
+    const entry = bucket({ detections: 12, matched_viirs: 2, harmonized: 10 });
+
+    expect(metricValue(entry, "harmonized")).toBe(10);
+    expect(METRIC_LABEL.harmonized).toMatch(/harmonized/i);
+  });
 });
 
 describe("calendar helpers", () => {

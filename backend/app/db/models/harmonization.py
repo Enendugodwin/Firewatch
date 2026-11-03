@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -56,6 +57,36 @@ class ObservationMatch(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         Index("ix_observation_matches_status", "match_status"),
         Index("ix_observation_matches_score", "association_score"),
+    )
+
+
+class HarmonizationCoverage(Base):
+    """Which UTC days a harmonisation scope has actually processed.
+
+    The association engine can run over decades of observations in bounded,
+    resumable daily chunks. This table is the checkpoint: a day present here was
+    scanned for that scope, so ``harmonized == raw`` on a missing day means "not
+    processed", not "no duplicates found".
+    """
+
+    __tablename__ = "harmonization_coverage"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    scope: Mapped[str] = mapped_column(String(64), primary_key=True)
+    is_synthetic: Mapped[bool] = mapped_column(Boolean, primary_key=True, default=False)
+    algorithm_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    observations: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    pairs: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    probable: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    possible: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rejected: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    truncated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_harmonization_coverage_scope_day", "scope", "day"),
     )
 
 

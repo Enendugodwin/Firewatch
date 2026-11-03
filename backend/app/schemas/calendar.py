@@ -35,6 +35,12 @@ class CalendarBucket(BaseModel):
     detections: int
     modis: int
     viirs: int
+    matched_viirs: int = Field(
+        default=0, description="VIIRS detections with a cross-sensor association"
+    )
+    harmonized: int = Field(
+        default=0, description="detections minus matched_viirs; never a fire count"
+    )
     frp_sum_mw: float
     frp_max_mw: float | None = None
     high_confidence: int
@@ -44,6 +50,8 @@ class CalendarTotals(BaseModel):
     detections: int
     modis: int
     viirs: int
+    matched_viirs: int = 0
+    harmonized: int = 0
     frp_sum_mw: float
     frp_max_mw: float | None = None
     high_confidence: int

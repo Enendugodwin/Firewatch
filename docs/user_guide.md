@@ -209,6 +209,14 @@ normally like this?" for a country, an imported boundary, or a radius.
 - Calendar shading is single-hue luminance with a `0 → peak` scale, hatched gaps and separate
   markers for anomalies — not colour alone.
 
+## Calendar metrics
+
+The calendar can shade by raw detections, **harmonized detections**, FRP or high-confidence
+detections. *Harmonized* subtracts VIIRS detections that already have a MODIS association on the
+same day, so a hotspot seen by both sensors is not counted twice. Days that have not been scanned
+for associations keep their raw count; the subtitle says so. The values are detections, never
+fires.
+
 ## Data Query (Intelligence)
 
 The query workspace reads the stored detections directly.

@@ -32,7 +32,12 @@ const GRANULARITIES: { value: CalendarGranularity; label: string; hint: string }
   { value: "year", label: "Year", hint: "Calendar years" },
 ];
 
-const METRICS: CalendarMetric[] = ["detections", "frp", "high_confidence"];
+const METRICS: CalendarMetric[] = [
+  "detections",
+  "harmonized",
+  "frp",
+  "high_confidence",
+];
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -246,7 +251,10 @@ export function CalendarPage() {
         title={`${granularity === "day" ? "Daily" : granularity === "week" ? "Weekly" : granularity === "month" ? "Monthly" : "Annual"} activity · ${METRIC_LABEL[metric]}`}
         subtitle={
           peak > 0
-            ? `Shaded by ${METRIC_LABEL[metric].toLowerCase()}. Hatched cells have no availability record.`
+            ? `Shaded by ${METRIC_LABEL[metric].toLowerCase()}. Hatched cells have no availability record.` +
+        (metric === "harmonized"
+          ? ` Harmonized subtracts VIIRS detections already associated with MODIS; unscanned days keep their raw count.`
+          : "")
             : "No detections in this range for the current filters."
         }
         actions={

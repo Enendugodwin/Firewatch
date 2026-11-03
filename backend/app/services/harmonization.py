@@ -13,14 +13,22 @@ physical fire, and it is never used to collapse observations.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
+from typing import Any
 
 import numpy as np
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, insert, select
+from sqlalchemy.orm import Session, aliased
 
 from app.core.logging import get_logger
-from app.db.models import AlgorithmRun, FireObservation, ObservationMatch
+from app.db.models import (
+    AlgorithmRun,
+    FireObservation,
+    HarmonizationCoverage,
+    ObservationMatch,
+)
 from app.db.session import session_scope
 from app.services.geo import footprint_overlap, haversine_m
 from app.services.observation_queries import BBox  # noqa: TC001 - runtime type hints
@@ -159,6 +167,31 @@ def _load_observations(
     start_date=None,
     end_date=None,
 ) -> list[_Obs]:
+    rows, _ = _load_scope_observations(
+        session,
+        is_synthetic,
+        bbox=bbox,
+        start_date=start_date,
+        end_date=end_date,
+        cap=params.max_observations,
+    )
+    return rows
+
+
+def _load_scope_observations(
+    session: Session,
+    is_synthetic: bool,
+    *,
+    bbox: BBox | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    cap: int | None,
+) -> tuple[list[_Obs], bool]:
+    """Load a scope; ``cap=None`` means no truncation.
+
+    Returns ``(observations, truncated)`` so a caller can never mistake a
+    truncated scope for a complete one.
+    """
     stmt = (
         select(
             FireObservation.id,
@@ -186,11 +219,13 @@ def _load_observations(
 
     rows = session.execute(stmt).all()
 
-    if len(rows) > params.max_observations:
-        logger.warning("harmonization_limit", loaded=len(rows), limit=params.max_observations)
-        rows = rows[-params.max_observations :]
+    truncated = False
+    if cap is not None and len(rows) > cap:
+        logger.warning("harmonization_limit", loaded=len(rows), limit=cap)
+        rows = rows[-cap:]
+        truncated = True
 
-    return [
+    observations = [
         _Obs(
             id=str(row.id),
             sensor=row.sensor,
@@ -204,6 +239,7 @@ def _load_observations(
         )
         for row in rows
     ]
+    return observations, truncated
 
 
 def _bucket_by_day(observations: list[_Obs]) -> dict[str, list[_Obs]]:
@@ -216,28 +252,34 @@ def _bucket_by_day(observations: list[_Obs]) -> dict[str, list[_Obs]]:
 def compute_matches(
     observations: list[_Obs], params: MatchParameters
 ) -> list[tuple[_Obs, _Obs, PairScore]]:
-    """Cross-family candidates within the time window, per day bucket."""
+    """Cross-family candidates within the time and distance windows, per day bucket.
+
+    Candidate selection is bounded twice: a latitude band of ``max_distance_m``
+    (plus padding) is sliced with ``searchsorted``, then the exact time window and
+    haversine distance are checked. Scanning the whole 3-hour time window on every
+    MODIS detection is quadratic at global scale — a single VIIRS day holds over
+    100,000 detections — so the latitude slice comes first.
+    """
     window = timedelta(minutes=params.time_window_minutes)
+    window_seconds = window.total_seconds()
+    lat_band = (params.max_distance_m / 111_320.0) * 1.05 + 1e-6
     matches: list[tuple[_Obs, _Obs, PairScore]] = []
 
     for bucket in _bucket_by_day(observations).values():
-        modis = sorted(
-            (obs for obs in bucket if obs.sensor == "MODIS"), key=lambda o: o.acquired_at
-        )
-        viirs = sorted(
-            (obs for obs in bucket if obs.sensor == "VIIRS"), key=lambda o: o.acquired_at
-        )
+        modis = [obs for obs in bucket if obs.sensor == "MODIS"]
+        viirs = [obs for obs in bucket if obs.sensor == "VIIRS"]
         if not modis or not viirs:
             continue
 
-        viirs_times = np.array([o.acquired_at.timestamp() for o in viirs])
+        viirs_by_lat = sorted(viirs, key=lambda obs: obs.latitude)
+        viirs_lats = np.array([obs.latitude for obs in viirs_by_lat])
 
-        for a in modis:
-            start = a.acquired_at - window
-            end = a.acquired_at + window
-            low = np.searchsorted(viirs_times, start.timestamp(), side="left")
-            high = np.searchsorted(viirs_times, end.timestamp(), side="right")
-            for b in viirs[low:high]:
+        for a in sorted(modis, key=lambda o: o.acquired_at):
+            low = int(np.searchsorted(viirs_lats, a.latitude - lat_band, side="left"))
+            high = int(np.searchsorted(viirs_lats, a.latitude + lat_band, side="right"))
+            for b in viirs_by_lat[low:high]:
+                if abs((a.acquired_at - b.acquired_at).total_seconds()) > window_seconds:
+                    continue
                 distance = haversine_m(a.latitude, a.longitude, b.latitude, b.longitude)
                 if distance > params.max_distance_m:
                     continue
@@ -265,6 +307,263 @@ def _window_start(day) -> datetime:
 
 def _window_end(day) -> datetime:
     return datetime.combine(day + timedelta(days=1), time.min, tzinfo=UTC)
+
+
+#: Safety valve: one UTC day above this is almost certainly a data error. The
+#: day is recorded as truncated rather than silently half-processed.
+MAX_DAY_OBSERVATIONS = 1_000_000
+
+
+def scope_key(bbox: BBox | None) -> str:
+    """Stable coverage scope; regional runs are independent checkpoints."""
+    if bbox is None:
+        return "world"
+    return f"bbox:{bbox.west:g},{bbox.south:g},{bbox.east:g},{bbox.north:g}"
+
+
+def _delete_matches_for_day(session: Session, day: date, bbox: BBox | None) -> None:
+    """Remove prior associations whose MODIS side falls on ``day`` in scope."""
+    a = aliased(FireObservation)
+    scope_ids = select(a.id).where(
+        a.acquired_at >= _window_start(day),
+        a.acquired_at < _window_end(day),
+    )
+    if bbox is not None:
+        scope_ids = scope_ids.where(
+            a.longitude >= bbox.west,
+            a.longitude <= bbox.east,
+            a.latitude >= bbox.south,
+            a.latitude <= bbox.north,
+        )
+    session.execute(
+        delete(ObservationMatch).where(ObservationMatch.observation_a_id.in_(scope_ids))
+    )
+
+
+def _insert_matches(
+    session: Session,
+    pairs: list[tuple[_Obs, _Obs, PairScore]],
+    *,
+    chunk: int = 500,
+) -> dict[str, int]:
+    counts = {"probable": 0, "possible": 0, "rejected": 0}
+    rows: list[dict[str, Any]] = []
+    import uuid as _uuid
+
+    for a, b, scored in pairs:
+        rows.append(
+            {
+                "id": _uuid.uuid4(),
+                "observation_a_id": a.id,
+                "observation_b_id": b.id,
+                "temporal_delta_seconds": scored.temporal_delta_seconds,
+                "spatial_distance_m": scored.spatial_distance_m,
+                "footprint_overlap": scored.footprint_overlap,
+                "association_score": scored.score,
+                "match_status": scored.status,
+                "components": scored.components,
+                "algorithm_version": ALGORITHM_VERSION,
+            }
+        )
+        counts[scored.status] = counts.get(scored.status, 0) + 1
+
+    for start in range(0, len(rows), chunk):
+        session.execute(insert(ObservationMatch), rows[start : start + chunk])
+    return counts
+
+
+def run_harmonization_range(
+    *,
+    start: date,
+    end: date,
+    params: MatchParameters | None = None,
+    is_synthetic: bool = False,
+    bbox: BBox | None = None,
+    force: bool = False,
+    progress: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """Recompute associations one UTC day per transaction, resumably.
+
+    Each processed day is recorded in ``harmonization_coverage``. Re-running the
+    same range skips covered days unless ``force`` is set, so a decades-long pass
+    can be interrupted and resumed without repeating work or duplicating pairs.
+    """
+    if start > end:
+        raise ValueError("start must be on or before end")
+
+    params = params or MatchParameters()
+    scope = scope_key(bbox)
+    total_days = (end - start).days + 1
+    summary: dict[str, Any] = {
+        "scope": scope,
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "days": total_days,
+        "processed": 0,
+        "skipped": 0,
+        "truncated_days": 0,
+        "observations": 0,
+        "pairs": 0,
+        "probable": 0,
+        "possible": 0,
+        "rejected": 0,
+    }
+
+    with session_scope() as session:
+        run = AlgorithmRun(
+            kind="harmonization",
+            status="running",
+            parameters={
+                **asdict(params),
+                "scope": {
+                    "bbox": bbox.as_list() if bbox is not None else None,
+                    "mode": "daily-range",
+                },
+            },
+            stats={},
+            algorithm_version=ALGORITHM_VERSION,
+            is_synthetic=is_synthetic,
+        )
+        session.add(run)
+        session.flush()
+
+        cursor = start
+        try:
+            while cursor <= end:
+                existing = session.get(
+                    HarmonizationCoverage, (cursor, scope, is_synthetic)
+                )
+                if existing is not None and not force:
+                    summary["skipped"] += 1
+                    cursor += timedelta(days=1)
+                    continue
+
+                observations = _load_scope_observations(
+                    session,
+                    is_synthetic,
+                    bbox=bbox,
+                    start_date=cursor,
+                    end_date=cursor,
+                    cap=None,
+                )[0]
+
+                if len(observations) > MAX_DAY_OBSERVATIONS:
+                    logger.error(
+                        "harmonization_day_too_large",
+                        day=cursor.isoformat(),
+                        observations=len(observations),
+                    )
+                    coverage = existing or HarmonizationCoverage(
+                        day=cursor, scope=scope, is_synthetic=is_synthetic
+                    )
+                    coverage.algorithm_version = ALGORITHM_VERSION
+                    coverage.observations = len(observations)
+                    coverage.truncated = True
+                    coverage.computed_at = datetime.now(UTC)
+                    session.add(coverage)
+                    session.commit()
+                    summary["truncated_days"] += 1
+                    cursor += timedelta(days=1)
+                    continue
+
+                pairs = compute_matches(observations, params)
+                _delete_matches_for_day(session, cursor, bbox)
+                counts = _insert_matches(session, pairs)
+
+                coverage = existing or HarmonizationCoverage(
+                    day=cursor, scope=scope, is_synthetic=is_synthetic
+                )
+                coverage.algorithm_version = ALGORITHM_VERSION
+                coverage.observations = len(observations)
+                coverage.pairs = len(pairs)
+                coverage.probable = counts["probable"]
+                coverage.possible = counts["possible"]
+                coverage.rejected = counts["rejected"]
+                coverage.truncated = False
+                coverage.computed_at = datetime.now(UTC)
+                session.add(coverage)
+                session.commit()
+
+                summary["processed"] += 1
+                summary["observations"] += len(observations)
+                summary["pairs"] += len(pairs)
+                summary["probable"] += counts["probable"]
+                summary["possible"] += counts["possible"]
+                summary["rejected"] += counts["rejected"]
+                if progress is not None:
+                    progress(
+                        {
+                            "day": cursor.isoformat(),
+                            "observations": len(observations),
+                            "pairs": len(pairs),
+                            **summary,
+                        }
+                    )
+                cursor += timedelta(days=1)
+
+            run.status = "succeeded"
+            run.stats = {
+                **summary,
+                "matched_sensor_families": True,
+                "algorithm": "day-by-day",
+            }
+            run.completed_at = datetime.now(UTC)
+            session.commit()
+        except Exception as exc:  # noqa: BLE001 - recorded, then re-raised
+            session.rollback()
+            failed = session.get(AlgorithmRun, run.id)
+            if failed is not None:
+                failed.status = "failed"
+                failed.error_message = str(exc)[:1000]
+                failed.completed_at = datetime.now(UTC)
+                session.commit()
+            raise
+
+    summary["run_id"] = str(run.id)
+    logger.info("harmonization_range_complete", **summary)
+    return summary
+
+
+def coverage_summary(session: Session, *, is_synthetic: bool = False) -> dict[str, Any]:
+    """How much of the archive has been scored for associations."""
+    scopes = session.execute(
+        select(
+            HarmonizationCoverage.scope,
+            func.count(),
+            func.min(HarmonizationCoverage.day),
+            func.max(HarmonizationCoverage.day),
+            func.sum(HarmonizationCoverage.observations),
+            func.sum(HarmonizationCoverage.pairs),
+            func.sum(HarmonizationCoverage.probable),
+            func.sum(HarmonizationCoverage.possible),
+        )
+        .where(HarmonizationCoverage.is_synthetic == is_synthetic)
+        .group_by(HarmonizationCoverage.scope)
+    ).all()
+
+    latest = session.execute(
+        select(func.max(HarmonizationCoverage.computed_at)).where(
+            HarmonizationCoverage.is_synthetic == is_synthetic
+        )
+    ).scalar()
+
+    return {
+        "scopes": [
+            {
+                "scope": row[0],
+                "days": int(row[1]),
+                "first_day": row[2].isoformat() if row[2] else None,
+                "last_day": row[3].isoformat() if row[3] else None,
+                "observations": int(row[4] or 0),
+                "pairs": int(row[5] or 0),
+                "probable": int(row[6] or 0),
+                "possible": int(row[7] or 0),
+            }
+            for row in scopes
+        ],
+        "last_computed_at": latest.isoformat() if latest else None,
+    }
+
 
 
 def run_harmonization(
@@ -295,13 +594,13 @@ def run_harmonization(
         session.flush()
 
         try:
-            observations = _load_observations(
+            observations, truncated = _load_scope_observations(
                 session,
                 is_synthetic,
-                params,
                 bbox=bbox,
                 start_date=start_date,
                 end_date=end_date,
+                cap=params.max_observations,
             )
             pairs = compute_matches(observations, params)
 
@@ -342,6 +641,7 @@ def run_harmonization(
                 "possible": counts["possible"],
                 "rejected": counts["rejected"],
                 "matched_sensor_families": len(sensors) > 1,
+                "truncated": truncated,
             }
             run.status = "succeeded"
             run.stats = stats

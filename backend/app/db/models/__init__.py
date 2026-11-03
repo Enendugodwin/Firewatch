@@ -6,6 +6,7 @@ from app.db.models.harmonization import (
     AlgorithmRun,
     EventObservation,
     FireEvent,
+    HarmonizationCoverage,
     ObservationMatch,
 )
 from app.db.models.ingestion import (
@@ -28,6 +29,7 @@ __all__ = [
     "FireEvent",
     "FireObservation",
     "GeographicRegion",
+    "HarmonizationCoverage",
     "IngestionPartition",
     "IngestionRun",
     "ObservationMatch",

@@ -109,7 +109,7 @@ query is expressed. An unordered window returns `400 bad_request`.
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/calendar` | Required `start_date`, `end_date`; `granularity` day/week/month/year |
+| GET | `/calendar` | Required `start_date`, `end_date`; `granularity` day/week/month/year. Buckets and totals include `matched_viirs` and `harmonized` |
 | GET | `/calendar/intelligence` | Trend (Theil–Sen), anomaly markers and seasonal profile for the window; `metric`, `season_years`, `baseline_days`, `z_threshold` |
 | GET | `/calendar/drilldown` | `bucket_start` + `granularity`; returns the bucket plus its detections |
 
@@ -182,6 +182,7 @@ the database, reporting `method: deterministic`, the intent and the exact scope.
 | --- | --- | --- |
 | GET | `/harmonization/summary` | Sensor totals, match counts, events, last run and its scope |
 | GET | `/harmonization/series` | Harmonised daily series: raw MODIS/VIIRS minus associated VIIRS duplicates |
+| GET | `/harmonization/coverage` | Days actually scanned for associations, by scope; `synthetic` for fixtures |
 | GET | `/harmonization/matches` | `status`, `min_score`, pagination; full score components |
 | GET | `/harmonization/matches/{id}` | Evidence for one pair |
 | GET | `/harmonization/events` | Estimated events with extent and FRP aggregates |

@@ -124,11 +124,11 @@ Parquet counts match PostgreSQL **day by day** (UTC) — verified after pinning 
 
 ## 9. Tests
 
-- Backend: **196 passed** (storage round-trip, traversal guard, sync idempotence, allocation block,
+- Backend: **202 passed** (storage round-trip, traversal guard, sync idempotence, allocation block,
   checksum change detection, Parquet export + DuckDB read, infrastructure API, calendar months,
   calendar intelligence + seasonality gates, regional geometry/analysis/trend tests, anomaly
   baselines, bulk ingestion, CSV exports, reports/regions/exposure/assistant).
-- Frontend: **68 passed** across 11 files; `tsc --noEmit` clean; production build OK.
+- Frontend: **69 passed** across 11 files; `tsc --noEmit` clean; production build OK.
 - Ruff and mypy (84 files) clean.
 
 ## 10. Resource notes
@@ -149,7 +149,29 @@ Parquet counts match PostgreSQL **day by day** (UTC) — verified after pinning 
   the same command scales to the full range.
 - Cloud PostgreSQL is configured but not exercised against a hosted instance in this environment.
 
-## 12. How to run
+## 12. Historical backfill and the harmonized calendar
+
+The standard-processing archive was never empty; the earlier requests asked for a window after SP
+coverage ended, and the header-only response was recorded as `empty`. Coverage is now read first and
+requests are clamped to it, out-of-coverage rows are relabelled (213 were repaired), and ingestion
+will not mark an unprocessed day as quiet.
+
+| Work | Measured |
+| --- | --- |
+| Amazon MODIS 2016–2024 backfill | 1,205,718 rows in 55.8 min, 0 rejected, resumable |
+| Association pass, 2026-09-02 → 11-01 | 61 days, 11.24 M observations, 2.48 M pairs (168 k probable, 788 k possible) |
+| Association speed after the latitude-band index | 376 s → 2.7 s per 130 k-observation day |
+| Coverage checkpoints | `harmonization_coverage`, one row per scanned day and scope |
+| Calendar | new **harmonized** metric: `detections - matched_viirs`, with `matched_viirs` per bucket |
+| Reference regions | Amazon, Kalimantan, Mediterranean, Australia, California |
+| Consistency report | `docs/validation/accuracy.md` (12% corroboration; burned-area calibration pending) |
+
+Cross-sensor corroboration is reported as a consistency measure, not accuracy: 12% of VIIRS
+detections in the reference boxes have a MODIS association, which is expected because VIIRS detects
+smaller fires. Burned-area agreement is deliberately **not** reported until an external
+burned-area table is supplied.
+
+## 13. How to run
 
 Local: `start.bat` (PostgreSQL + API + web), `stop.bat`. Full instructions in
 [docs/operations.md](operations.md); storage, sync and R2 setup in [docs/cloud.md](cloud.md).

@@ -154,7 +154,7 @@ def test_calendar_rejects_bad_requests(client: TestClient) -> None:
     assert bad_granularity.status_code == 400
 
     too_long = client.get(
-        "/api/v1/calendar", params={"start_date": "2015-01-01", "end_date": "2026-10-01"}
+        "/api/v1/calendar", params={"start_date": "1990-01-01", "end_date": "2026-10-01"}
     )
     assert too_long.status_code == 400
 
@@ -255,11 +255,11 @@ def test_bucket_helpers_cover_the_range() -> None:
     assert bucket_for(date(2026, 12, 5), "year").start == date(2026, 1, 1)
 
     try:
-        validate_span(date(2026, 1, 1), date(2026, 1, 1) + timedelta(days=4000))
+        validate_span(date(2026, 1, 1), date(2026, 1, 1) + timedelta(days=366 * 40))
     except Exception as error:  # noqa: BLE001 - asserted below
         assert getattr(error, "code", "") == "bad_request"
     else:  # pragma: no cover - the call must raise
-        raise AssertionError("expected the span guard to reject a 4000-day range")
+        raise AssertionError("expected the span guard to reject a 40-year range")
 
 
 def test_months_endpoint_lists_only_months_with_data(

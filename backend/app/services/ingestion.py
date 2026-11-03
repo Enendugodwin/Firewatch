@@ -30,6 +30,7 @@ from app.db.models import (
 )
 from app.db.session import session_scope
 from app.services.firms.client import (
+    AvailabilityWindow,
     FirmsAuthError,
     FirmsClient,
     FirmsError,
@@ -40,6 +41,20 @@ from app.services.normalization import NormalizationError, normalize_row
 from app.services.sources import get_source
 
 logger = get_logger(__name__)
+
+#: Coverage is stable for the life of a process; one lookup per product is enough.
+_COVERAGE_CACHE: dict[str, AvailabilityWindow | None] = {}
+
+
+def _product_coverage(
+    client: FirmsClient, source_code: str
+) -> AvailabilityWindow | None:
+    if source_code not in _COVERAGE_CACHE:
+        try:
+            _COVERAGE_CACHE[source_code] = client.fetch_availability(source_code)
+        except FirmsError:
+            _COVERAGE_CACHE[source_code] = None
+    return _COVERAGE_CACHE[source_code]
 
 
 @dataclass
@@ -242,10 +257,22 @@ def _store_response(
 
 
 def _upsert_availability(
-    session: Session, source_id, window_start: date, window_end: date, had_records: bool
+    session: Session,
+    source_id,
+    window_start: date,
+    window_end: date,
+    had_records: bool,
+    *,
+    covered: bool = True,
 ) -> None:
     cursor = window_start
-    status = "available" if had_records else "empty"
+    if had_records:
+        status = "available"
+    elif covered:
+        status = "empty"
+    else:
+        # The product never processed this window; "empty" would read as "quiet".
+        status = "not_yet_available"
     while cursor <= window_end:
         row = session.scalars(
             select(SourceAvailability).where(
@@ -363,8 +390,26 @@ def _ingest(
         partition.status = "succeeded"
         partition.completed_at = datetime.now(UTC)
         partition.error_message = None
+        had_records = response.record_count > 0
+        covered = True
+        registry = get_source(source_code)
+        if (
+            not had_records
+            and registry is not None
+            and registry.is_standard_processing
+        ):
+            window = _product_coverage(client, source_code)
+            if window is not None and getattr(window, "min_date", None) is not None:
+                covered = bool(
+                    window.covers(window_start) and window.covers(window_end)
+                )
         _upsert_availability(
-            session, source.id, window_start, window_end, had_records=response.record_count > 0
+            session,
+            source.id,
+            window_start,
+            window_end,
+            had_records=had_records,
+            covered=covered,
         )
         result.partitions_completed += 1
         session.commit()

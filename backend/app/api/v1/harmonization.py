@@ -155,6 +155,22 @@ def summary(session: Session = Depends(get_session)) -> HarmonizationSummary:
     )
 
 
+@router.get(
+    "/coverage",
+    summary="Days actually scanned for cross-sensor associations",
+)
+def coverage(
+    synthetic: bool = Query(False, description="Report fixture-data scans instead"),
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    """Which days a harmonisation scope has processed.
+
+    A day absent from this response has not been scanned; ``harmonized == raw``
+    for it means "not processed", not "no duplicates found".
+    """
+    return harmonization_service.coverage_summary(session, is_synthetic=synthetic)
+
+
 @router.get("/matches", response_model=MatchPage, summary="Probable cross-sensor matches")
 def list_matches(
     status: str | None = Query(None, pattern="^(probable|possible|rejected)$"),

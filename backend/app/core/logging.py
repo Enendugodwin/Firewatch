@@ -65,8 +65,13 @@ def configure_logging(*, level: str = "INFO", json_output: bool = True) -> None:
     root.handlers = [handler]
     root.setLevel(level.upper())
 
-    for noisy in ("uvicorn.access", "httpx", "httpcore"):
+    for noisy in ("uvicorn.access",):
         logging.getLogger(noisy).setLevel(max(logging.INFO, root.level))
+
+    # httpx logs the full request URL at INFO, including the FIRMS MAP_KEY.
+    # Keep transport logs at WARNING so the key cannot leak into a log file.
+    for secret_url_logger in ("httpx", "httpcore"):
+        logging.getLogger(secret_url_logger).setLevel(logging.WARNING)
 
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:

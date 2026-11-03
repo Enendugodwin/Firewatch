@@ -35,6 +35,7 @@ def test_migrations_create_the_full_schema(migrated: Path) -> None:
         "regional_cell_statistics",
         "daily_activity",
         "cell_activity",
+        "harmonization_coverage",
         "alembic_version",
     ):
         assert expected in tables, expected
@@ -44,7 +45,7 @@ def test_migration_is_applied_once(migrated: Path) -> None:
     with get_engine().connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
-    assert revision == "0009_incremental_rollups"
+    assert revision == "0010_harmonization_coverage"
 
 
 def test_seed_is_idempotent(migrated: Path) -> None:

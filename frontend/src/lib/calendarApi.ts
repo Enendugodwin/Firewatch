@@ -22,6 +22,8 @@ export interface CalendarBucket {
   detections: number;
   modis: number;
   viirs: number;
+  matched_viirs?: number;
+  harmonized?: number;
   frp_sum_mw: number;
   frp_max_mw: number | null;
   high_confidence: number;
@@ -31,6 +33,8 @@ export interface CalendarTotals {
   detections: number;
   modis: number;
   viirs: number;
+  matched_viirs?: number;
+  harmonized?: number;
   frp_sum_mw: number;
   frp_max_mw: number | null;
   high_confidence: number;
@@ -83,10 +87,11 @@ export interface CalendarQuery extends CalendarFilters {
   granularity: CalendarGranularity;
 }
 
-export type CalendarMetric = "detections" | "frp" | "high_confidence";
+export type CalendarMetric = "detections" | "harmonized" | "frp" | "high_confidence";
 
 export const METRIC_LABEL: Record<CalendarMetric, string> = {
   detections: "Detections",
+  harmonized: "Harmonized detections",
   frp: "FRP (MW)",
   high_confidence: "High-confidence detections",
 };
@@ -94,6 +99,7 @@ export const METRIC_LABEL: Record<CalendarMetric, string> = {
 export function metricValue(bucket: CalendarBucket, metric: CalendarMetric): number {
   if (metric === "frp") return bucket.frp_sum_mw;
   if (metric === "high_confidence") return bucket.high_confidence;
+  if (metric === "harmonized") return bucket.harmonized ?? bucket.detections;
   return bucket.detections;
 }
 
