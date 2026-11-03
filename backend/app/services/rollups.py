@@ -254,6 +254,74 @@ def refresh_rollup(session: Session, *, since: date | None = None) -> bool:
     return True
 
 
+def refresh_rollup_range(session: Session, start: date, end: date) -> bool:
+    """Recompute only the days in ``[start, end]``.
+
+    Backfills ingest in arbitrary order, so ``since`` is wrong for them: passing
+    the first backfilled day rebuilds every later day as well (11 M+ rows) and
+    can exceed the statement timeout. A bounded range touches only the days the
+    windows actually changed.
+    """
+    if end < start:
+        raise ValueError("end must be on or after start")
+    if not _rollup_exists(session):
+        return False
+
+    tables = [ROLLUP_NAME]
+    if _cell_rollup_exists(session):
+        tables.append(CELL_ROLLUP_NAME)
+    for table in tables:
+        session.execute(
+            text(f"DELETE FROM {table} WHERE day BETWEEN :start AND :end"),
+            {"start": start, "end": end},
+        )
+
+    window = (
+        "WHERE CAST((acquired_at AT TIME ZONE 'UTC') AS date) BETWEEN :start AND :end"
+    )
+    session.execute(
+        text(
+            f"""
+            INSERT INTO {ROLLUP_NAME} (
+                day, sensor, confidence_category, daynight, satellite, source_code,
+                is_synthetic, detections, frp_sum_mw, frp_max_mw
+            )
+            SELECT
+                CAST((acquired_at AT TIME ZONE 'UTC') AS date),
+                sensor, confidence_category, daynight, satellite, source_code,
+                is_synthetic, count(*)::bigint, COALESCE(sum(frp_mw), 0), max(frp_mw)
+            FROM fire_observations
+            {window}
+            GROUP BY 1, 2, 3, 4, 5, 6, 7
+            """
+        ),
+        {"start": start, "end": end},
+    )
+    if _cell_rollup_exists(session):
+        session.execute(
+            text(
+                f"""
+                INSERT INTO {CELL_ROLLUP_NAME} (
+                    day, lat_index, lon_index, sensor, is_synthetic,
+                    detections, frp_sum_mw, frp_max_mw
+                )
+                SELECT
+                    CAST((acquired_at AT TIME ZONE 'UTC') AS date),
+                    CAST(floor((latitude + 90.0) / 2.0) AS integer),
+                    CAST(floor((longitude + 180.0) / 2.0) AS integer),
+                    sensor, is_synthetic, count(*)::bigint,
+                    COALESCE(sum(frp_mw), 0), max(frp_mw)
+                FROM fire_observations
+                {window}
+                GROUP BY 1, 2, 3, 4, 5
+                """
+            ),
+            {"start": start, "end": end},
+        )
+    session.commit()
+    return True
+
+
 def rollup_status(session: Session) -> dict[str, Any]:
     if not _rollup_exists(session):
         return {"available": False, "dialect": dialect_name(session)}

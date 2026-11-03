@@ -39,7 +39,7 @@ from app.services.harmonization import run_harmonization_range
 from app.services.historical_backfill import REGIONS, plan_windows, resolve_tile
 from app.services.ingestion import build_client, ingest_range
 from app.services.observation_queries import BBox
-from app.services.rollups import refresh_rollup
+from app.services.rollups import refresh_rollup_range
 from app.services.sources import get_source
 
 logger = get_logger(__name__)
@@ -376,9 +376,19 @@ def _emit(progress: Callable[[dict[str, Any]], None] | None, state: dict[str, An
         progress(state)
 
 
-def _refresh(since: date | None) -> bool:
-    with session_scope() as session:
-        return refresh_rollup(session, since=since)
+def _refresh(start: date, end: date) -> bool:
+    """Rebuild only the days a batch touched; a ``since`` rebuild can time out."""
+    try:
+        with session_scope() as session:
+            return refresh_rollup_range(session, start, end)
+    except Exception as error:  # noqa: BLE001 - a stale rollup must not kill ingestion
+        logger.warning(
+            "rollup_refresh_failed",
+            start=str(start),
+            end=str(end),
+            error=str(error)[:200],
+        )
+        return False
 
 
 def run_history(
@@ -421,7 +431,8 @@ def run_history(
         "rollup_refreshed": False,
     }
 
-    inserted_since_refresh = 0
+    pending_start: date | None = None
+    pending_end: date | None = None
     done = 0
     abort = False
 
@@ -475,7 +486,17 @@ def run_history(
             summary["per_source"][source.source_code] = (
                 summary["per_source"].get(source.source_code, 0) + result.records_inserted
             )
-            inserted_since_refresh += result.records_inserted
+            if result.records_inserted:
+                pending_start = (
+                    window_start
+                    if pending_start is None or window_start < pending_start
+                    else pending_start
+                )
+                pending_end = (
+                    window_end
+                    if pending_end is None or window_end > pending_end
+                    else pending_end
+                )
 
             elapsed = time.perf_counter() - started
             rate = done / elapsed if elapsed else 0.0
@@ -496,16 +517,17 @@ def run_history(
 
             if (
                 request.refresh_every
-                and inserted_since_refresh
+                and pending_start is not None
+                and pending_end is not None
                 and done % request.refresh_every == 0
             ):
-                summary["rollup_refreshed"] = _refresh(span[0] if span else None) or (
-                    summary["rollup_refreshed"]
-                )
-                inserted_since_refresh = 0
+                refreshed = _refresh(pending_start, pending_end)
+                summary["rollup_refreshed"] = summary["rollup_refreshed"] or refreshed
+                pending_start = None
+                pending_end = None
 
-    if summary["records_inserted"]:
-        refreshed = _refresh(span[0] if span else None)
+    if pending_start is not None and pending_end is not None:
+        refreshed = _refresh(pending_start, pending_end)
         summary["rollup_refreshed"] = summary["rollup_refreshed"] or refreshed
 
     if (

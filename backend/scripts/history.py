@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+import uuid
 from datetime import date
 
 from app.core.logging import configure_logging
@@ -88,6 +89,10 @@ def main() -> int:
                 action="store_true",
                 help="Persist a history_jobs row and run it (same path as the API)",
             )
+            cmd.add_argument(
+                "--job-id",
+                help="Resume an existing history_jobs row instead of creating one",
+            )
 
     args = parser.parse_args()
     configure_logging()
@@ -135,7 +140,11 @@ def main() -> int:
                     f"pairs={state.get('pairs', 0):,}"
                 )
 
-    if args.job:
+    if args.job_id:
+        job_id = uuid.UUID(args.job_id)
+        print(f"\nResuming job {job_id}")
+        summary = history_runner.execute_history_job(job_id)
+    elif args.job:
         job_id = history_runner.create_job(request)
         print(f"\nJob {job_id}")
         summary = history_runner.execute_history_job(job_id)
