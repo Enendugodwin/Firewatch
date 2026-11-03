@@ -124,6 +124,12 @@ Starting or resuming a job also requires `FIRMS_MAP_KEY` to be configured.
 The job row survives a restart. `resume` sets it back to `queued`; ingestion
 partitions and coverage checkpoints make that a continuation, not a restart.
 
+A job whose process dies leaves a `running` row behind. If it has not written
+progress for 15 minutes it is reported as `stale` and may be resumed; a live job
+cannot be overlapped. Windows that failed (for example after four read timeouts)
+are `failed` partitions, not `succeeded`, so the next resume retries exactly
+those and skips the rest.
+
 ## What this does not do
 
 * It does not download the global multi-decade archive; that is terabytes of raw

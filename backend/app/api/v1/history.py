@@ -14,7 +14,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -116,16 +116,19 @@ def create_job(
     _require_firms(settings)
     request = _request(payload)
 
-    active = session.scalar(
-        select(func.count())
-        .select_from(HistoryJob)
-        .where(HistoryJob.status.in_(("queued", "running")))
-    )
+    candidates = session.scalars(
+        select(HistoryJob).where(HistoryJob.status.in_(("queued", "running")))
+    ).all()
+    # A job whose process died leaves a running row behind; it is resumable, not
+    # a reason to block every new request forever.
+    active = [
+        job for job in candidates if job.status == "queued" or not history_runner.job_is_stale(job)
+    ]
     if active:
         raise AppError(
             "conflict",
             "Another history job is queued or running; wait for it or cancel it first.",
-            details={"active_jobs": int(active)},
+            details={"active_jobs": len(active)},
         )
 
     job_id = history_runner.create_job(request)
@@ -196,7 +199,9 @@ def resume_job(
 ) -> HistoryJobOut:
     _require_firms(settings)
     job = _get_job(job_id, session)
-    if job.status in ("queued", "running"):
+    if job.status == "queued" or (
+        job.status == "running" and not history_runner.job_is_stale(job)
+    ):
         raise AppError(
             "conflict",
             f"Job is already {job.status}.",

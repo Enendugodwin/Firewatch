@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 import pytest
@@ -212,6 +212,33 @@ def test_job_row_records_progress_and_summary() -> None:
         assert job.summary["records_inserted"] == 6
         assert job.started_at is not None
         assert job.completed_at is not None
+
+
+def test_a_stale_running_job_can_be_resumed() -> None:
+    job_id = runner.create_job(_request(refresh_every=0))
+    with session_scope() as session:
+        job = session.get(HistoryJob, job_id)
+        job.status = "running"
+        job.started_at = datetime.now(UTC) - timedelta(hours=2)
+        job.updated_at = datetime.now(UTC) - timedelta(hours=2)
+
+    summary = runner.execute_history_job(job_id, client=_client())
+
+    assert summary["records_inserted"] == 6
+    with session_scope() as session:
+        job = session.get(HistoryJob, job_id)
+        assert job.status == "succeeded"
+
+
+def test_a_live_running_job_is_not_overlapped() -> None:
+    job_id = runner.create_job(_request(refresh_every=0))
+    with session_scope() as session:
+        job = session.get(HistoryJob, job_id)
+        job.status = "running"
+        job.updated_at = datetime.now(UTC)
+
+    with pytest.raises(RuntimeError):
+        runner.execute_history_job(job_id, client=_client())
 
 
 def test_job_failure_is_persisted() -> None:

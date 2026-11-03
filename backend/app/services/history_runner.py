@@ -44,6 +44,10 @@ from app.services.sources import get_source
 
 logger = get_logger(__name__)
 
+#: A job whose row has not been touched for this long is treated as abandoned
+#: (its process died) so a rerun can resume it instead of being refused.
+STALE_JOB_SECONDS = 900
+
 #: Five days is the FIRMS area-endpoint maximum.
 WINDOW_DAYS = 5
 
@@ -584,6 +588,18 @@ def create_job(request: HistoryRequest) -> uuid.UUID:
         return job.id
 
 
+def job_is_stale(job: HistoryJob) -> bool:
+    """True when a running job has not written progress recently."""
+    if job.status != "running":
+        return False
+    last = job.updated_at or job.started_at
+    if last is None:
+        return True
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=UTC)
+    return (datetime.now(UTC) - last).total_seconds() > STALE_JOB_SECONDS
+
+
 def request_from_job(job: HistoryJob) -> HistoryRequest:
     return HistoryRequest(
         datasets=tuple(job.datasets or ()),
@@ -612,7 +628,7 @@ def execute_history_job(
         job = session.get(HistoryJob, uid)
         if job is None:
             raise KeyError(f"History job {uid} does not exist.")
-        if job.status == "running":
+        if job.status == "running" and not job_is_stale(job):
             raise RuntimeError(f"History job {uid} is already running.")
         request = request_from_job(job)
         job.status = "running"
@@ -704,6 +720,7 @@ def job_as_dict(job: HistoryJob) -> dict[str, Any]:
         "created_at": job.created_at.isoformat() if job.created_at else None,
         "started_at": job.started_at.isoformat() if job.started_at else None,
         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+        "stale": job_is_stale(job),
     }
 
 
@@ -725,6 +742,7 @@ __all__ = [
     "execute_history_job",
     "iter_windows",
     "job_as_dict",
+    "job_is_stale",
     "plan_history",
     "region_catalogue",
     "request_from_job",

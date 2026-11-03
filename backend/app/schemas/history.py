@@ -83,6 +83,9 @@ class HistoryJobOut(BaseModel):
     summary: dict[str, Any]
     error_message: str | None
     cancel_requested: bool
+    stale: bool = Field(
+        False, description="A running job whose process has stopped updating it"
+    )
     created_at: datetime | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
