@@ -380,6 +380,7 @@ def run_harmonization_range(
     is_synthetic: bool = False,
     bbox: BBox | None = None,
     force: bool = False,
+    limit_processed: int | None = None,
     progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Recompute associations one UTC day per transaction, resumably.
@@ -499,6 +500,8 @@ def run_harmonization_range(
                             **summary,
                         }
                     )
+                if limit_processed and summary["processed"] >= limit_processed:
+                    break
                 cursor += timedelta(days=1)
 
             run.status = "succeeded"

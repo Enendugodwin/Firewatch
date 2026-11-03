@@ -75,6 +75,19 @@ def test_range_pass_is_resumable_and_force_safe(loaded_fixture: dict) -> None:
     assert first["pairs"] == forced["pairs"]
 
 
+def test_limit_processed_stops_after_n_days(loaded_fixture: dict) -> None:
+    summary = service.run_harmonization_range(
+        start=FIXTURE_START,
+        end=FIXTURE_END,
+        is_synthetic=True,
+        force=True,
+        limit_processed=2,
+    )
+
+    assert summary["processed"] == 2
+    assert summary["days"] == 5
+
+
 def test_latitude_prefilter_keeps_the_exact_distance_rule() -> None:
     anchor = _obs("modis", "MODIS", 0.0, 0.0, 12)
     near = _obs("near", "VIIRS", 0.001, 0.001, 12)  # ~150 m away

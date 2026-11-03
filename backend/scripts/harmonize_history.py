@@ -103,10 +103,6 @@ def main() -> int:
     def progress(state: dict) -> None:
         nonlocal processed_this_run
         processed_this_run += 1
-        if args.limit_days and processed_this_run >= args.limit_days:
-            # The range runner has no early-stop hook; the signal is advisory and
-            # a rerun skips what is already covered.
-            print("  limit reached; finishing the current day and stopping next run")
         if processed_this_run % max(1, args.status_every) == 0:
             elapsed = time.perf_counter() - started
             done = state["processed"] + state["skipped"]
@@ -125,6 +121,7 @@ def main() -> int:
         is_synthetic=args.synthetic,
         bbox=bbox,
         force=args.force,
+        limit_processed=args.limit_days or None,
         progress=progress,
     )
 
