@@ -11,6 +11,18 @@ Scope is identified by the ingestion runs of a tile (for example
 ``region:amazon``), so data from other runs — the global 2026 ingest, fixtures —
 is not touched.
 
+Two details make it fast enough to be practical:
+
+* the target ids are materialised into temporary tables and joined, so each
+  delete is one hash join instead of a correlated lookup per row;
+* foreign-key triggers are suspended for the delete because the dependent rows
+  (matches, event memberships) are removed explicitly first. This matters:
+  ``event_observations`` has no index on ``observation_id``, so cascading one
+  delete at a time re-scans it per observation.
+
+Everything runs in a single transaction, so an interruption leaves the footprint
+intact rather than half-removed.
+
 Dry run by default:
 
     python -m scripts.delete_history --tile-key region:amazon
@@ -35,8 +47,6 @@ from app.core.logging import configure_logging
 from app.db.dialect import dialect_name
 from app.db.session import session_scope
 from app.services.rollups import refresh_rollup_range
-
-BATCH = 50_000
 
 
 def _runs_filter() -> str:
@@ -85,37 +95,87 @@ def _counts(session: Session, tile: str) -> dict[str, Any]:
     }
 
 
-def _temp_ids(session: Session, name: str, source_sql: str, params: dict[str, Any]) -> int:
-    session.execute(text(f"DROP TABLE IF EXISTS {name}"))
-    session.execute(text(f"CREATE TEMP TABLE {name} AS {source_sql}"), params)
-    session.commit()
-    return int(session.scalar(text(f"SELECT count(*) FROM {name}")) or 0)
-
-
-def _drain(session: Session, temp: str, target: str, column: str = "id") -> int:
-    """Delete target rows whose ids are still in the temp table, in batches."""
-    deleted = 0
-    while True:
-        ids = session.execute(
-            text(
-                f"DELETE FROM {temp} WHERE ctid IN "
-                f"(SELECT ctid FROM {temp} LIMIT :batch) RETURNING id"
-            ),
-            {"batch": BATCH},
-        ).scalars().all()
-        session.commit()
-        if not ids:
-            return deleted
-        session.execute(
-            text(f"DELETE FROM {target} WHERE {column} = ANY(:ids)"), {"ids": ids}
-        )
-        session.commit()
-        deleted += len(ids)
-
-
 def _scope_key(bbox: str) -> str:
     west, south, east, north = (float(part) for part in bbox.split(","))
     return f"bbox:{west:g},{south:g},{east:g},{north:g}"
+
+
+def _teardown(session: Session, tile: str, before: dict[str, Any]) -> dict[str, int | bool]:
+    runs = _runs_filter()
+    scope = _scope_key(str(before["bbox"]))
+    counts: dict[str, int | bool] = {}
+
+    session.execute(text("SET statement_timeout = 0"))
+    session.execute(text("SET session_replication_role = replica"))
+    session.execute(text("drop table if exists doomed_observations"))
+    session.execute(text("drop table if exists doomed_raw_payloads"))
+    session.execute(
+        text(
+            "create temp table doomed_observations on commit drop as "
+            f"select id from fire_observations where run_id in ({runs})"
+        ),
+        {"tile": tile},
+    )
+    session.execute(
+        text(
+            "create temp table doomed_raw_payloads on commit drop as "
+            f"select id from raw_observations where run_id in ({runs})"
+        ),
+        {"tile": tile},
+    )
+
+    counts["members"] = session.execute(
+        text(
+            "delete from event_observations eo using doomed_observations d "
+            "where eo.observation_id = d.id"
+        )
+    ).rowcount or 0
+    matches = 0
+    for side in ("observation_a_id", "observation_b_id"):
+        matches += session.execute(
+            text(
+                f"delete from observation_matches m using doomed_observations d "
+                f"where m.{side} = d.id"
+            )
+        ).rowcount or 0
+    counts["matches"] = matches
+    counts["observations"] = session.execute(
+        text("delete from fire_observations o using doomed_observations d where o.id = d.id")
+    ).rowcount or 0
+    counts["raw"] = session.execute(
+        text("delete from raw_observations r using doomed_raw_payloads d where r.id = d.id")
+    ).rowcount or 0
+
+    counts["availability"] = session.execute(
+        text(
+            """
+            delete from source_availability sa
+            using ingestion_partitions ip
+            where sa.source_id = ip.source_id
+              and ip.tile_key = :tile
+              and sa.observation_date between ip.date_start and ip.date_end
+            """
+        ),
+        {"tile": tile},
+    ).rowcount or 0
+    counts["coverage"] = session.execute(
+        text(
+            "delete from harmonization_coverage "
+            "where scope = :scope and day between :start and :end"
+        ),
+        {"scope": scope, "start": before["first_day"], "end": before["last_day"]},
+    ).rowcount or 0
+    counts["partitions"] = session.execute(
+        text("delete from ingestion_partitions where tile_key = :tile"), {"tile": tile}
+    ).rowcount or 0
+    counts["runs"] = session.execute(
+        text("delete from ingestion_runs where query_parameters->>'tile' = :tile"),
+        {"tile": tile},
+    ).rowcount or 0
+
+    session.execute(text("SET session_replication_role = origin"))
+    session.commit()
+    return counts
 
 
 def main() -> int:
@@ -153,97 +213,25 @@ def main() -> int:
             return 0
 
         started = time.perf_counter()
-        scope = _scope_key(str(before["bbox"]))
-        runs = _runs_filter()
+        counts = _teardown(session, args.tile_key, before)
 
-        doomed_obs = _temp_ids(
-            session,
-            "doomed_obs",
-            f"SELECT id FROM fire_observations WHERE run_id IN ({runs})",
-            {"tile": args.tile_key},
-        )
-        doomed_raw = _temp_ids(
-            session,
-            "doomed_raw",
-            f"SELECT id FROM raw_observations WHERE run_id IN ({runs})",
-            {"tile": args.tile_key},
-        )
-        print(f"\nCollected {doomed_obs:,} observations and {doomed_raw:,} raw rows")
-
-        # 1. Associations and event memberships that reference the rows.
-        matches = 0
-        for side in ("observation_a_id", "observation_b_id"):
-            matches += session.execute(
-                text(
-                    f"DELETE FROM observation_matches m USING doomed_obs d "
-                    f"WHERE m.{side} = d.id"
-                )
-            ).rowcount or 0
-            session.commit()
-        members = session.execute(
-            text(
-                "DELETE FROM event_observations eo USING doomed_obs d "
-                "WHERE eo.observation_id = d.id"
+    refreshed = False
+    if counts["observations"]:
+        with session_scope() as session:
+            refreshed = refresh_rollup_range(
+                session, before["first_day"], before["last_day"]
             )
-        ).rowcount or 0
-        session.commit()
-
-        # 2. Availability must forget the days, otherwise they read as quiet.
-        availability = session.execute(
-            text(
-                """
-                DELETE FROM source_availability sa
-                USING ingestion_partitions ip
-                WHERE sa.source_id = ip.source_id
-                  AND ip.tile_key = :tile
-                  AND sa.observation_date BETWEEN ip.date_start AND ip.date_end
-                """
-            ),
-            {"tile": args.tile_key},
-        ).rowcount or 0
-        session.commit()
-
-        # 3. Observations and their raw payloads, batch by batch.
-        observations = _drain(session, "doomed_obs", "fire_observations")
-        raw = _drain(session, "doomed_raw", "raw_observations")
-
-        # 4. Coverage checkpoints for the matching bbox scope.
-        coverage = session.execute(
-            text(
-                "DELETE FROM harmonization_coverage "
-                "WHERE scope = :scope AND day BETWEEN :start AND :end"
-            ),
-            {"scope": scope, "start": before["first_day"], "end": before["last_day"]},
-        ).rowcount or 0
-        session.commit()
-
-        # 5. Partitions and runs last, so the steps above could still find them.
-        partitions = session.execute(
-            text("DELETE FROM ingestion_partitions WHERE tile_key = :tile"),
-            {"tile": args.tile_key},
-        ).rowcount or 0
-        runs_deleted = session.execute(
-            text("DELETE FROM ingestion_runs WHERE query_parameters->>'tile' = :tile"),
-            {"tile": args.tile_key},
-        ).rowcount or 0
-        session.commit()
-        session.execute(text("DROP TABLE IF EXISTS doomed_obs"))
-        session.execute(text("DROP TABLE IF EXISTS doomed_raw"))
-        session.commit()
-
-        # 6. Rebuild only the affected days.
-        refreshed = refresh_rollup_range(session, before["first_day"], before["last_day"])
 
     elapsed = time.perf_counter() - started
     print("\nDeleted")
-    print(f"  observations      {observations:>12,}  (of {before['observations']:,})")
-    print(f"  raw payload rows  {raw:>12,}  (of {before['raw_observations']:,})")
-    print(f"  matches           {matches:>12,}")
-    print(f"  event memberships {members:>12,}")
-    print(f"  availability rows {availability:>12,}")
-    print(f"  coverage days     {coverage:>12,}  (scope {scope})")
-    print(f"  partitions        {partitions:>12,}")
-    print(f"  ingestion runs    {runs_deleted:>12,}")
+    print(f"  observations      {counts['observations']:>12,}  (of {before['observations']:,})")
+    print(f"  raw payload rows  {counts['raw']:>12,}  (of {before['raw_observations']:,})")
+    print(f"  matches           {counts['matches']:>12,}")
+    print(f"  event memberships {counts['members']:>12,}")
+    print(f"  availability rows {counts['availability']:>12,}")
+    print(f"  coverage days     {counts['coverage']:>12,}")
+    print(f"  partitions        {counts['partitions']:>12,}")
+    print(f"  ingestion runs    {counts['runs']:>12,}")
     print(f"  rollups rebuilt   {refreshed}")
     print(f"  finished in {elapsed / 60:.1f} min")
     print(

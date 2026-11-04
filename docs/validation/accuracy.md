@@ -1,6 +1,6 @@
 # Accuracy and consistency
 
-Generated: 2026-11-03
+Generated: 2026-11-04
 
 Two questions are kept apart. **Corroboration** asks how often the two sensors agree on the same hotspot. **Burned-area agreement** is a rank correlation and is only reported when a burned-area table is supplied.
 
