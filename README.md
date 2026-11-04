@@ -48,6 +48,10 @@ These are live captures of the console on the workstation (PostgreSQL store, 202
 
 ![Admin portal: FIRMS key (masked), raw-payload retention and export-before-delete](docs/screenshots/admin.png)
 
+### Data query
+
+![Data query: filtered detections with full provenance and CSV export](docs/screenshots/query.png)
+
 ---
 
 ## What works today
