@@ -187,7 +187,19 @@ A second working block on the same day, after the Amazon teardown.
   `/events` now accept `start_date`/`end_date`; the page passes the header period and says so,
   and the CSV export inherits it. Reversed periods return 422. Verified live for 2026-10-29 ?
   2026-11-04: **808,966** detections, **87,271** stored match rows, **3,088** events.
-- **Tests:** backend **232**, frontend **73**; ruff and mypy clean; production
+- **Incident: bulk ingestion 500s.** A global four-day VIIRS window (~324k rows)
+  exceeded the 60 s `statement_timeout` applied to every PostgreSQL connection and
+  surfaced as *Internal server error* from `/admin/ingestion/run`. Fixed by applying
+  `SET LOCAL statement_timeout` per ingest window (`INGESTION_STATEMENT_TIMEOUT_MS`,
+  default 15 min); the interactive read cap stays at 60 s.
+- **Incident: resume keyed only on the window start.** A one-day run could mark a
+  four-day window starting on the same day as succeeded and skip three days. The
+  resume check now requires the stored `date_end` to match the window.
+- **August 2026 retry.** Re-ran the failed VIIRS windows for 2026-08-01 ? 08-04:
+  SNPP, NOAA-20 and NOAA-21 all succeeded (188,523 / 324,254 / 314,808 received),
+  adding **807,176** canonical detections; bulk rollups refreshed. Store now
+  **12,772,331** observations, **12,533,378** raw payloads, **21 GB**.
+- **Tests:** backend **234**, frontend **73**; ruff and mypy clean; production
   frontend build succeeded. Two pre-existing test issues were repaired along the
   way: the harmonization scope test now waits for the scope payload instead of
   matching the header date twice, and jsdom's canvas stub no longer produces an

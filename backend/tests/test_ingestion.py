@@ -83,6 +83,23 @@ def test_resume_skips_completed_partitions() -> None:
     assert again.records_inserted == 0
 
 
+def test_resume_does_not_skip_a_longer_window() -> None:
+    """A one-day partition must not stand in for a four-day window."""
+    ingest_csv_text("MODIS_SP", MOD, start_date=date(2026, 10, 28), end_date=date(2026, 10, 28))
+    again = ingest_range(
+        "MODIS_SP",
+        start_date=date(2026, 10, 28),
+        end_date=date(2026, 10, 29),
+        client=StaticCsvClient(MOD),
+        is_synthetic=True,
+        resume=True,
+    )
+
+    assert again.partitions_skipped == 0
+    assert again.partitions_completed == 1
+    assert again.records_inserted == 0  # the same rows are deduplicated
+
+
 def test_forced_rerun_reprocesses_but_still_deduplicates() -> None:
     ingest_csv_text("MODIS_SP", MOD, start_date=date(2026, 10, 28), end_date=date(2026, 10, 28))
     again = ingest_range(
@@ -163,3 +180,12 @@ def test_global_tiling_is_deterministic_and_covers_the_globe() -> None:
     assert sum(
         (tile.east - tile.west) * (tile.north - tile.south) for tile in tiles
     ) == pytest.approx(360 * 180)
+
+
+def test_bulk_ingest_has_a_statement_budget_longer_than_reads() -> None:
+    from app.core.config import get_settings
+    from app.services.ingestion import _relax_statement_timeout
+
+    assert get_settings().ingestion_statement_timeout_ms > 60_000
+    with session_scope() as session:
+        _relax_statement_timeout(session)  # no-op on SQLite, must not raise

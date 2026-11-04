@@ -12,11 +12,11 @@ exposes all of it through a dark analytical console.
 > calendar, analytics, anomalies, query, reports, assistant, regional, exposure and the admin
 > portal are delivered. Nothing on the platform is a placeholder.
 >
-> - **11,944,746** canonical detections in PostgreSQL (**19 GB**): NRT coverage 2026-09-02 ?
->   2026-11-03, the partial 2026-08-01 ? 08-05 MODIS_SP window, and two fixture months.
-> - **11,705,793** raw payloads retained under a **90-day** policy; older payloads are exported
+> - **12,772,331** canonical detections in PostgreSQL (**21 GB**): NRT coverage 2026-09-02 ?
+>   2026-11-03, 2026-08-01 ? 08-05 (MODIS 1?5, VIIRS 1?4), and two fixture months.
+> - **12,533,378** raw payloads on hand under a **90-day** policy; older payloads are exported
 >   with a SHA-256 receipt, then deleted without touching canonical analysis.
-> - **232 backend / 73 frontend tests**; ruff, mypy, `tsc` and the production build pass.
+> - **234 backend / 73 frontend tests**; ruff, mypy, `tsc` and the production build pass.
 > - **Known gaps:** authentication is not enforced (bind the console to localhost or a proxy),
 >   there is no CI pipeline or backup/restore drill, live Cloudflare R2 upload is unexercised,
 >   burned-area agreement is not measured, and 2026-08-06 ? 08-31 is still unobserved.
@@ -122,10 +122,10 @@ Long-running historical work is started through one function, CLI or durable job
 
 ## Database
 
-Nearly twelve million detections occupy 19 GB in PostgreSQL; day- and cell-level rollups keep the
+Nearly 12.8 million detections occupy 21 GB in PostgreSQL; day- and cell-level rollups keep the
 dashboard interactive (analytics 0.24 s, calendar 0.05 s, report 0.17 s).
 
-The live workstation runs **PostgreSQL 16** (19 GB for 11.9 M detections); SQLite remains the
+The live workstation runs **PostgreSQL 16** (21 GB for 12.77 M detections); SQLite remains the
 zero-setup option for tests and CI. See [docs/operations.md](docs/operations.md) for starting
 the local cluster, migrating, copying SQLite data across, backups and the 30-day storage
 estimate (~7.1 GB for a full four-product day, ~3.7 GB at the observed rate).
@@ -202,7 +202,7 @@ Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 ## Tests
 
 ```bash
-cd backend  && uv run pytest       # 232 tests
+cd backend  && uv run pytest       # 234 tests
 cd frontend && npm test            # 73 tests
 
 cd backend  && uv run ruff check . && uv run mypy app

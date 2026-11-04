@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+pysqlite:///./firewatch.db"
     database_echo: bool = False
     database_pool_size: int = 10
+    #: Bulk ingestion legitimately exceeds the interactive 60 s statement cap.
+    #: Applied as SET LOCAL for the ingest transaction; 0 disables the limit.
+    ingestion_statement_timeout_ms: int = 900_000
     database_pool_timeout: int = 30
 
     redis_url: str = "redis://localhost:6379/0"

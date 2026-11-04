@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -107,6 +107,20 @@ def _existing(
             ).all()
         )
     return found
+
+
+def _relax_statement_timeout(session: Session) -> None:
+    """Bulk COPY/INSERT needs longer than the interactive read timeout.
+
+    Connections default to a 60 s ``statement_timeout`` so a runaway analytical
+    query cannot pin a worker. A global four-day VIIRS window is hundreds of
+    thousands of rows and legitimately exceeds that; without this override the
+    insert is cancelled and the API returns a 500.
+    """
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    timeout_ms = max(0, int(get_settings().ingestion_statement_timeout_ms))
+    session.execute(text(f"SET LOCAL statement_timeout = {timeout_ms}"))
 
 
 def _bulk_insert(
@@ -331,7 +345,15 @@ def _ingest(
             )
         ).first()
 
-        if partition is not None and resume and partition.status == "succeeded":
+        # A partition is only resumable when it covers the *same* window. The
+        # key is (source, tile, date_start), so a one-day run would otherwise
+        # mark a four-day window as done and skip three days of data.
+        if (
+            partition is not None
+            and resume
+            and partition.status == "succeeded"
+            and partition.date_end == window_end
+        ):
             result.partitions_skipped += 1
             result.records_received += partition.records_received
             continue
@@ -349,7 +371,9 @@ def _ingest(
         else:
             partition.status = "running"
             partition.attempts += 1
+            partition.date_end = window_end
         session.flush()
+        _relax_statement_timeout(session)
 
         try:
             response = client.fetch_area(
