@@ -287,4 +287,19 @@ describe("fire map page", () => {
       (await screen.findAllByText(/detections are thermal anomalies, not fires/i)).length,
     ).toBeGreaterThan(0);
   });
+
+  it("toggles the harmonized map view", async () => {
+    const fetchMock = installFetchMock();
+    renderApp("/map");
+
+    const toggle = await screen.findByRole("button", { name: /^harmonized$/i });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+      expect(urls.some((url) => url.includes("harmonized=true"))).toBe(true);
+    });
+  });
 });

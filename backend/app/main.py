@@ -56,6 +56,22 @@ TAGS_METADATA = [
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
+
+    # A key saved in the admin portal is stored in the database, so it survives a
+    # restart without editing the environment. A missing table (first boot before
+    # migrations) is not fatal: the environment value still applies.
+    try:
+        from app.db.session import session_scope
+        from app.services import app_settings
+
+        with session_scope() as session:
+            app_settings.apply_stored_firms_key(session, settings)
+            singleton = get_settings()
+            if singleton is not settings:
+                app_settings.apply_stored_firms_key(session, singleton)
+    except Exception as exc:  # pragma: no cover - depends on database state
+        logger.warning("firms_key_load_skipped", error=str(exc))
+
     logger.info(
         "startup",
         environment=settings.environment,

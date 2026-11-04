@@ -1,10 +1,10 @@
-import type { ApiErrorBody } from "@/types/api";
+﻿import type { ApiErrorBody } from "@/types/api";
 
 /**
  * The browser never holds secrets and never talks to NASA directly: every
  * request goes to our own API, which owns the FIRMS MAP_KEY.
  */
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 export class ApiError extends Error {
   readonly code: string;
@@ -55,7 +55,7 @@ export async function apiFetch<T>(
 ): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
+    response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
       headers: {
         Accept: "application/json",
@@ -98,3 +98,4 @@ export async function apiFetch<T>(
 
   return payload as T;
 }
+

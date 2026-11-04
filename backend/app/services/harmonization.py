@@ -13,16 +13,19 @@ physical fire, and it is never used to collapse observations.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, time, timedelta
+from functools import wraps
 from typing import Any
 
 import numpy as np
-from sqlalchemy import delete, func, insert, select
+from sqlalchemy import delete, func, insert, select, text
 from sqlalchemy.orm import Session, aliased
 
 from app.core.logging import get_logger
+from app.db.dialect import dialect_name
 from app.db.models import (
     AlgorithmRun,
     FireObservation,
@@ -36,6 +39,47 @@ from app.services.observation_queries import BBox  # noqa: TC001 - runtime type 
 logger = get_logger(__name__)
 
 ALGORITHM_VERSION = "assoc-v1"
+
+#: One harmonization pass mutates the match table for a scope. Two passes over
+#: the same scope used to collide on ``uq_observation_matches_pair`` and return
+#: a 500; they are now rejected with a clear conflict instead.
+HARMONIZATION_LOCK_KEY = 0x46495748
+_RUN_LOCK = threading.Lock()
+
+
+class HarmonizationBusy(RuntimeError):
+    """Another harmonization pass owns the match table right now."""
+
+
+def _serialized(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Refuse overlapping passes instead of letting them collide on matches."""
+
+    @wraps(fn)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        if not _RUN_LOCK.acquire(blocking=False):
+            raise HarmonizationBusy(
+                "A harmonization run is already in progress. Retry when it finishes."
+            )
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _RUN_LOCK.release()
+
+    return wrapper
+
+
+def _lock_transaction(session: Session) -> None:
+    """PostgreSQL cross-process guard, released automatically at commit."""
+    if dialect_name(session) != "postgresql":
+        return
+    acquired = session.scalar(
+        text("SELECT pg_try_advisory_xact_lock(:key)"),
+        {"key": HARMONIZATION_LOCK_KEY},
+    )
+    if not acquired:
+        raise HarmonizationBusy(
+            "A harmonization run is already in progress in another process."
+        )
 
 
 @dataclass(frozen=True)
@@ -372,6 +416,7 @@ def _insert_matches(
     return counts
 
 
+@_serialized
 def run_harmonization_range(
     *,
     start: date,
@@ -427,6 +472,7 @@ def run_harmonization_range(
             algorithm_version=ALGORITHM_VERSION,
             is_synthetic=is_synthetic,
         )
+        _lock_transaction(session)
         session.add(run)
         session.flush()
 
@@ -575,6 +621,7 @@ def coverage_summary(session: Session, *, is_synthetic: bool = False) -> dict[st
 
 
 
+@_serialized
 def run_harmonization(
     *,
     params: MatchParameters | None = None,
@@ -599,6 +646,7 @@ def run_harmonization(
             algorithm_version=ALGORITHM_VERSION,
             is_synthetic=is_synthetic,
         )
+        _lock_transaction(session)
         session.add(run)
         session.flush()
 

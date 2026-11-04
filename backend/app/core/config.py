@@ -65,6 +65,14 @@ class Settings(BaseSettings):
     #: local | cloud | split  (split = local writes, cloud reads summaries)
     database_mode: str = "local"
     local_data_directory: str = "./data"
+    #: Raw payload retention. Raw rows older than this are removed by the
+    #: retention job; the canonical observations and all analysis are kept.
+    raw_retention_days: int = 90
+    #: The admin portal only exports payloads older than this, so live ingestion
+    #: is never exported mid-flight.
+    raw_export_min_age_days: int = 5
+    #: Largest single export, in days, to keep one request bounded.
+    raw_export_max_days: int = 62
     cloud_database_url: str | None = None
     #: Cloudflare R2 (S3-compatible). Absent credentials mean local-only.
     r2_account_id: str | None = None

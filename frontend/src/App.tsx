@@ -12,6 +12,7 @@ import { HarmonizationPage } from "@/pages/HarmonizationPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { OverviewPage } from "@/pages/OverviewPage";
 import { QueryPage } from "@/pages/QueryPage";
+import { RawArchivePage } from "@/pages/RawArchivePage";
 import { RegionsPage } from "@/pages/RegionsPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
@@ -32,6 +33,7 @@ export function App() {
         <Route path="reports" element={<ReportsPage />} />
         <Route path="assistant" element={<AssistantPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="admin" element={<RawArchivePage />} />
         <Route path="infrastructure" element={<CloudReadinessPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

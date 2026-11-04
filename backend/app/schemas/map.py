@@ -29,4 +29,8 @@ class AggregateResponse(BaseModel):
     truncated: bool
     bbox: list[float]
     source: str = Field(default="live", description="rollup or live scan")
+    harmonized: bool = Field(
+        default=False,
+        description="True when MODIS-associated VIIRS detections were removed",
+    )
     note: str | None = None

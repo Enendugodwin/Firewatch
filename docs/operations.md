@@ -146,6 +146,42 @@ Without Docker, run the API and the Vite/dev server directly (see the quick star
 `DATABASE_URL` at PostgreSQL as described above. `/health` is liveness, `/ready` is readiness, and
 `/api/v1/system/status` reports phase, dialect and data freshness.
 
+## Raw payload retention and the admin portal
+
+Raw payloads are provenance, not analysis. `raw_observations` can be pruned
+without touching `fire_observations`, `observation_matches`, events or rollups —
+every screen keeps the same numbers.
+
+- **Policy:** keep 90 days (`RAW_RETENTION_DAYS`). Apply from the admin portal
+  (`/admin` → *Run retention now*) or on a schedule:
+
+  ```powershell
+  cd backend
+  $env:PYTHONPATH = "."
+  .venv\Scripts\python.exe -m scripts.retention            # dry run
+  .venv\Scripts\python.exe -m scripts.retention --apply
+  .venv\Scripts\python.exe -m scripts.retention --apply --vacuum
+  ```
+
+  `--vacuum` runs `VACUUM (FULL, ANALYZE) raw_observations` and returns the disk
+  space; it needs an exclusive lock and sets `statement_timeout = 0` for the
+  session.
+
+- **Export before delete:** the portal exports a bounded range (≤ 62 days,
+  payloads older than 5 days) as `CSV.GZ`, with a SHA-256 over the uncompressed
+  CSV. Deleting that range requires the checksum and refuses if the row count
+  changed since the export. The archive is the operator's copy.
+- **What was deleted on 2026-11-04:** 240,953 payload rows older than
+  2026-08-06 (2019-12 fixture, 2024-12 fixture, 2026-08-01→05), then
+  `VACUUM FULL`; raw rows **11,946,746 → 11,705,793**, relation **7,664 MB →
+  6,933 MB**, canonical observations unchanged at **11,944,746**.
+
+- **FIRMS key:** save/rotate it in the admin portal. It is stored in
+  `app_settings`, applied immediately and reloaded at startup; reads return only
+  a masked fingerprint. The environment value remains the fallback when no key
+  is stored. `POST /api/v1/admin/settings/firms/test` asks FIRMS whether the
+  active key works.
+
 ## Security posture
 
 - Structured security headers on every response; API responses are `no-store`.
@@ -153,7 +189,8 @@ Without Docker, run the API and the Vite/dev server directly (see the quick star
   `Retry-After` and `X-RateLimit-*` headers.
 - `CORS_ORIGINS` is an explicit allow-list; the browser never holds the FIRMS key.
 - The web GUI has no authentication of its own: bind it to localhost or put it behind an
-  authenticating proxy before exposing it.
+  authenticating proxy before exposing it. **This now includes the admin portal**, which can
+  rotate the FIRMS key and delete raw payloads.
 
 ## Pushing to GitHub
 

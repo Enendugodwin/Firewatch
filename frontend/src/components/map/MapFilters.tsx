@@ -13,6 +13,7 @@ export interface MapFiltersState {
   heat: boolean;
   basemap: boolean;
   includeSynthetic: boolean;
+  harmonized: boolean;
 }
 
 export const DEFAULT_FILTERS: MapFiltersState = {
@@ -25,6 +26,7 @@ export const DEFAULT_FILTERS: MapFiltersState = {
   heat: false,
   basemap: true,
   includeSynthetic: false,
+  harmonized: false,
 };
 
 const label = "text-2xs font-light text-faint";
@@ -189,6 +191,12 @@ export function MapFilters({
         </Checkbox>
         <Checkbox checked={filters.basemap} onChange={(basemap) => patch({ basemap })}>
           Basemap (© OpenStreetMap)
+        </Checkbox>
+        <Checkbox
+          checked={filters.harmonized}
+          onChange={(harmonized) => patch({ harmonized })}
+        >
+          Harmonized view (dedupe MODIS-associated VIIRS)
         </Checkbox>
         {hasSynthetic ? (
           <Checkbox

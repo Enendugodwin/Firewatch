@@ -407,16 +407,19 @@ async def run_matching(
 
     results = []
     for scope in scopes:
-        results.append(
-            await run_in_threadpool(
-                harmonization_service.run_harmonization,
-                params=params,
-                is_synthetic=scope,
-                bbox=bbox,
-                start_date=request.start_date,
-                end_date=request.end_date,
+        try:
+            results.append(
+                await run_in_threadpool(
+                    harmonization_service.run_harmonization,
+                    params=params,
+                    is_synthetic=scope,
+                    bbox=bbox,
+                    start_date=request.start_date,
+                    end_date=request.end_date,
+                )
             )
-        )
+        except harmonization_service.HarmonizationBusy as exc:
+            raise AppError("conflict", str(exc)) from exc
 
     event_results = []
     if request.run_events:

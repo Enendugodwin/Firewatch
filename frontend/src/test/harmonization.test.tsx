@@ -54,7 +54,7 @@ describe("sensor intelligence (Phase 3)", () => {
     installFetchMock({ summary: FIXTURE_SUMMARY, matches: MATCHES, events: EVENTS });
     renderApp("/harmonization");
 
-    expect(await screen.findByText(/2026-10-29/)).toBeInTheDocument();
-    expect(screen.getByText(/bbox 2\.5, 4, 14\.7, 13\.9/)).toBeInTheDocument();
+    expect(await screen.findByText(/bbox 2\.5, 4, 14\.7, 13\.9/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/2026-10-29/)).length).toBeGreaterThan(0);
   });
 });

@@ -61,7 +61,7 @@ def aggregate_observations(
 ) -> dict[str, Any]:
     cell = grid_degrees(zoom)
     effective = rollup_cell_degrees(cell)
-    if effective is not None:
+    if effective is not None and not filters.harmonized:
         rollup_rows = rollups.map_cells(
             session, filters, bbox=bbox, cell_degrees=effective, limit=limit + 1
         )
@@ -98,6 +98,7 @@ def aggregate_observations(
                 "truncated": truncated,
                 "bbox": bbox.as_list(),
                 "source": "rollup",
+                "harmonized": filters.harmonized,
                 "note": (
                     "Aggregated from the 2° cell rollup; the returned cell size is the "
                     "nearest 2° multiple at or above the requested size."
@@ -157,4 +158,11 @@ def aggregate_observations(
         "truncated": truncated,
         "bbox": bbox.as_list(),
         "source": "live",
+        "harmonized": filters.harmonized,
+        "note": (
+            "Harmonized view: VIIRS detections with a probable or possible MODIS "
+            "association are excluded, so counts are deduplicated detections, not fires."
+            if filters.harmonized
+            else None
+        ),
     }

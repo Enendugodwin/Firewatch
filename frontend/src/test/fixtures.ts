@@ -528,6 +528,7 @@ export function installFetchMock(options: MockOptions = {}) {
   const calendarDrilldown = options.calendar?.drilldown ?? EMPTY_DRILLDOWN;
   const intelligence = options.intelligence ?? CALENDAR_INTELLIGENCE;
 
+  let firmsConfigured = false;
   const mock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes("/api/v1/reports/summary")) {
@@ -871,6 +872,56 @@ export function installFetchMock(options: MockOptions = {}) {
         rollups: { available: true, rows: 1646, dialect: "postgresql" },
       });
     }
+    if (url.includes("/api/v1/admin/settings/firms")) {
+      if (init?.method === "PUT") firmsConfigured = true;
+      if (init?.method === "DELETE") firmsConfigured = false;
+      return json(
+        firmsConfigured
+          ? {
+              configured: true,
+              source: "database",
+              masked: "????????9f2c",
+              updated_at: "2026-11-04T10:00:00Z",
+              hint: "Stored server-side.",
+            }
+          : {
+              configured: false,
+              source: "none",
+              masked: null,
+              updated_at: null,
+              hint: "Request a free key.",
+            },
+      );
+    }
+    if (url.includes("/api/v1/admin/raw/inventory")) {
+      return json({
+        policy: {
+          retention_days: 90,
+          retention_cutoff: "2026-08-06",
+          export_min_age_days: 5,
+          export_cutoff: "2026-10-30",
+          export_max_days: 62,
+        },
+        totals: { rows: 6218624, payload_bytes: 1771000000, days: 40, past_retention_rows: 240953 },
+        days: [
+          {
+            day: "2026-09-02",
+            rows: 1000,
+            payload_bytes: 300000,
+            exportable: true,
+            past_retention: false,
+          },
+          {
+            day: "2024-12-01",
+            rows: 2000,
+            payload_bytes: 600000,
+            exportable: true,
+            past_retention: true,
+          },
+        ],
+      });
+    }
+    if (url.includes("/api/v1/admin/raw/exports")) return json([]);
     if (url.includes("/api/v1/infrastructure/datasets")) {
       return json({
         root: "./data/firewatch-data",

@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Archive,
   CalendarDays,
   FileText,
   Globe2,
@@ -165,6 +166,14 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: Settings2,
         phase: "Phase 1",
         group: "Status and administration",
+      },
+      {
+        key: "admin",
+        label: "Admin Portal",
+        to: "/admin",
+        icon: Archive,
+        phase: "Phase 9",
+        group: "FIRMS key and raw archive",
       },
     ],
   },

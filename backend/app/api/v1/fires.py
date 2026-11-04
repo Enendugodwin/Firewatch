@@ -47,6 +47,7 @@ def _filters(
     min_confidence: str | None = None,
     start_at: datetime | None = None,
     end_at: datetime | None = None,
+    harmonized: bool = False,
 ) -> ObservationFilters:
     return ObservationFilters(
         bbox=BBox.parse(bbox) if bbox else None,
@@ -60,6 +61,7 @@ def _filters(
         daynight=daynight,
         min_confidence=min_confidence,
         synthetic=synthetic,
+        harmonized=harmonized,
     )
 
 
@@ -80,6 +82,9 @@ def search_fires(
     daynight: str | None = Query(None, pattern="^[DdNn]$"),
     min_confidence: str | None = Query(None, pattern="^(?i)(low|nominal|high)$"),
     synthetic: bool | None = Query(None, description="Filter labelled fixture data"),
+    harmonized: bool = Query(
+        False, description="Deduplicated view: drop VIIRS with a MODIS association"
+    ),
     limit: int = Query(200, ge=1, le=5000),
     offset: int = Query(0, ge=0),
     session: Session = Depends(get_session),
@@ -96,6 +101,7 @@ def search_fires(
         min_confidence,
         start_at,
         end_at,
+        harmonized,
     )
     rows, total = search_observations(session, filters, limit=limit, offset=offset)
     return ObservationPage(
@@ -147,6 +153,9 @@ def fires_geojson(
     daynight: str | None = Query(None, pattern="^[DdNn]$"),
     min_confidence: str | None = Query(None, pattern="^(?i)(low|nominal|high)$"),
     synthetic: bool | None = None,
+    harmonized: bool = Query(
+        False, description="Deduplicated view: drop VIIRS with a MODIS association"
+    ),
     limit: int = Query(2000, ge=1, le=5000),
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
@@ -172,6 +181,7 @@ def fires_geojson(
         min_confidence,
         start_at,
         end_at,
+        harmonized,
     )
     rows, total = search_observations(session, filters, limit=limit, offset=0)
     features = []
@@ -229,6 +239,9 @@ def aggregate_fires(
     daynight: str | None = Query(None, pattern="^[DdNn]$"),
     min_confidence: str | None = Query(None, pattern="^(?i)(low|nominal|high)$"),
     synthetic: bool | None = None,
+    harmonized: bool = Query(
+        False, description="Deduplicated view: drop VIIRS with a MODIS association"
+    ),
     limit: int = Query(6000, ge=1, le=20000),
     session: Session = Depends(get_session),
 ) -> AggregateResponse:
@@ -255,6 +268,7 @@ def aggregate_fires(
         min_confidence,
         start_at,
         end_at,
+        harmonized,
     )
     result = aggregate_observations(session, filters, bbox=area, zoom=zoom, limit=limit)
     _AGGREGATE_CACHE.set(cache_key, result)
@@ -302,6 +316,9 @@ def export_fires(
     daynight: str | None = Query(None, pattern="^[DdNn]$"),
     min_confidence: str | None = Query(None, pattern="^(?i)(low|nominal|high)$"),
     synthetic: bool | None = None,
+    harmonized: bool = Query(
+        False, description="Deduplicated view: drop VIIRS with a MODIS association"
+    ),
     limit: int = Query(100000, ge=1, le=500000),
 ) -> StreamingResponse:
     """
@@ -321,6 +338,7 @@ def export_fires(
         min_confidence,
         start_at,
         end_at,
+        harmonized,
     )
 
     def generate() -> Iterator[str]:

@@ -29,6 +29,23 @@ With no R2 values the application starts normally, the readiness page reports `n
 credentials`, and every sync action is a local no-op. Missing credentials in `STORAGE_MODE=r2`
 raise a clear error instead of silently falling back to disk.
 
+## Raw payloads never leave the host
+
+Only **analysis** is uploaded: the Parquet export of canonical detections
+(`EXPORT_COLUMNS` in `app/services/datasets.py`), the daily analytics rollup and their
+manifests. The export schema has no `source_payload` column, and the sync path only reads
+registered dataset files. A test (`tests/test_cloud_infra.py`) pins this down.
+
+`raw_observations` is deliberately local-only:
+
+- it is provenance, recreatable by re-ingesting the same FIRMS products;
+- it is the largest object in the database (~6.9 GB for 11.7 M rows);
+- it is pruned on a 90-day policy after the export-before-delete workflow in the admin portal
+  (see `docs/operations.md`).
+
+A cloud deployment therefore needs no object-storage bucket for raw payloads, and a restore
+rebuilds analysis from the Parquet datasets plus PostgreSQL backups rather than from raw rows.
+
 ## Storage interface
 
 `app/storage/base.py` defines `StorageProvider`: `upload`, `download`, `delete`, `exists`,

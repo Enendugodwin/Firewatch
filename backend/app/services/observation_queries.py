@@ -73,6 +73,10 @@ class ObservationFilters:
     daynight: str | None = None
     min_confidence: str | None = None
     synthetic: bool | None = None
+    #: Deduplicated view: drop VIIRS detections that a probable/possible MODIS
+    #: association already accounts for. This is the map form of the
+    #: harmonized series, not a new measurement.
+    harmonized: bool = False
 
     def __post_init__(self) -> None:
         for field in ("start_at", "end_at"):
@@ -123,6 +127,11 @@ class ObservationFilters:
                 stmt = stmt.where(FireObservation.confidence_category.in_(allowed))
         if self.synthetic is not None:
             stmt = stmt.where(FireObservation.is_synthetic.is_(self.synthetic))
+        if self.harmonized:
+            associated = select(ObservationMatch.observation_b_id).where(
+                ObservationMatch.match_status.in_(('probable', 'possible'))
+            )
+            stmt = stmt.where(~FireObservation.id.in_(associated))
         return stmt
 
 

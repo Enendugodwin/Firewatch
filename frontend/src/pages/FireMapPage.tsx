@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Loader2, Search, SlidersHorizontal, X } from "lucide-react";
+import { AlertTriangle, Layers, Loader2, Search, SlidersHorizontal, X } from "lucide-react";
 
 import { PageHeader } from "@/components/ui/ModuleStatus";
 import { Badge } from "@/components/ui/Badge";
@@ -97,6 +97,7 @@ export function FireMapPage() {
       daynight: filters.daynight === "all" ? undefined : filters.daynight,
       minConfidence: filters.minConfidence,
       synthetic: filters.includeSynthetic ? undefined : false,
+    harmonized: filters.harmonized,
       startDate: dateRange.start,
       endDate: dateRange.end,
     };
@@ -202,8 +203,8 @@ export function FireMapPage() {
 
   const statusLine = query
     ? meta.aggregated
-      ? `${formatCount(meta.shown)} cells · ${formatCount(meta.total)} detections${meta.cellDegrees ? ` · ${meta.cellDegrees.toFixed(2)}° grid` : ""}`
-      : `${formatCount(meta.shown)} of ${formatCount(meta.total)} detections${meta.truncated ? " (truncated)" : ""}`
+      ? `${filters.harmonized ? "Harmonized · " : ""}${formatCount(meta.shown)} cells · ${formatCount(meta.total)} detections${meta.cellDegrees ? ` · ${meta.cellDegrees.toFixed(2)}° grid` : ""}`
+      : `${filters.harmonized ? "Harmonized · " : ""}${formatCount(meta.shown)} of ${formatCount(meta.total)} detections${meta.truncated ? " (truncated)" : ""}`
     : "No sensor selected";
 
   return (
@@ -340,6 +341,20 @@ export function FireMapPage() {
               </div>
 
               <div className="pointer-events-auto flex items-start justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFilters({ ...filters, harmonized: !filters.harmonized })}
+                  aria-pressed={filters.harmonized}
+                  title="Show the harmonized view: VIIRS detections already associated with MODIS are removed"
+                  className={
+                    filters.harmonized
+                      ? "inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-2xs text-accent"
+                      : "inline-flex items-center gap-1.5 rounded-full border border-line/10 bg-panel/90 px-3 py-1.5 text-2xs text-muted"
+                  }
+                >
+                  <Layers className="size-3" aria-hidden />
+                  Harmonized
+                </button>
                 <button
                   type="button"
                   onClick={() => setMobileFiltersOpen((open) => !open)}

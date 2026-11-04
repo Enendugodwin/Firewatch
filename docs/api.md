@@ -240,6 +240,22 @@ GET /api/v1/fires?bbox=-5,4,15,14&start_date=2026-01-01&end_date=2026-01-31&sens
 GET /api/v1/calendar/yearly?region_id=NG&year=2026&metric=raw_detections
 ```
 
+## Administration endpoints
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/v1/admin/settings/firms` | FIRMS key status (masked; never the key) |
+| `PUT /api/v1/admin/settings/firms` | Store/replace the key server-side |
+| `DELETE /api/v1/admin/settings/firms` | Remove the stored key, fall back to the environment |
+| `POST /api/v1/admin/settings/firms/test` | Ask FIRMS whether the active key works |
+| `GET /api/v1/admin/raw/inventory` | Payload rows per day, footprint and retention policy |
+| `POST /api/v1/admin/raw/exports` | Export a bounded range as CSV.GZ, record SHA-256 |
+| `GET /api/v1/admin/raw/exports` | Export receipts |
+| `GET /api/v1/admin/raw/exports/{id}/download` | Download the archive |
+| `POST /api/v1/admin/raw/exports/{id}/delete` | Delete that range's payloads (checksum required) |
+| `GET /api/v1/admin/raw/retention/preview` | What retention would remove |
+| `POST /api/v1/admin/raw/retention` | Apply retention (`confirm: true`) |
+
 ## Access control
 
 No authentication exists yet (Phase 8). The console must therefore be bound to localhost or a

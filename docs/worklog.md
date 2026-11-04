@@ -147,6 +147,47 @@ Commits `fa6c1df`, plus the deletion itself.
 - Verified after: 11,859,005 observations (all 2026), `region:amazon` partitions
   and runs at 0, calendar for 2026-09 still serving, `/health` ok.
 
+## Day 7 — 2026-11-04 (later): retention, admin portal, harmonized map
+
+A second working block on the same day, after the Amazon teardown.
+
+- **Raw payload retention.** New `raw_retention_days` (90), the
+  `scripts/retention.py` dry-run/apply/VACUUM command, and an admin endpoint.
+  Applied on the live store: **240,953** payload rows before 2026-08-06 deleted
+  (2019-12 and 2024-12 fixtures, 2026-08-01→05), `VACUUM FULL` returned
+  731 MB (`7,664 MB → 6,933 MB`). Canonical observations stayed at
+  **11,944,746**; September raw rows stayed at **5,977,671**.
+- **Export-before-delete portal.** `raw_exports` records the range, rows, size
+  and SHA-256 of a CSV.GZ archive. Deletion of a range requires that checksum
+  and refuses if the row count changed. Exports cover at most 62 days and only
+  payloads older than 5 days, so live ingestion is never captured mid-flight.
+  New pages: `/admin` (portal) with inventory, exports, retention and the FIRMS
+  key; API under `/api/v1/admin/raw/*`.
+- **FIRMS key in the portal.** `app_settings` stores the MAP_KEY server-side;
+  the value is write-only over the API and reads return a masked fingerprint.
+  Startup reloads it, `build_client()` picks it up from the process settings, and
+  `POST /admin/settings/firms/test` verifies it against FIRMS availability.
+- **Harmonized map view.** A map toggle (and filter checkbox) requests
+  `harmonized=true`. The backend excludes VIIRS detections with a
+  probable/possible MODIS association from both GeoJSON and viewport
+  aggregation, so the map totals match the harmonized-series definition. Rollup
+  cells cannot express the exclusion, so harmonized requests always use the
+  live scan and the response says `source: live`.
+- **Cloud boundary.** Added a guard test that the Parquet export columns contain
+  no raw payload; `docs/cloud.md` states that only analysis is uploaded and raw
+  payloads are recreatable and pruned locally.
+- **Overlapping harmonization runs fixed.** A second Re-run Associations request
+  could collide on `uq_observation_matches_pair` and return a 500. Passes are now
+  serialized behind a process lock plus a PostgreSQL transaction advisory lock,
+  and a rejected pass returns **409** with *"A harmonization run is already in
+  progress"*. Reproduced with two concurrent requests (500 + 200), verified
+  after the fix (409 + 200).
+- **Tests:** backend **231**, frontend **73**; ruff and mypy clean; production
+  frontend build succeeded. Two pre-existing test issues were repaired along the
+  way: the harmonization scope test now waits for the scope payload instead of
+  matching the header date twice, and jsdom's canvas stub no longer produces an
+  unhandled error.
+
 ## Where the evidence lives
 
 | Claim | Evidence |

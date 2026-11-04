@@ -1,5 +1,6 @@
-"""ORM models."""
+﻿"""ORM models."""
 
+from app.db.models.app_setting import AppSetting
 from app.db.models.data_source import DataSource
 from app.db.models.exposure import WatchedAsset
 from app.db.models.harmonization import (
@@ -17,6 +18,7 @@ from app.db.models.ingestion import (
     SourceAvailability,
 )
 from app.db.models.observation import FireObservation
+from app.db.models.raw_archive import RawExport
 from app.db.models.regions import (
     GeographicRegion,
     RegionalCellStatistic,
@@ -25,6 +27,7 @@ from app.db.models.regions import (
 
 __all__ = [
     "AlgorithmRun",
+    "AppSetting",
     "DataSource",
     "EventObservation",
     "FireEvent",
@@ -35,9 +38,11 @@ __all__ = [
     "IngestionPartition",
     "IngestionRun",
     "ObservationMatch",
+    "RawExport",
     "RawObservation",
     "RegionalCellStatistic",
     "RegionalDailyStatistic",
     "SourceAvailability",
     "WatchedAsset",
 ]
+

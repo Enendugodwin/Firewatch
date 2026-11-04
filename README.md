@@ -3,8 +3,8 @@
 **Global fire intelligence, from satellite detections to defensible analysis.**
 
 FIREWATCH X is a geospatial intelligence platform for NASA MODIS and VIIRS active-fire
-observations. It retrieves real satellite thermal detections, retains the raw payloads, normalises
-them per sensor family, associates observations across sensors, groups estimated events, and
+observations. It retrieves real satellite thermal detections, retains the raw payloads on a 90-day
+retention policy, normalises them per sensor family, associates observations across sensors, groups estimated events, and
 exposes all of it through a dark analytical console.
 
 > [!IMPORTANT]
@@ -20,6 +20,36 @@ exposes all of it through a dark analytical console.
 
 ---
 
+## Screenshots
+
+These are live captures of the console on the workstation (PostgreSQL store, 2026-11-04).
+
+### Global overview
+
+![Overview: stored detections, cross-sensor matches, estimated events and pipeline readiness](docs/screenshots/overview.png)
+
+### Global fire map
+
+![Global fire map with gridded detections, sensors, filters and the harmonized-view toggle](docs/screenshots/map.png)
+
+### Burning calendar
+
+![Burning calendar with coverage-aware day buckets and drill-down](docs/screenshots/calendar.png)
+
+### Analytics
+
+![Analytics: daily trend, sensor and confidence breakdowns, ranked activity cells](docs/screenshots/analytics.png)
+
+### Sensor intelligence (harmonization)
+
+![Cross-sensor associations with the evidence behind the selected match](docs/screenshots/harmonization.png)
+
+### Admin portal
+
+![Admin portal: FIRMS key (masked), raw-payload retention and export-before-delete](docs/screenshots/admin.png)
+
+---
+
 ## What works today
 
 | Area | State |
@@ -30,7 +60,7 @@ exposes all of it through a dark analytical console.
 | Availability: coverage-window parsing (observed vs before/after coverage, never "zero") | Working |
 | Harmonization: `S = wₜT + wₛG + w_fF`, probable/possible/rejected with full evidence | Working |
 | Event grouping: spatiotemporal DBSCAN, per-event provenance and FRP aggregates | Working |
-| Map: MapLibre globe, four themes, viewport aggregation, FRP/confidence/day-night filters | Working |
+| Map: MapLibre globe, four themes, viewport aggregation, FRP/confidence/day-night filters, harmonized toggle | Working |
 | Calendar: day/week/month/year buckets, coverage states, drill-down to detections | Working |
 | Query (Intelligence): time window, region, sensor/satellite, FRP/confidence scope | Working |
 | Ingestion: single-source windows and one-click all-source runs | Working |
@@ -40,6 +70,8 @@ exposes all of it through a dark analytical console.
 | APIs: `/fires`, `/fires/aggregate`, `/calendar`, `/analytics/summary`, `/anomalies` | Working |
 | Console: overview aggregates, sensor-intelligence workspace, ingestion console | Working |
 | Design system, shell, command palette, freshness, synthetic-data labelling | Working |
+| Admin portal: FIRMS key (write-only, masked), raw-payload inventory, export and retention | Working |
+| Raw payloads: 90-day retention, CSV.GZ export with SHA-256 gate before deletion | Working |
 | Regions, exposure, reports, AI assistant, auth | Phase 6–8 |
 
 Verified live: the map serves 57 gridded cells over 87,578 detections at world zoom and switches
@@ -158,8 +190,8 @@ Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 ## Tests
 
 ```bash
-cd backend  && uv run pytest       # 221 tests
-cd frontend && npm test            # 69 tests
+cd backend  && uv run pytest       # 231 tests
+cd frontend && npm test            # 73 tests
 
 cd backend  && uv run ruff check . && uv run mypy app
 cd frontend && npm run typecheck

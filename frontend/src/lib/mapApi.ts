@@ -80,6 +80,8 @@ export interface FireQuery {
   daynight?: "D" | "N";
   minConfidence?: "low" | "nominal" | "high";
   synthetic?: boolean;
+  /** Deduplicated view: VIIRS with a probable/possible MODIS association removed. */
+  harmonized?: boolean;
   startDate?: string;
   endDate?: string;
 }
@@ -95,6 +97,7 @@ export function fireQueryParams(query: FireQuery, extra: Record<string, string |
     params.set("min_confidence", query.minConfidence);
   }
   if (query.synthetic !== undefined) params.set("synthetic", String(query.synthetic));
+  if (query.harmonized) params.set("harmonized", "true");
   if (query.startDate) params.set("start_date", query.startDate);
   if (query.endDate) params.set("end_date", query.endDate);
   for (const [key, value] of Object.entries(extra)) params.set(key, String(value));

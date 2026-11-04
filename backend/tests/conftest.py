@@ -1,4 +1,4 @@
-"""Shared pytest fixtures.
+﻿"""Shared pytest fixtures.
 
 Environment is configured *before* the application package is imported so that
 settings, engine and Alembic all resolve to the same throwaway SQLite database.
@@ -65,6 +65,8 @@ OBSERVATION_TABLES = (
     "observation_matches",
     "fire_observations",
     "raw_observations",
+    "raw_exports",
+    "app_settings",
     "source_availability",
     "ingestion_partitions",
     "ingestion_runs",
@@ -132,3 +134,5 @@ def loaded_fixture(client: TestClient) -> dict[str, int]:
         "possible": harmonization["possible"],
         "events": events["events"],
     }
+
+

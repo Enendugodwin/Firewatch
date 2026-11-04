@@ -209,3 +209,10 @@ def test_export_endpoint_writes_and_lists(client: TestClient, loaded_fixture: di
     assert sensors.status_code in {200, 400}
     if sensors.status_code == 200:
         assert "sensors" in sensors.json()
+
+
+def test_dataset_exports_never_include_raw_payloads() -> None:
+    """Only canonical columns leave the host; raw provenance stays local."""
+    assert "source_payload" not in dataset_service.EXPORT_COLUMNS
+    assert "payload" not in dataset_service.EXPORT_COLUMNS
+    assert "confidence_raw" in dataset_service.EXPORT_COLUMNS

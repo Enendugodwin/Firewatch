@@ -1,9 +1,9 @@
-"""Version 1 API surface.
+﻿"""Version 1 API surface.
 
 Route groups mirror the specification exactly so that each delivery phase fills
 in a known contract rather than inventing shapes later. Endpoints whose module
 is not built yet return ``501 not_implemented`` with the phase that will build
-them — never sample data.
+them â€” never sample data.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     admin,
     admin_performance,
+    admin_settings,
     analytics,
     anomalies,
     assistant,
@@ -25,6 +26,7 @@ from app.api.v1 import (
     harmonization,
     history,
     infrastructure,
+    raw_archive,
     regions,
     reports,
     system,
@@ -46,7 +48,11 @@ api_router.include_router(exposure.router)
 api_router.include_router(reports.router)
 api_router.include_router(assistant.router)
 api_router.include_router(admin.router)
+api_router.include_router(raw_archive.router)
 api_router.include_router(admin_performance.router)
+api_router.include_router(admin_settings.router)
 api_router.include_router(auth.router)
 
 __all__ = ["api_router"]
+
+

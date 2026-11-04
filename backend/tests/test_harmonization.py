@@ -9,7 +9,9 @@ from sqlalchemy import func, select
 
 from app.db.models import FireObservation, ObservationMatch
 from app.db.session import session_scope
+from app.services import harmonization as harmonization_service
 from app.services.harmonization import (
+    HarmonizationBusy,
     MatchParameters,
     classify,
     run_harmonization,
@@ -186,3 +188,20 @@ def test_runs_are_recorded_with_parameters(loaded_fixture: dict) -> None:
     assert run.parameters["time_window_minutes"] == 180
     assert run.stats["observations"] >= 9
     assert run.stats["matched_sensor_families"] is True
+
+
+def test_overlapping_runs_are_rejected_instead_of_colliding(client, loaded_fixture) -> None:
+    """Two passes over the match table must not surface as a 500."""
+    assert harmonization_service._RUN_LOCK.acquire(blocking=False)
+    try:
+        with pytest.raises(HarmonizationBusy):
+            run_harmonization(start_date=date(2026, 1, 1), end_date=date(2026, 1, 2))
+
+        response = client.post(
+            "/api/v1/harmonization/run",
+            json={"start_date": "2026-01-01", "end_date": "2026-01-02"},
+        )
+        assert response.status_code == 409
+        assert "already in progress" in response.json()["error"]["message"]
+    finally:
+        harmonization_service._RUN_LOCK.release()
