@@ -51,6 +51,7 @@ export function RawArchivePage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [adminToken, setAdminToken] = useState(getAdminToken());
+  const [downloading, setDownloading] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const policy = inventory.data?.policy;
@@ -109,6 +110,33 @@ export function RawArchivePage() {
   };
 
   const keyState = firmsKey.data;
+
+  const downloadExport = async (id: string, range: string) => {
+    setDownloading(id);
+    setNotice(null);
+    try {
+      const token = getAdminToken();
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/admin/raw/exports/${id}/download`,
+        { headers: token ? { "X-Admin-Token": token } : {} },
+      );
+      if (!response.ok) {
+        throw new Error(`Download failed with status ${response.status}.`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `firewatch-raw-${range.replace(/[^0-9A-Za-z-]/g, "")}.csv.gz`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setNotice(`Downloaded the raw archive for ${range}.`);
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   const storeAdminToken = () => {
     saveAdminToken(adminToken);
@@ -424,15 +452,20 @@ export function RawArchivePage() {
                     </td>
                     <td className="py-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <a
-                          href={`${API_BASE_URL}/api/v1/admin/raw/exports/${item.id}/download`}
-                          className="btn-glass inline-flex items-center gap-1 px-2 py-1 text-2xs"
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void downloadExport(
+                              item.id,
+                              `${item.start_date}-${item.end_date}`,
+                            )
+                          }
+                          disabled={downloading === item.id}
+                          className="btn-glass inline-flex items-center gap-1 px-2 py-1 text-2xs disabled:opacity-40"
                         >
                           <Download className="size-3" aria-hidden />
-                          Download
-                        </a>
+                          {downloading === item.id ? "Downloading?" : "Download"}
+                        </button>
                         <button
                           type="button"
                           onClick={() =>

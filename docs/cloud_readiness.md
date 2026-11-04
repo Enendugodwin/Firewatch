@@ -13,7 +13,7 @@ detections).
 | Gate | State | Evidence |
 | --- | --- | --- |
 | Administrative writes protected | **Done** | `ADMIN_TOKEN` + `X-Admin-Token` (`app/core/security.py`). Production with no token returns `503` and refuses writes. Tests in `tests/test_admin_auth.py`. |
-| Secrets stay server-side | **Done** | FIRMS key stored in `app_settings`, returned masked only. `ADMIN_TOKEN` never sent to the browser by the API. |
+| Secrets stay server-side | **Done** | FIRMS key stored in `app_settings`, returned masked only. `ADMIN_TOKEN` never sent to the browser by the API; archive downloads send it as a header. |
 | Raw payloads excluded from cloud export | **Done** | Parquet exports use `EXPORT_COLUMNS` (no `source_payload`); `tests/test_cloud_infra.py` pins it. Retention keeps raw local. |
 | Database migrations | **Done** | `backend/docker/entrypoint.sh` runs `alembic upgrade head` before serving, with retries. |
 | Container build | **Done** | `backend/docker/Dockerfile` (Python 3.12, uv lockfile), `frontend/Dockerfile`, `docker-compose.yml`. |
