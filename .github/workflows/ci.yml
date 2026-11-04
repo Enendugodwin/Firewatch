@@ -27,6 +27,13 @@ jobs:
       - run: uv run mypy app
       - run: uv run pytest -q
 
+  compose:
+    name: Validate docker-compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+
   frontend:
     name: Frontend (types, tests, build)
     runs-on: ubuntu-latest
