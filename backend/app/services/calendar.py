@@ -169,6 +169,12 @@ def matched_viirs_by_day(
         # A MODIS-only view has no VIIRS detections to deduplicate.
         return {}
 
+    from app.services import rollups
+
+    fast = rollups.cell_matched_by_day(session, filters)
+    if fast is not None:
+        return fast
+
     day_expr = utc_day(FireObservation.acquired_at, dialect_name(session))
     statement = (
         select(day_expr.label("day"), func.count(func.distinct(FireObservation.id)))

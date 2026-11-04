@@ -182,6 +182,13 @@ A second working block on the same day, after the Amazon teardown.
   and a rejected pass returns **409** with *"A harmonization run is already in
   progress"*. Reproduced with two concurrent requests (500 + 200), verified
   after the fix (409 + 200).
+- **Performance pass.** The harmonized map view was blank because it bypassed
+  the cell rollup and hit the 60 s statement cap; `cell_activity` now stores
+  matched/harmonized counts and the world view is **0.03?0.05 s**. Calendar
+  matched counts read the rollup (**1.48 ? 0.05 s**), match rows carry an
+  indexed `match_day` (**matches 1.73 ? 0.08 s**), dashboard totals come from
+  `daily_activity` (**2.16 ? 0.74 s**, cached 15 s), and the harmonization summary reads rollup sensor totals (**1.73 ? 0.28 s**). The map accepts
+  `?harmonized=1` so the view is shareable, and a dedicated screenshot was added.
 - **Sensor Intelligence period scoping.** The page used to show whole-store detection totals
   beside matches from the last run. `/harmonization/summary`, `/matches`, `/matches.csv` and
   `/events` now accept `start_date`/`end_date`; the page passes the header period and says so,

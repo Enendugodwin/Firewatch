@@ -6,18 +6,24 @@ computed from stored observations so the overview never shows invented numbers.
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import date
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.cache import MISS, TTLCache
 from app.core.config import Settings, get_settings
-from app.db.models import AlgorithmRun, FireEvent, FireObservation, ObservationMatch
+from app.db.models import AlgorithmRun, FireEvent, ObservationMatch
 from app.db.session import get_session
+from app.services import rollups
 from app.services.data_status import build_data_status
+from app.services.observation_queries import ObservationFilters
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+#: The overview polls; identical windows reuse a short-lived response.
+_DASHBOARD_CACHE = TTLCache(ttl_seconds=15, max_entries=32, name="dashboard")
 
 
 @router.get("", summary="Global overview aggregates")
@@ -27,27 +33,21 @@ def dashboard_overview(
     settings: Settings = Depends(get_settings),
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
-    stmt = select(
-        FireObservation.sensor,
-        func.count(),
-        func.coalesce(func.sum(FireObservation.frp_mw), 0.0),
-    ).group_by(FireObservation.sensor)
+    cache_key = f"{start_date}:{end_date}"
+    cached = _DASHBOARD_CACHE.get(cache_key)
+    if cached is not MISS:
+        return cached
 
-    if start_date:
-        stmt = stmt.where(
-            FireObservation.acquired_at
-            >= datetime.combine(start_date, datetime.min.time(), tzinfo=UTC)
+    # The daily rollup answers the date-only totals; the live scan stays as the
+    # fallback when a rollup is unavailable (SQLite) or the filters widen.
+    by_sensor: dict[str, dict[str, float]] = {}
+    filters = ObservationFilters(start_date=start_date, end_date=end_date)
+    for row in rollups.activity_rows(session, filters):
+        bucket = by_sensor.setdefault(
+            row.sensor, {"detections": 0.0, "frp_mw": 0.0}
         )
-    if end_date:
-        stmt = stmt.where(
-            FireObservation.acquired_at
-            < datetime.combine(end_date + timedelta(days=1), datetime.min.time(), tzinfo=UTC)
-        )
-
-    by_sensor = {
-        sensor: {"detections": int(count), "frp_mw": float(frp or 0.0)}
-        for sensor, count, frp in session.execute(stmt).all()
-    }
+        bucket["detections"] += int(row.detections or 0)
+        bucket["frp_mw"] += float(row.frp_sum_mw or 0.0)
 
     matches = dict(
         session.execute(
@@ -66,7 +66,7 @@ def dashboard_overview(
     scope = (last_run.parameters or {}).get("scope") if last_run else None
     data = build_data_status(session, settings)
 
-    return {
+    payload: dict[str, object] = {
         "period": {
             "start_date": start_date.isoformat() if start_date else None,
             "end_date": end_date.isoformat() if end_date else None,
@@ -90,3 +90,5 @@ def dashboard_overview(
             "FRP sums are reported in MW."
         ),
     }
+    _DASHBOARD_CACHE.set(cache_key, payload)
+    return payload

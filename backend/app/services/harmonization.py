@@ -405,6 +405,7 @@ def _insert_matches(
                 "footprint_overlap": scored.footprint_overlap,
                 "association_score": scored.score,
                 "match_status": scored.status,
+                "match_day": a.acquired_at.date(),
                 "components": scored.components,
                 "algorithm_version": ALGORITHM_VERSION,
             }

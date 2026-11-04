@@ -45,6 +45,8 @@ class ObservationMatch(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     footprint_overlap: Mapped[float | None] = mapped_column(Float)
     association_score: Mapped[float] = mapped_column(Float, nullable=False)
     match_status: Mapped[str] = mapped_column(String(16), nullable=False)
+    #: UTC day of the MODIS (observation A) side; denormalised for period queries.
+    match_day: Mapped[date] = mapped_column(Date, nullable=False)
     components: Mapped[dict] = mapped_column(JsonType, default=dict, nullable=False)
     algorithm_version: Mapped[str] = mapped_column(String(32), nullable=False)
 
@@ -57,6 +59,7 @@ class ObservationMatch(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         Index("ix_observation_matches_status", "match_status"),
         Index("ix_observation_matches_score", "association_score"),
+        Index("ix_observation_matches_day", "match_day", "match_status"),
     )
 
 

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, exists, func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
@@ -128,10 +128,13 @@ class ObservationFilters:
         if self.synthetic is not None:
             stmt = stmt.where(FireObservation.is_synthetic.is_(self.synthetic))
         if self.harmonized:
-            associated = select(ObservationMatch.observation_b_id).where(
-                ObservationMatch.match_status.in_(('probable', 'possible'))
+            # An anti-join, not NOT IN: the planner can use the index on
+            # observation_b_id and stop at the first match.
+            associated = exists().where(
+                ObservationMatch.observation_b_id == FireObservation.id,
+                ObservationMatch.match_status.in_(("probable", "possible")),
             )
-            stmt = stmt.where(~FireObservation.id.in_(associated))
+            stmt = stmt.where(~associated)
         return stmt
 
 
@@ -198,15 +201,10 @@ def match_counts(
     end_date: date | None = None,
 ) -> dict[str, int]:
     stmt = select(ObservationMatch.match_status, func.count()).select_from(ObservationMatch)
-    start, end = day_window(start_date, end_date)
-    if start is not None or end is not None:
-        stmt = stmt.join(
-            FireObservation, FireObservation.id == ObservationMatch.observation_a_id
-        )
-        if start is not None:
-            stmt = stmt.where(FireObservation.acquired_at >= start)
-        if end is not None:
-            stmt = stmt.where(FireObservation.acquired_at < end)
+    if start_date is not None:
+        stmt = stmt.where(ObservationMatch.match_day >= start_date)
+    if end_date is not None:
+        stmt = stmt.where(ObservationMatch.match_day <= end_date)
     rows = session.execute(stmt.group_by(ObservationMatch.match_status)).all()
     counts = {status: int(count) for status, count in rows}
     counts["total"] = sum(counts.values())

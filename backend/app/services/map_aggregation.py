@@ -61,7 +61,7 @@ def aggregate_observations(
 ) -> dict[str, Any]:
     cell = grid_degrees(zoom)
     effective = rollup_cell_degrees(cell)
-    if effective is not None and not filters.harmonized:
+    if effective is not None:
         rollup_rows = rollups.map_cells(
             session, filters, bbox=bbox, cell_degrees=effective, limit=limit + 1
         )

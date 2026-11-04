@@ -64,7 +64,13 @@ export function FireMapPage() {
   const { data: status } = useSystemStatus();
   const dateRange = useUiStore((state) => state.dateRange);
 
-  const [filters, setFilters] = useState<MapFiltersState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<MapFiltersState>(() => {
+    const requested =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("harmonized")
+        : null;
+    return requested === "1" ? { ...DEFAULT_FILTERS, harmonized: true } : DEFAULT_FILTERS;
+  });
   const [view, setView] = useState<ViewState>({ bbox: WORLD, zoom: 2 });
   const [points, setPoints] = useState<FireFeatureCollection>(emptyFeatures());
   const [cells, setCells] = useState<FireCell[]>([]);
@@ -81,6 +87,13 @@ export function FireMapPage() {
   const mapRef = useRef<{ flyTo: (lon: number, lat: number, zoom?: number) => void } | null>(null);
 
   const hasSynthetic = (status?.data.synthetic_observations ?? 0) > 0;
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (filters.harmonized) url.searchParams.set("harmonized", "1");
+    else url.searchParams.delete("harmonized");
+    window.history.replaceState({}, "", url);
+  }, [filters.harmonized]);
+
   const sensor = useMemo(() => {
     if (filters.modis && filters.viirs) return undefined;
     if (filters.modis) return "MODIS" as const;
@@ -381,6 +394,7 @@ export function FireMapPage() {
                   {dateRange.start} → {dateRange.end}
                 </span>
                 {meta.aggregated ? <Badge tone="neutral">aggregated</Badge> : null}
+                {filters.harmonized ? <Badge tone="info">harmonized</Badge> : null}
               </div>
               <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-full border border-line/[0.1] bg-panel/90 px-3 py-1.5 text-3xs font-light text-faint backdrop-blur-glass">
                 <span className="inline-flex items-center gap-1.5">

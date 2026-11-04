@@ -33,11 +33,13 @@ from app.schemas.observations import (
 )
 from app.services import events as events_service
 from app.services import harmonization as harmonization_service
+from app.services import rollups
 from app.services.calendar import validate_span
 from app.services.harmonized_series import DEFAULT_STATUSES, harmonized_daily
 from app.services.normalization import satellite_label
 from app.services.observation_queries import (
     BBox,
+    ObservationFilters,
     day_window,
     event_stats,
     match_counts,
@@ -128,16 +130,10 @@ def _check_period(start_date: date | None, end_date: date | None) -> None:
 
 def _scope_matches(stmt, start_date: date | None, end_date: date | None):
     """Restrict matches to those whose MODIS side falls inside the period."""
-    start, end = day_window(start_date, end_date)
-    if start is None and end is None:
-        return stmt
-    stmt = stmt.join(
-        FireObservation, FireObservation.id == ObservationMatch.observation_a_id
-    )
-    if start is not None:
-        stmt = stmt.where(FireObservation.acquired_at >= start)
-    if end is not None:
-        stmt = stmt.where(FireObservation.acquired_at < end)
+    if start_date is not None:
+        stmt = stmt.where(ObservationMatch.match_day >= start_date)
+    if end_date is not None:
+        stmt = stmt.where(ObservationMatch.match_day <= end_date)
     return stmt
 
 
@@ -148,7 +144,10 @@ def summary(
     session: Session = Depends(get_session),
 ) -> HarmonizationSummary:
     _check_period(start_date, end_date)
-    sensors = sensor_counts(session, start_date=start_date, end_date=end_date)
+    period_filters = ObservationFilters(start_date=start_date, end_date=end_date)
+    sensors = rollups.sensor_totals(session, period_filters)
+    if sensors is None:
+        sensors = sensor_counts(session, start_date=start_date, end_date=end_date)
     counts = match_counts(session, start_date=start_date, end_date=end_date)
     total_events, multi_sensor_events = event_stats(
         session, start_date=start_date, end_date=end_date

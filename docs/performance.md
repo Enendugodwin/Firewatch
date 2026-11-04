@@ -1,6 +1,6 @@
 # Performance, storage and device safety
 
-Measured on the live store: 11,534,169 observations, PostgreSQL 16 on port 5433,
+Measured on the live store: 12,772,331 observations, PostgreSQL 16 on port 5433,
 one API worker. Numbers are wall-clock on this machine, not estimates.
 
 ## 1. Map path
@@ -89,3 +89,37 @@ sizes, raw-row counts and the JSONB payload total. The duplicated
 `python -m scripts.prune_raw_payloads --before YYYY-MM-DD` replaces it with a
 provenance marker **only** for days covered by a checksummed Parquet export, and
 is a dry run unless `--apply` is passed. Rows are never deleted.
+
+
+## 7. 2026-11-04 optimization pass
+
+Three slow paths were measured and fixed after the August backfill.
+
+* **Harmonized map was blank.** The harmonized view bypassed the cell rollup and
+  ran a `NOT IN` scan over every detection; at world zoom it hit the 60 s
+  statement cap and returned 500. `cell_activity` now stores `matched_viirs` and
+  `harmonized` per day/cell/sensor, rebuilt with the rollups. The live path uses
+  `NOT EXISTS` (backed by the existing `observation_b_id` indexes).
+* **Calendar matched counts.** `matched_viirs_by_day` summed the cell rollup
+  instead of joining millions of match rows.
+* **Sensor Intelligence period queries.** `observation_matches.match_day` is
+  denormalised at insert and indexed with `match_status`; period counts no longer
+  join every match to its observation.
+* **Dashboard totals.** Detection totals and the synthetic count come from
+  `daily_activity`; the endpoint also caches identical windows for 15 s.
+
+| Request (2026-10-29 ? 11-04) | Before | After |
+| --- | ---: | ---: |
+| Harmonized world aggregate, z3 | 60 s timeout / blank | **0.03?0.05 s** (rollup) |
+| Raw world aggregate, z3 | 0.15 s | **0.20 s** |
+| Calendar (7 days) | 1.48 s | **0.05 s** |
+| Dashboard overview | 2.16 s | **0.74 s** first, 0.00 s cached |
+| Sensor Intelligence matches | 1.73 s | **0.08 s** |
+| Sensor Intelligence summary | 1.73 s | **0.28 s** |
+| Analytics summary | 0.47 s | **0.23 s** |
+| GeoJSON, 2,000 points (large box) | 0.85 s raw / 2.05 s harmonized | unchanged, now uses `NOT EXISTS` |
+
+Harmonized totals reconcile with the harmonized series: for the week the map
+shows **781,631** deduplicated detections against **808,966** raw, i.e. 27,335
+VIIRS detections already seen by MODIS. The full rollup rebuild over 12.7 M rows
+took **146 s**.

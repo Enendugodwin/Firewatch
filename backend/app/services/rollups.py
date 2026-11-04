@@ -150,15 +150,21 @@ def map_cells(
         clauses.append("is_synthetic = :synthetic")
         params["synthetic"] = filters.synthetic
 
+    total_expr = "sum(harmonized)" if filters.harmonized else "sum(detections)"
+    viirs_expr = (
+        "sum(CASE WHEN sensor = 'VIIRS' THEN detections - matched_viirs ELSE 0 END)"
+        if filters.harmonized
+        else "sum(CASE WHEN sensor = 'VIIRS' THEN detections ELSE 0 END)"
+    )
     statement = text(
         f"""
         WITH grouped AS (
             SELECT
                 CAST(floor((lat_index * 2.0) / :cell) AS integer) AS lat_cell,
                 CAST(floor((lon_index * 2.0) / :cell) AS integer) AS lon_cell,
-                sum(detections) AS detections,
+                {total_expr} AS detections,
                 sum(CASE WHEN sensor = 'MODIS' THEN detections ELSE 0 END) AS modis,
-                sum(CASE WHEN sensor = 'VIIRS' THEN detections ELSE 0 END) AS viirs,
+                {viirs_expr} AS viirs,
                 max(frp_max_mw) AS max_frp_mw
             FROM {CELL_ROLLUP_NAME}
             WHERE {' AND '.join(clauses)}
@@ -182,6 +188,148 @@ def map_cells(
         }
         for row in rows
     ]
+
+
+
+def _cell_rollup_insert(
+    session: Session, predicates: list[str], params: dict[str, Any]
+) -> None:
+    """Rebuild ``cell_activity`` for a window, with harmonized counts.
+
+    ``matched_viirs`` is the number of distinct VIIRS detections in the cell/day
+    that carry a probable or possible MODIS association. ``harmonized`` is the
+    raw detection count minus those duplicates, matching the harmonized-series
+    definition. Predicates use unqualified columns so they apply to both the
+    observations and the matched-VIIRS branch.
+    """
+    outer_where = f"WHERE {' AND '.join(predicates)}" if predicates else ""
+    matched_where = "WHERE m.match_status IN ('probable', 'possible')"
+    if predicates:
+        matched_where += " AND " + " AND ".join(predicates)
+    session.execute(
+        text(
+            f"""
+            WITH matched AS (
+                SELECT
+                    CAST((b.acquired_at AT TIME ZONE 'UTC') AS date) AS day,
+                    CAST(floor((b.latitude + 90.0) / 2.0) AS integer) AS lat_index,
+                    CAST(floor((b.longitude + 180.0) / 2.0) AS integer) AS lon_index,
+                    b.sensor AS sensor,
+                    b.is_synthetic AS is_synthetic,
+                    count(DISTINCT b.id)::bigint AS matched_viirs
+                FROM observation_matches m
+                JOIN fire_observations b ON b.id = m.observation_b_id
+                {matched_where}
+                GROUP BY 1, 2, 3, 4, 5
+            )
+            INSERT INTO {CELL_ROLLUP_NAME} (
+                day, lat_index, lon_index, sensor, is_synthetic,
+                detections, frp_sum_mw, frp_max_mw, matched_viirs, harmonized
+            )
+            SELECT
+                CAST((f.acquired_at AT TIME ZONE 'UTC') AS date),
+                CAST(floor((f.latitude + 90.0) / 2.0) AS integer),
+                CAST(floor((f.longitude + 180.0) / 2.0) AS integer),
+                f.sensor,
+                f.is_synthetic,
+                count(*)::bigint,
+                COALESCE(sum(f.frp_mw), 0),
+                max(f.frp_mw),
+                COALESCE(max(mt.matched_viirs), 0)::bigint,
+                (count(*) - COALESCE(max(mt.matched_viirs), 0))::bigint
+            FROM fire_observations f
+            LEFT JOIN matched mt
+                ON mt.day = CAST((f.acquired_at AT TIME ZONE 'UTC') AS date)
+                AND mt.lat_index = CAST(floor((f.latitude + 90.0) / 2.0) AS integer)
+                AND mt.lon_index = CAST(floor((f.longitude + 180.0) / 2.0) AS integer)
+                AND mt.sensor = f.sensor
+                AND mt.is_synthetic = f.is_synthetic
+            {outer_where}
+            GROUP BY 1, 2, 3, 4, 5
+            """
+        ),
+        params,
+    )
+
+def sensor_totals(
+    session: Session, filters: ObservationFilters
+) -> dict[str, int] | None:
+    """Detection totals per sensor from the daily rollup, or None."""
+    if (
+        not _rollup_exists(session)
+        or filters.bbox is not None
+        or filters.min_frp is not None
+        or filters.min_confidence is not None
+        or filters.daynight is not None
+        or filters.satellite is not None
+    ):
+        return None
+    params: dict[str, Any] = {}
+    clauses = _day_clauses(filters, params)
+    if filters.synthetic is not None:
+        clauses.append("is_synthetic = :synthetic")
+        params["synthetic"] = filters.synthetic
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    rows = session.execute(
+        text(
+            f"SELECT sensor, sum(detections) AS detections FROM {ROLLUP_NAME}"
+            f"{where} GROUP BY sensor"
+        ),
+        params,
+    ).all()
+    return {sensor: int(count or 0) for sensor, count in rows}
+
+
+def observation_totals(session: Session) -> tuple[int, int] | None:
+    """(all, synthetic) detection counts from the daily rollup, or None."""
+    if not _rollup_exists(session):
+        return None
+    row = session.execute(
+        text(
+            "SELECT COALESCE(sum(detections), 0)::bigint, "
+            "COALESCE(sum(detections) FILTER (WHERE is_synthetic), 0)::bigint "
+            f"FROM {ROLLUP_NAME}"
+        )
+    ).one()
+    return int(row[0]), int(row[1])
+
+
+def cell_matched_by_day(
+    session: Session, filters: ObservationFilters
+) -> dict[date, int] | None:
+    """Matched VIIRS per day from the cell rollup, or None for a live scan.
+
+    The cell rollup stores the per-cell matched count, so summing it per day is
+    the same distinct-observation count the calendar needs, without joining
+    millions of match rows.
+    """
+    if (
+        not _cell_rollup_exists(session)
+        or filters.min_frp is not None
+        or filters.bbox is not None
+        or filters.min_confidence is not None
+        or filters.daynight is not None
+        or filters.satellite is not None
+    ):
+        return None
+    if (filters.sensor or "").upper() == "MODIS":
+        return {}
+
+    params: dict[str, Any] = {}
+    clauses = _day_clauses(filters, params)
+    clauses.append("sensor = 'VIIRS'")
+    if filters.synthetic is not None:
+        clauses.append("is_synthetic = :synthetic")
+        params["synthetic"] = filters.synthetic
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    rows = session.execute(
+        text(
+            f"SELECT day, sum(matched_viirs) AS matched FROM {CELL_ROLLUP_NAME}"
+            f"{where} GROUP BY day"
+        ),
+        params,
+    ).all()
+    return {day: int(matched or 0) for day, matched in rows}
 
 
 def refresh_rollup(session: Session, *, since: date | None = None) -> bool:
@@ -229,26 +377,8 @@ def refresh_rollup(session: Session, *, since: date | None = None) -> bool:
     )
 
     if _cell_rollup_exists(session):
-        session.execute(
-            text(
-                f"""
-                INSERT INTO {CELL_ROLLUP_NAME} (
-                    day, lat_index, lon_index, sensor, is_synthetic,
-                    detections, frp_sum_mw, frp_max_mw
-                )
-                SELECT
-                    CAST((acquired_at AT TIME ZONE 'UTC') AS date),
-                    CAST(floor((latitude + 90.0) / 2.0) AS integer),
-                    CAST(floor((longitude + 180.0) / 2.0) AS integer),
-                    sensor, is_synthetic, count(*)::bigint,
-                    COALESCE(sum(frp_mw), 0), max(frp_mw)
-                FROM fire_observations
-                {day_filter}
-                GROUP BY 1, 2, 3, 4, 5
-                """
-            ),
-            params,
-        )
+        predicates = [day_filter.removeprefix("WHERE ")] if day_filter else []
+        _cell_rollup_insert(session, predicates, params)
 
     session.commit()
     return True
@@ -298,26 +428,10 @@ def refresh_rollup_range(session: Session, start: date, end: date) -> bool:
         {"start": start, "end": end},
     )
     if _cell_rollup_exists(session):
-        session.execute(
-            text(
-                f"""
-                INSERT INTO {CELL_ROLLUP_NAME} (
-                    day, lat_index, lon_index, sensor, is_synthetic,
-                    detections, frp_sum_mw, frp_max_mw
-                )
-                SELECT
-                    CAST((acquired_at AT TIME ZONE 'UTC') AS date),
-                    CAST(floor((latitude + 90.0) / 2.0) AS integer),
-                    CAST(floor((longitude + 180.0) / 2.0) AS integer),
-                    sensor, is_synthetic, count(*)::bigint,
-                    COALESCE(sum(frp_mw), 0), max(frp_mw)
-                FROM fire_observations
-                {window}
-                GROUP BY 1, 2, 3, 4, 5
-                """
-            ),
-            {"start": start, "end": end},
+        predicate = (
+            "CAST((acquired_at AT TIME ZONE 'UTC') AS date) BETWEEN :start AND :end"
         )
+        _cell_rollup_insert(session, [predicate], {"start": start, "end": end})
     session.commit()
     return True
 

@@ -39,6 +39,10 @@ These are live captures of the console on the workstation (PostgreSQL store, 202
 
 ![Global fire map with gridded detections, sensors, filters and the harmonized-view toggle](docs/screenshots/map.png)
 
+### Harmonized map view
+
+![The same map with the harmonized view enabled; VIIRS detections already seen by MODIS are excluded](docs/screenshots/map-harmonized.png)
+
 ### Burning calendar
 
 ![Burning calendar with coverage-aware day buckets and drill-down](docs/screenshots/calendar.png)
@@ -72,7 +76,7 @@ These are live captures of the console on the workstation (PostgreSQL store, 202
 | Harmonization: `S = wₜT + wₛG + w_fF`, probable/possible/rejected with full evidence | Working |
 | Sensor Intelligence: MODIS/VIIRS totals, matches and events scoped to the header period, with evidence | Working |
 | Event grouping: spatiotemporal DBSCAN, per-event provenance and FRP aggregates | Working |
-| Map: MapLibre globe, four themes, viewport aggregation, FRP/confidence/day-night filters, harmonized toggle | Working |
+| Map: MapLibre globe, four themes, rollup-backed viewport aggregation, FRP/confidence filters, harmonized toggle (`?harmonized=1`) | Working |
 | Calendar: day/week/month/year buckets, coverage states, drill-down to detections | Working |
 | Query (Intelligence): time window, region, sensor/satellite, FRP/confidence scope | Working |
 | Ingestion: single-source windows and one-click all-source runs | Working |

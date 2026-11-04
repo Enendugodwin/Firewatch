@@ -43,15 +43,23 @@ def _freshness(age: timedelta | None) -> tuple[str, str]:
 
 
 def build_data_status(session: Session, settings: Settings) -> DataStatus:
-    total = session.scalar(select(func.count()).select_from(FireObservation)) or 0
-    synthetic = (
-        session.scalar(
-            select(func.count())
-            .select_from(FireObservation)
-            .where(FireObservation.is_synthetic.is_(True))
+    # A 12M-row count on every dashboard load is wasteful; the daily rollup
+    # already stores exact totals. The live count remains the fallback.
+    from app.services import rollups
+
+    totals = rollups.observation_totals(session)
+    if totals is None:
+        total = session.scalar(select(func.count()).select_from(FireObservation)) or 0
+        synthetic = (
+            session.scalar(
+                select(func.count())
+                .select_from(FireObservation)
+                .where(FireObservation.is_synthetic.is_(True))
+            )
+            or 0
         )
-        or 0
-    )
+    else:
+        total, synthetic = totals
     latest = _aware(session.scalar(select(func.max(FireObservation.acquired_at))))
     last_run_at = _aware(
         session.scalar(

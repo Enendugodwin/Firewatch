@@ -47,6 +47,7 @@ def _link(session, modis: FireObservation, viirs: FireObservation, status: str) 
             spatial_distance_m=800.0,
             association_score=0.9 if status == "probable" else 0.6,
             match_status=status,
+            match_day=modis.acquired_at.date(),
             components={},
             algorithm_version="test",
         )

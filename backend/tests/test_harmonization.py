@@ -247,6 +247,7 @@ def test_summary_and_matches_are_scoped_to_the_requested_period(client) -> None:
                 spatial_distance_m=900.0,
                 association_score=0.91,
                 match_status="probable",
+                match_day=date(2026, 5, 1),
                 components={},
                 algorithm_version="test",
             )
