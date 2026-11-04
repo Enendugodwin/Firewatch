@@ -50,12 +50,23 @@ not change the schema.
 
 * 658 requests, 1,220,982 records received, **1,205,718 inserted**, 0 rejected.
 * **55.8 minutes** wall clock, including two incremental rollup refreshes.
-* Years now present for the Amazon box: 2016–2024 (MODIS), with 2026 global from
-  the NRT products.
 
-VIIRS history for the same region is ingested with `--sources VIIRS_SNPP_SP`; the
-VIIRS archive is several times denser, so expect a longer run and roughly 5–8 GB
-of additional storage per region.
+The full two-sensor run over the same nine years was then completed as a durable
+history job (see `docs/history_jobs.md`):
+
+* 1,316 / 1,316 windows, 0 failed partitions, **6,001,558 observations**
+  (MODIS_SP 1,220,350; VIIRS_SNPP_SP 4,781,208) across 3,288 days.
+* 180.1 minutes wall clock for the resumed ingestion plus harmonization.
+* Harmonization: 4,535,583 pairs (752,355 probable, 1,820,684 possible,
+  1,962,544 rejected), **1,458,779** VIIRS detections with a MODIS association,
+  harmonized total **4,542,779**.
+* The rows were removed after the run to reclaim disk; the numbers and method are
+  kept in `docs/validation/amazon_history_2016_2024.md`. Years now present for the
+  Amazon box in the live store: 2026 only (global NRT/SP).
+
+VIIRS history for the same region is ingested with `--sources VIIRS_SNPP_SP`.
+Measured: 4,781,208 rows (about four times MODIS density) and roughly 14 GB of
+database growth including raw payloads, so budget disk accordingly.
 
 ## Resumability
 

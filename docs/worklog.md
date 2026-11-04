@@ -1,0 +1,179 @@
+# Worklog — FIREWATCH X, day 1 onward
+
+A chronological record of what was built, what was measured, and what was found
+to be wrong. The feature docs elsewhere describe *how* things work; this page
+records *when* and *with what evidence*, so a later reader can tell a delivered
+claim from an intention.
+
+Every entry is anchored to commits on `main`. Numbers are from this workstation
+(Windows, 32 GB RAM, portable PostgreSQL 16) and were measured, not projected.
+Where something was not measured, the entry says so.
+
+---
+
+## Day 1 — 2026-10-30: foundation and design language
+
+Commits `2deba1f` (03:41), `47032c0` (13:24).
+
+- Phase 1: React/Vite console, FastAPI service, database layer, migrations,
+  typed API client, navigation shell, module registry that refuses to report a
+  phase as ready before it lands.
+- Adopted the **Orbital Intelligence** design language: near-black field
+  `#131315`, deep-navy glass, one green accent `#60D58B`, Newsreader display /
+  Inter interface / JetBrains Mono measurements. Fire severity keeps a separate
+  amber-orange-red scale so chrome never looks like hazard.
+- Moved development ports off the usual 5173/8100 to **5273** (web) and
+  **8200** (API), which they still use.
+
+Evidence: `docs/architecture.md`, `docs/design.md`, `README.md` design section.
+
+## Day 2 — 2026-10-31: ingestion through calendar (phases 2–5)
+
+Commits `d4b53e5`, `ce106ce`, `8f92623`, `ad71038`, `a6d5ec5`, `fb87364`,
+`6d648ab`.
+
+- NASA FIRMS client with retries/backoff, `Retry-After`, redacted key, honest
+  failure modes; resumable ingestion keyed by `(source, tile, date_start)`;
+  separate MODIS and VIIRS normalisation with raw payloads retained.
+- Availability model: a day inside a product's coverage is *observed*, even with
+  no detections; outside coverage it is `before_coverage` / `not_yet_available`.
+  Missing is never zero.
+- Harmonisation (`S = w_t·T + w_g·G + w_f·F`) with probable / possible /
+  rejected and full score components; spatiotemporal event grouping.
+- Global fire map: MapLibre globe, viewport aggregation (never the whole table),
+  four themes, filters, search, per-detection provenance.
+- Calendar: day/week/month/year buckets with coverage states and drill-down.
+
+First live verification (recorded in `README.md`): 4,100 observations in scope →
+659 candidate pairs (29 probable, 157 possible) → 587 estimated events, 158 seen
+by both sensors.
+
+## Day 3 — 2026-11-01: from demo to instrument
+
+Seventeen commits, `b9b827e` through `76bd312`.
+
+- **Moved the live store to PostgreSQL 16** (`b9b827e`); SQLite stays the
+  zero-setup path for tests. Bulk ingestion switched to `COPY`.
+- Aggregation rollups (`5730807`): day- and cell-level precomputation so
+  analytics stopped re-scanning 11.3 M rows per request.
+- Cloud preparation (`22faa20`): storage interface (local + S3/R2), Parquet
+  export with Zstandard, size + SHA-256 verified sync, readiness page.
+- Calendar intelligence and anomalies marked directly in the grid
+  (`13ad502`, `e8d8459`); regional trend/seasonality engine (`76bd312`).
+- Reports, regions, exposure, deterministic assistant, hardening and deployment
+  docs (`f71fa38`).
+- `start.bat` / `stop.bat` with a WMI-detached launcher (`237f998`).
+- Resumable 60-day backfill with a partition-based progress bar (`cc2e609`).
+- Calendar reworked into a real month grid + month picker (`6c61734`, `3e061fc`).
+
+Evidence: `docs/delivery_report.md`, `datastructure.md`, `docs/operations.md`.
+
+## Day 4 — 2026-11-02: performance and scientific honesty
+
+Commits `9455d55`, `9acb5c8`, `d9dd1f7`.
+
+- Map latency and resource pressure cut; rollups made incremental.
+- Month-vs-median headline added to regional intelligence.
+- Map loading cues; harmonised composite series exposed alongside the raw series;
+  reference-fire validation page and `docs/validation/reference_fires.md`.
+- Colour accessibility reviewed for the harmonised series.
+
+## Day 5 — 2026-11-03: archive scale, and an honest diagnosis
+
+Commits `3e96087`, `04c35fe`, `732b139`, `60d5b9c`, `e244ccd`, `1e76b21`.
+
+### The "empty archive" was a coverage bug
+
+Standard-processing products always had history. The earlier "SP returns zero
+rows" came from requesting September–November 2026, *after* the SP coverage end
+(MODIS to 2026-08-31, VIIRS SNPP to 2026-07-31, NOAA-20 to 2026-07-31, NOAA-21
+to 2026-07-31). FIRMS answers with a header-only 200, which was recorded as
+`empty` — "observed, no detections" — making unprocessed days look quiet.
+
+Fixes: coverage is read first and the window clamped; ingestion verifies
+coverage before recording `empty`; `scripts/repair_availability.py` relabelled
+**213** mislabelled rows.
+
+### Archive built
+
+- Amazon MODIS 2016–2024: **1,205,718 rows in 55.8 min**, 0 rejected
+  (`docs/historical_backfill.md`).
+- Harmonisation at archive scale: migration `0010_harmonization_coverage`, one
+  UTC day per transaction, checkpoint per day (missing row = not scanned).
+  2026 pass: 61 days, 11.24 M observations, **2.48 M pairs** (168 k probable,
+  788 k possible), 27 min.
+- Latitude-banded candidate selection: 376 s → 2.7 s per 130 k-observation day.
+- Harmonised calendar metric: raw 11,477,404 / matched 787,585 / harmonized
+  10,689,819 (7.3 %) at the time of the run.
+- Calendar span raised from 6 to 30 years so nine-year history is visible.
+- `scripts/accuracy_report.py` + `docs/validation/accuracy.md`: cross-sensor
+  corroboration 12.0 % (Pará) and 12.1 % (Kalimantan). Burned-area agreement
+  explicitly **not measured**.
+
+### Reusable long runs
+
+- `app/services/history_runner.py` and `scripts/history.py` (`plan` / `run`),
+  durable `history_jobs` rows, dataset presets (`modis_history`,
+  `viirs_snpp_history`, `all_history`, `nrt`, `all_products`), API under
+  `/history`, docs `docs/history_jobs.md`.
+- A `running` job untouched for 900 s is `stale` and resumable; a live one
+  cannot be overlapped (`60d5b9c`).
+- **Incident:** the first VIIRS run died with
+  `QueryCanceled: canceling statement due to statement timeout` because
+  `refresh_rollup(since=2016-01-01)` rebuilt nine years in one pass. Fixed by
+  `refresh_rollup_range` so only changed days are rebuilt (`e244ccd`).
+
+## Day 6 — 2026-11-04: nine-year archive completed, measured, and removed
+
+Commits `fa6c1df`, plus the deletion itself.
+
+- Resumed VIIRS job `a59dccd8` finished: **1,316 / 1,316 windows, 0 failed**,
+  1,414,440 rows in the resumed run. Amazon total **6,001,558** detections
+  (MODIS 1,220,350 / VIIRS 4,781,208), wall clock 180.1 min including
+  harmonisation.
+- Harmonisation of all **3,288 days**: 4,535,583 pairs → 752,355 probable,
+  1,820,684 possible, 1,962,544 rejected; **1,458,779** VIIRS detections carry a
+  MODIS association (30.5 %); **harmonized total 4,542,779**.
+- Accuracy report regenerated unchanged (12.0 % / 12.1 %); burned-area agreement
+  still explicitly not measured.
+- Summary kept in `docs/validation/amazon_history_2016_2024.md`; the rows were
+  then deleted at the owner's request.
+- **Incident while deleting:** cascading FK checks re-scanned
+  `event_observations` (no index on `observation_id`) once per observation and
+  ran for 73 min without finishing. The teardown now materialises ids, hash-
+  joins, and suspends FK triggers while deleting children explicitly, in one
+  transaction. Result: 5,501,558 observations and 6,001,558 raw rows removed,
+  rollups rebuilt over the range, store **33 GB → 19 GB**.
+- Verified after: 11,859,005 observations (all 2026), `region:amazon` partitions
+  and runs at 0, calendar for 2026-09 still serving, `/health` ok.
+
+## Where the evidence lives
+
+| Claim | Evidence |
+| --- | --- |
+| Phase delivery | `README.md` roadmap, `docs/delivery_report.md` |
+| Decisions and non-negotiables | `docs/architecture.md`, `docs/design.md` |
+| Schema and stored model | `datastructure.md`, `docs/data_dictionary.md` |
+| Harmonisation formula and thresholds | `docs/methodology.md` |
+| Archive coverage and measured ingest | `docs/historical_backfill.md` |
+| Long-run jobs | `docs/history_jobs.md`, `/api/v1/history` |
+| Cross-sensor corroboration | `docs/validation/accuracy.md` |
+| Nine-year Amazon run and its removal | `docs/validation/amazon_history_2016_2024.md` |
+| Everything at commit level | `git log --date=short` (36 commits, 2026-10-30 → 2026-11-04) |
+
+## Known gaps at the end of day 6
+
+These are deliberately listed here so nobody reads the delivery report as a
+claim that they are done:
+
+- No CI pipeline and no automated backup/restore drill.
+- Authentication exists (`backend/app/auth.py`) but is not enforced; the console
+  must stay on localhost/firewalled.
+- Real Cloudflare R2 upload/verification has not been exercised (no credentials
+  on this host).
+- Burned-area calibration needs an external MCD64A1/GFED table; the Planetary
+  Computer STAC endpoint failed DNS from this host.
+- Nothing has been pushed to `Enendugodwin/Firewatch`: the `firewatch_deploy`
+  key is not registered on GitHub.
+- The map uses a 0.5° screening grid rather than H3, and boundaries are GeoJSON
+  + Shapely rather than PostGIS, because neither extension is installed here.

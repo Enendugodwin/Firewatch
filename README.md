@@ -10,8 +10,9 @@ exposes all of it through a dark analytical console.
 > [!IMPORTANT]
 > **Status: Phase 9 of 9 — Production ready.** All nine phases are delivered: ingestion,
 > harmonization, the map, calendar, analytics, anomalies, query, reports, assistant, regional and
-> exposure views. The workstation holds 371,276 real detections in PostgreSQL. Nothing on the
-> platform is a placeholder.
+> exposure views. The workstation holds 11.9 M real detections in PostgreSQL (the nine-year Amazon
+> archive used for the scale test was ingested, harmonized, measured and then removed to reclaim
+> disk — see `docs/worklog.md`). Nothing on the platform is a placeholder.
 >
 > Satellite thermal anomalies are detections, not confirmed wildfires. They may be false
 > positives, may be agricultural or industrial heat, and can be hidden by cloud. Do not use this
@@ -48,6 +49,24 @@ Live verification on 2026-10-30: `VIIRS_SNPP_NRT` and `MODIS_NRT` ingested for N
 (2.5,4.0,14.7,13.9) across 2026-10-29 → 2026-10-30; 4,100 observations in scope produced 659
 candidate pairs (29 probable, 157 possible) and 587 estimated events (158 seen by both sensors).
 
+## Documentation
+
+- [docs/worklog.md](docs/worklog.md) — day-by-day record from day 1, with commits,
+  measurements, incidents and known gaps.
+- [docs/architecture.md](docs/architecture.md) — shape, layers, non-negotiables.
+- [docs/methodology.md](docs/methodology.md) — normalization, harmonization, events,
+  anomalies and the statistical gates.
+- [docs/historical_backfill.md](docs/historical_backfill.md) and
+  [docs/history_jobs.md](docs/history_jobs.md) — archive ingestion and long-running jobs.
+- [docs/validation/accuracy.md](docs/validation/accuracy.md) — cross-sensor corroboration;
+  [docs/validation/amazon_history_2016_2024.md](docs/validation/amazon_history_2016_2024.md)
+  — the nine-year Amazon scale run and its removal.
+- [docs/api.md](docs/api.md), [docs/operations.md](docs/operations.md),
+  [docs/deployment.md](docs/deployment.md), [docs/performance.md](docs/performance.md),
+  [docs/cloud.md](docs/cloud.md), [docs/regional.md](docs/regional.md),
+  [docs/data_dictionary.md](docs/data_dictionary.md), [docs/user_guide.md](docs/user_guide.md),
+  [docs/design.md](docs/design.md), [docs/delivery_report.md](docs/delivery_report.md).
+
 ## Cloud and datasets
 
 Three deployment modes (`local`, `hybrid`, `cloud`) are pure configuration. Local and S3/R2 storage
@@ -59,10 +78,10 @@ Long-running historical work is started through one function, CLI or durable job
 
 ## Database
 
-Eleven million detections occupy 18 GB in PostgreSQL; day- and cell-level rollups keep the
+Nearly twelve million detections occupy 19 GB in PostgreSQL; day- and cell-level rollups keep the
 dashboard interactive (analytics 0.24 s, calendar 0.05 s, report 0.17 s).
 
-The live workstation runs **PostgreSQL 16** (588 MB for 371k detections); SQLite remains the
+The live workstation runs **PostgreSQL 16** (19 GB for 11.9 M detections); SQLite remains the
 zero-setup option for tests and CI. See [docs/operations.md](docs/operations.md) for starting
 the local cluster, migrating, copying SQLite data across, backups and the 30-day storage
 estimate (~7.1 GB for a full four-product day, ~3.7 GB at the observed rate).
@@ -139,8 +158,8 @@ Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 ## Tests
 
 ```bash
-cd backend  && uv run pytest       # 158 tests
-cd frontend && npm test            # 52 tests
+cd backend  && uv run pytest       # 221 tests
+cd frontend && npm test            # 69 tests
 
 cd backend  && uv run ruff check . && uv run mypy app
 cd frontend && npm run typecheck
