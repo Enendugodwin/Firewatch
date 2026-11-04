@@ -12,14 +12,18 @@ exposes all of it through a dark analytical console.
 > calendar, analytics, anomalies, query, reports, assistant, regional, exposure and the admin
 > portal are delivered. Nothing on the platform is a placeholder.
 >
-> - **12,772,331** canonical detections in PostgreSQL (**21 GB**): NRT coverage 2026-09-02 ?
+> - **13,272,809** canonical detections in PostgreSQL (**24 GB**): NRT coverage 2026-09-02 ?
 >   2026-11-03, 2026-08-01 ? 08-05 (MODIS 1?5, VIIRS 1?4), and two fixture months.
-> - **12,533,378** raw payloads on hand under a **90-day** policy; older payloads are exported
+> - **13,033,856** raw payloads on hand under a **90-day** policy; older payloads are exported
 >   with a SHA-256 receipt, then deleted without touching canonical analysis.
-> - **234 backend / 73 frontend tests**; ruff, mypy, `tsc` and the production build pass.
-> - **Known gaps:** authentication is not enforced (bind the console to localhost or a proxy),
->   there is no CI pipeline or backup/restore drill, live Cloudflare R2 upload is unexercised,
->   burned-area agreement is not measured, and 2026-08-06 ? 08-31 is still unobserved.
+> - **CI** runs ruff, mypy, pytest, vitest and the production build; backend **236** / frontend
+>   **74** tests. Backups are dumped with a SHA-256 sidecar and a full restore drill has been
+>   verified against the live store.
+> - **Cloud gate:** administrative writes require `ADMIN_TOKEN` in production; raw payloads are
+>   never uploaded. Remaining operator steps are R2 credentials and TLS/domain (see
+>   [`docs/cloud_readiness.md`](docs/cloud_readiness.md)).
+> - **Known gaps:** live Cloudflare R2 upload is unexercised (no credentials here), burned-area
+>   agreement is not measured, and 2026-08-06 ? 08-31 is still unobserved.
 >
 > Satellite thermal anomalies are detections, not confirmed wildfires. They may be false
 > positives, may be agricultural or industrial heat, and can be hidden by cloud. Do not use this
@@ -102,6 +106,7 @@ candidate pairs (29 probable, 157 possible) and 587 estimated events (158 seen b
 - [docs/worklog.md](docs/worklog.md) — day-by-day record from day 1, with commits,
   measurements, incidents and known gaps.
 - [docs/architecture.md](docs/architecture.md) — shape, layers, non-negotiables.
+- [docs/cloud_readiness.md](docs/cloud_readiness.md) ? deployment gates, secrets, backups and the restore drill.
 - [docs/methodology.md](docs/methodology.md) — normalization, harmonization, events,
   anomalies and the statistical gates.
 - [docs/historical_backfill.md](docs/historical_backfill.md) and
@@ -126,10 +131,10 @@ Long-running historical work is started through one function, CLI or durable job
 
 ## Database
 
-Nearly 12.8 million detections occupy 21 GB in PostgreSQL; day- and cell-level rollups keep the
+Nearly 13.3 million detections occupy 24 GB in PostgreSQL; day- and cell-level rollups keep the
 dashboard interactive (analytics 0.24 s, calendar 0.05 s, report 0.17 s).
 
-The live workstation runs **PostgreSQL 16** (21 GB for 12.77 M detections); SQLite remains the
+The live workstation runs **PostgreSQL 16** (24 GB for 13.27 M detections); SQLite remains the
 zero-setup option for tests and CI. See [docs/operations.md](docs/operations.md) for starting
 the local cluster, migrating, copying SQLite data across, backups and the 30-day storage
 estimate (~7.1 GB for a full four-product day, ~3.7 GB at the observed rate).

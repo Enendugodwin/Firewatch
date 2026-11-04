@@ -12,6 +12,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.cache import clear_caches
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
+from app.core.security import require_admin
 from app.db.models import DataSource, FireObservation, IngestionRun
 from app.db.session import get_session
 from app.schemas.ingestion import (
@@ -32,7 +33,9 @@ from app.services.observation_queries import BBox
 from app.services.rollups import refresh_rollup
 from app.services.sources import FIRMS_SOURCES, get_source
 
-router = APIRouter(prefix="/admin/ingestion", tags=["admin"])
+router = APIRouter(
+    prefix="/admin/ingestion", tags=["admin"], dependencies=[Depends(require_admin)]
+)
 
 
 @router.get("/tiles", response_model=list[TileOut], summary="Ingestion tiles")

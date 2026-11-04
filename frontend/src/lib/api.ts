@@ -49,10 +49,25 @@ function isErrorBody(value: unknown): value is ApiErrorBody {
   );
 }
 
+const ADMIN_TOKEN_KEY = "firewatch-admin-token";
+
+export function getAdminToken(): string {
+  if (typeof window === "undefined") return "";
+  return window.sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? "";
+}
+
+export function saveAdminToken(token: string): void {
+  if (typeof window === "undefined") return;
+  const value = token.trim();
+  if (value) window.sessionStorage.setItem(ADMIN_TOKEN_KEY, value);
+  else window.sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
 export async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  const adminToken = getAdminToken();
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
@@ -60,6 +75,7 @@ export async function apiFetch<T>(
       headers: {
         Accept: "application/json",
         ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...(adminToken ? { "X-Admin-Token": adminToken } : {}),
         ...init.headers,
       },
     });

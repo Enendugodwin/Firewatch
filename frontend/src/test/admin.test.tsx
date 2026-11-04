@@ -26,6 +26,17 @@ describe("admin portal", () => {
     expect(input).toHaveValue("");
   });
 
+  it("stores an admin token for this tab", async () => {
+    installFetchMock();
+    renderApp("/admin");
+
+    const input = await screen.findByPlaceholderText(/paste the admin_token/i);
+    fireEvent.change(input, { target: { value: "tab-token" } });
+    fireEvent.click(screen.getByRole("button", { name: /save token/i }));
+
+    expect(window.sessionStorage.getItem("firewatch-admin-token")).toBe("tab-token");
+  });
+
   it("shows the raw inventory and its retention policy", async () => {
     installFetchMock();
     renderApp("/admin");

@@ -1,11 +1,12 @@
 import { Archive, Download, KeyRound, ShieldAlert, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/ModuleStatus";
 import { DataRow, Panel, StatTile } from "@/components/ui/Panel";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, getAdminToken, saveAdminToken } from "@/lib/api";
 import {
   useClearFirmsKey,
   useFirmsKey,
@@ -49,6 +50,8 @@ export function RawArchivePage() {
   const [endDate, setEndDate] = useState(shiftDays(10));
   const [notice, setNotice] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
+  const [adminToken, setAdminToken] = useState(getAdminToken());
+  const queryClient = useQueryClient();
 
   const policy = inventory.data?.policy;
   const totals = inventory.data?.totals;
@@ -106,6 +109,16 @@ export function RawArchivePage() {
   };
 
   const keyState = firmsKey.data;
+
+  const storeAdminToken = () => {
+    saveAdminToken(adminToken);
+    setNotice(
+      adminToken.trim()
+        ? "Admin token saved for this browser tab."
+        : "Admin token cleared.",
+    );
+    void queryClient.invalidateQueries();
+  };
 
   const saveFirmsKey = () => {
     setNotice(null);
@@ -170,6 +183,33 @@ export function RawArchivePage() {
           {notice}
         </div>
       ) : null}
+
+      <Panel
+        className="mb-3"
+        title="Admin access"
+        subtitle="Required for every administrative write when the API runs in production. Stored in this tab only; the browser never receives the server's token."
+      >
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-1 flex-col gap-1 text-2xs text-faint">
+            X-Admin-Token
+            <input
+              type="password"
+              value={adminToken}
+              autoComplete="off"
+              onChange={(event) => setAdminToken(event.target.value)}
+              placeholder="Paste the ADMIN_TOKEN configured on the server"
+              className="min-w-[240px] rounded-lg border border-line/10 bg-line/[0.03] px-3 py-2 font-mono text-xs text-ink"
+            />
+          </label>
+          <Button variant="secondary" onClick={storeAdminToken}>
+            {adminToken.trim() ? "Save token" : "Clear token"}
+          </Button>
+        </div>
+        <p className="mt-2 text-2xs leading-relaxed text-faint">
+          In local development the API allows writes without a token. A production
+          deployment with <code>ADMIN_TOKEN</code> unset disables them.
+        </p>
+      </Panel>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile

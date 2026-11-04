@@ -206,7 +206,18 @@ A second working block on the same day, after the Amazon teardown.
   SNPP, NOAA-20 and NOAA-21 all succeeded (188,523 / 324,254 / 314,808 received),
   adding **807,176** canonical detections; bulk rollups refreshed. Store now
   **12,772,331** observations, **12,533,378** raw payloads, **21 GB**.
-- **Tests:** backend **234**, frontend **73**; ruff and mypy clean; production
+- **Cloud gate.** Administrative writes now require `X-Admin-Token` when
+  `ADMIN_TOKEN` is configured; `ENVIRONMENT=production` with no token refuses
+  writes (`503`) instead of exposing ingestion and deletion. The Admin Portal
+  stores the token in the tab's session storage; `apiFetch` attaches it.
+- **CI and disaster recovery.** `.github/workflows/ci.yml` runs ruff, mypy,
+  pytest, vitest, typecheck and build. `scripts/backup_database.py` writes a
+  custom-format dump plus SHA-256 sidecar; `scripts/restore_database.py` verifies
+  the checksum and refuses to overwrite the live database. Drill: a **2.77 GB**
+  dump restored into a scratch database with exact row counts on
+  observations, raw, matches, cells, daily rollup and events; scratch database
+  dropped afterwards.
+- **Tests:** backend **236**, frontend **74**; ruff and mypy clean; production
   frontend build succeeded. Two pre-existing test issues were repaired along the
   way: the harmonization scope test now waits for the scope payload instead of
   matching the header date twice, and jsdom's canvas stub no longer produces an

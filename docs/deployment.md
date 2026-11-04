@@ -16,7 +16,7 @@ is why 8200 is the default.
 ## Containers
 
 ```bash
-cp .env.example .env       # set POSTGRES_PASSWORD (and FIRMS_MAP_KEY when available)
+cp .env.example .env       # set POSTGRES_PASSWORD, FIRMS_MAP_KEY and ADMIN_TOKEN
 docker compose up --build
 ```
 
@@ -29,6 +29,15 @@ docker compose up --build
 | `web` | `frontend/Dockerfile` | 8088 → 80 | nginx serving the SPA, proxying `/api` |
 
 Health checks: API `/ready` (database aware), db `pg_isready`, redis `PING`, web `/healthz`.
+
+Back up and verify a restore before the first deploy:
+
+```bash
+cd backend
+python -m scripts.backup_database --output-dir /var/backups/firewatch
+python -m scripts.restore_database --file /var/backups/firewatch/<name>.dump \
+  --target-url postgresql+psycopg://firewatch@db:5432/firewatch_restore_check
+```
 `api` waits for healthy `db` and `redis`; `worker` and `web` wait for a healthy `api`.
 
 To verify the stack without starting it:

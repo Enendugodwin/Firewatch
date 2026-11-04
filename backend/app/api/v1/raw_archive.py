@@ -21,11 +21,14 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
+from app.core.security import require_admin
 from app.db.models import RawExport
 from app.db.session import get_session
 from app.services import raw_archive as archive
 
-router = APIRouter(prefix="/admin/raw", tags=["admin"])
+router = APIRouter(
+    prefix="/admin/raw", tags=["admin"], dependencies=[Depends(require_admin)]
+)
 
 
 class ExportRequest(BaseModel):

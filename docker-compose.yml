@@ -40,6 +40,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8088,http://127.0.0.1:8088}
       FIRMS_MAP_KEY: ${FIRMS_MAP_KEY:-}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       FIRMS_BASE_URL: ${FIRMS_BASE_URL:-https://firms.modaps.eosdis.nasa.gov/api}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_JSON: "true"
@@ -72,6 +73,7 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-firewatch}:${POSTGRES_PASSWORD:-firewatch}@db:5432/${POSTGRES_DB:-firewatch}
       REDIS_URL: redis://redis:6379/0
       FIRMS_MAP_KEY: ${FIRMS_MAP_KEY:-}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       LOG_JSON: "true"
     depends_on:
       api:

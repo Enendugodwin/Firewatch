@@ -14,12 +14,15 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
+from app.core.security import require_admin
 from app.db.session import get_session
 from app.services import app_settings
 from app.services.firms.client import FirmsError
 from app.services.ingestion import build_client
 
-router = APIRouter(prefix="/admin/settings", tags=["admin"])
+router = APIRouter(
+    prefix="/admin/settings", tags=["admin"], dependencies=[Depends(require_admin)]
+)
 
 
 class FirmsKeyIn(BaseModel):

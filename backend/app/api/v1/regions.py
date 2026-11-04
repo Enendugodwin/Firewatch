@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
+from app.core.security import require_admin
 from app.db.models import GeographicRegion
 from app.db.session import get_session
 from app.schemas.regional import (
@@ -92,6 +93,7 @@ def region_catalog(
 
 @router.post(
     "/custom",
+    dependencies=[Depends(require_admin)],
     response_model=RegionOut,
     status_code=201,
     summary="Create a region from a GeoJSON boundary",
@@ -110,6 +112,7 @@ def create_custom_region(
 
 @router.post(
     "/radius",
+    dependencies=[Depends(require_admin)],
     response_model=RegionOut,
     status_code=201,
     summary="Create a circular region around a point",
@@ -141,6 +144,7 @@ def get_region(
 
 @router.post(
     "/{region_id}/analyze",
+    dependencies=[Depends(require_admin)],
     summary="Compute and store regional statistics for a window",
 )
 def analyze_region(
