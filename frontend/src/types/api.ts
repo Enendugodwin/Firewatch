@@ -193,6 +193,8 @@ export interface HarmonizationSummary {
     end_date?: string | null;
   } | null;
   algorithm_version: string;
+  period_start?: string | null;
+  period_end?: string | null;
 }
 
 export interface AlgorithmRunOut {

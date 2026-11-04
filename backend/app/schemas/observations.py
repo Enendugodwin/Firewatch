@@ -106,6 +106,9 @@ class HarmonizationSummary(BaseModel):
     parameters: dict[str, Any] = Field(default_factory=dict)
     last_run_scope: dict[str, Any] | None = None
     algorithm_version: str
+    #: Reporting period the counts cover (None means the whole store).
+    period_start: date | None = None
+    period_end: date | None = None
 
 
 class AlgorithmRunOut(BaseModel):

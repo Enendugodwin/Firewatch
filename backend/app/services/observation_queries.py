@@ -156,31 +156,79 @@ def search_observations(
     return list(rows), int(total)
 
 
-def sensor_counts(session: Session, *, synthetic: bool | None = None) -> dict[str, int]:
+def day_window(
+    start_date: date | None, end_date: date | None
+) -> tuple[datetime | None, datetime | None]:
+    """UTC half-open window for an optional reporting period."""
+    start = (
+        datetime.combine(start_date, datetime.min.time(), tzinfo=UTC)
+        if start_date is not None
+        else None
+    )
+    end = (
+        datetime.combine(end_date + timedelta(days=1), datetime.min.time(), tzinfo=UTC)
+        if end_date is not None
+        else None
+    )
+    return start, end
+
+
+def sensor_counts(
+    session: Session,
+    *,
+    synthetic: bool | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> dict[str, int]:
     stmt = select(FireObservation.sensor, func.count()).group_by(FireObservation.sensor)
     if synthetic is not None:
         stmt = stmt.where(FireObservation.is_synthetic.is_(synthetic))
+    start, end = day_window(start_date, end_date)
+    if start is not None:
+        stmt = stmt.where(FireObservation.acquired_at >= start)
+    if end is not None:
+        stmt = stmt.where(FireObservation.acquired_at < end)
     return {sensor: int(count) for sensor, count in session.execute(stmt).all()}
 
 
-def match_counts(session: Session) -> dict[str, int]:
-    rows = session.execute(
-        select(ObservationMatch.match_status, func.count()).group_by(ObservationMatch.match_status)
-    ).all()
+def match_counts(
+    session: Session,
+    *,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> dict[str, int]:
+    stmt = select(ObservationMatch.match_status, func.count()).select_from(ObservationMatch)
+    start, end = day_window(start_date, end_date)
+    if start is not None or end is not None:
+        stmt = stmt.join(
+            FireObservation, FireObservation.id == ObservationMatch.observation_a_id
+        )
+        if start is not None:
+            stmt = stmt.where(FireObservation.acquired_at >= start)
+        if end is not None:
+            stmt = stmt.where(FireObservation.acquired_at < end)
+    rows = session.execute(stmt.group_by(ObservationMatch.match_status)).all()
     counts = {status: int(count) for status, count in rows}
     counts["total"] = sum(counts.values())
     return counts
 
 
-def event_stats(session: Session) -> tuple[int, int]:
-    total = session.scalar(select(func.count()).select_from(FireEvent)) or 0
-    multi = (
-        session.scalar(
-            select(func.count()).select_from(FireEvent).where(FireEvent.sensor_count > 1)
-        )
-        or 0
-    )
-    return int(total), int(multi)
+def event_stats(
+    session: Session,
+    *,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> tuple[int, int]:
+    start, end = day_window(start_date, end_date)
+    base = select(func.count()).select_from(FireEvent)
+    multi_stmt = select(func.count()).select_from(FireEvent).where(FireEvent.sensor_count > 1)
+    if start is not None:
+        base = base.where(FireEvent.last_detected_at >= start)
+        multi_stmt = multi_stmt.where(FireEvent.last_detected_at >= start)
+    if end is not None:
+        base = base.where(FireEvent.first_detected_at < end)
+        multi_stmt = multi_stmt.where(FireEvent.first_detected_at < end)
+    return int(session.scalar(base) or 0), int(session.scalar(multi_stmt) or 0)
 
 
 def observation_to_dict(row: FireObservation) -> dict[str, Any]:

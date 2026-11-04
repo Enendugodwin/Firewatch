@@ -62,7 +62,9 @@ describe("match export", () => {
     renderApp("/harmonization");
 
     const link = await screen.findByRole("link", { name: /export csv/i });
-    expect(link).toHaveAttribute("href", "/api/v1/harmonization/matches.csv");
+    expect(link.getAttribute("href")).toMatch(
+      /^\/api\/v1\/harmonization\/matches\.csv\?start_date=.+&end_date=/
+    );
     expect(link).toHaveAttribute("download");
   });
 });

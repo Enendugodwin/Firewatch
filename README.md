@@ -8,11 +8,18 @@ retention policy, normalises them per sensor family, associates observations acr
 exposes all of it through a dark analytical console.
 
 > [!IMPORTANT]
-> **Status: Phase 9 of 9 — Production ready.** All nine phases are delivered: ingestion,
-> harmonization, the map, calendar, analytics, anomalies, query, reports, assistant, regional and
-> exposure views. The workstation holds 11.9 M real detections in PostgreSQL (the nine-year Amazon
-> archive used for the scale test was ingested, harmonized, measured and then removed to reclaim
-> disk — see `docs/worklog.md`). Nothing on the platform is a placeholder.
+> **Status: Phase 9 of 9 ? production ready (2026-11-04).** Ingestion, harmonization, the map,
+> calendar, analytics, anomalies, query, reports, assistant, regional, exposure and the admin
+> portal are delivered. Nothing on the platform is a placeholder.
+>
+> - **11,944,746** canonical detections in PostgreSQL (**19 GB**): NRT coverage 2026-09-02 ?
+>   2026-11-03, the partial 2026-08-01 ? 08-05 MODIS_SP window, and two fixture months.
+> - **11,705,793** raw payloads retained under a **90-day** policy; older payloads are exported
+>   with a SHA-256 receipt, then deleted without touching canonical analysis.
+> - **232 backend / 73 frontend tests**; ruff, mypy, `tsc` and the production build pass.
+> - **Known gaps:** authentication is not enforced (bind the console to localhost or a proxy),
+>   there is no CI pipeline or backup/restore drill, live Cloudflare R2 upload is unexercised,
+>   burned-area agreement is not measured, and 2026-08-06 ? 08-31 is still unobserved.
 >
 > Satellite thermal anomalies are detections, not confirmed wildfires. They may be false
 > positives, may be agricultural or industrial heat, and can be hidden by cloud. Do not use this
@@ -63,6 +70,7 @@ These are live captures of the console on the workstation (PostgreSQL store, 202
 | Normalization: separate MODIS and VIIRS adapters, preserved raw confidence and channels | Working |
 | Availability: coverage-window parsing (observed vs before/after coverage, never "zero") | Working |
 | Harmonization: `S = wₜT + wₛG + w_fF`, probable/possible/rejected with full evidence | Working |
+| Sensor Intelligence: MODIS/VIIRS totals, matches and events scoped to the header period, with evidence | Working |
 | Event grouping: spatiotemporal DBSCAN, per-event provenance and FRP aggregates | Working |
 | Map: MapLibre globe, four themes, viewport aggregation, FRP/confidence/day-night filters, harmonized toggle | Working |
 | Calendar: day/week/month/year buckets, coverage states, drill-down to detections | Working |
@@ -194,7 +202,7 @@ Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 ## Tests
 
 ```bash
-cd backend  && uv run pytest       # 231 tests
+cd backend  && uv run pytest       # 232 tests
 cd frontend && npm test            # 73 tests
 
 cd backend  && uv run ruff check . && uv run mypy app

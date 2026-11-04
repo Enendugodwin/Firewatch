@@ -38,6 +38,7 @@ from app.services.harmonized_series import DEFAULT_STATUSES, harmonized_daily
 from app.services.normalization import satellite_label
 from app.services.observation_queries import (
     BBox,
+    day_window,
     event_stats,
     match_counts,
     sensor_counts,
@@ -116,19 +117,51 @@ def _match_out(row: ObservationMatch) -> MatchOut:
     )
 
 
-@router.get("/summary", response_model=HarmonizationSummary, summary="Harmonization statistics")
-def summary(session: Session = Depends(get_session)) -> HarmonizationSummary:
-    sensors = sensor_counts(session)
-    counts = match_counts(session)
-    total_events, multi_sensor_events = event_stats(session)
-    synthetic = (
-        session.scalar(
-            select(func.count())
-            .select_from(FireObservation)
-            .where(FireObservation.is_synthetic.is_(True))
+def _check_period(start_date: date | None, end_date: date | None) -> None:
+    if start_date and end_date and end_date < start_date:
+        raise AppError(
+            "unprocessable",
+            "end_date must not be before start_date.",
+            details={"start_date": str(start_date), "end_date": str(end_date)},
         )
-        or 0
+
+
+def _scope_matches(stmt, start_date: date | None, end_date: date | None):
+    """Restrict matches to those whose MODIS side falls inside the period."""
+    start, end = day_window(start_date, end_date)
+    if start is None and end is None:
+        return stmt
+    stmt = stmt.join(
+        FireObservation, FireObservation.id == ObservationMatch.observation_a_id
     )
+    if start is not None:
+        stmt = stmt.where(FireObservation.acquired_at >= start)
+    if end is not None:
+        stmt = stmt.where(FireObservation.acquired_at < end)
+    return stmt
+
+
+@router.get("/summary", response_model=HarmonizationSummary, summary="Harmonization statistics")
+def summary(
+    start_date: date | None = Query(None, description="First day (UTC), inclusive"),
+    end_date: date | None = Query(None, description="Last day (UTC), inclusive"),
+    session: Session = Depends(get_session),
+) -> HarmonizationSummary:
+    _check_period(start_date, end_date)
+    sensors = sensor_counts(session, start_date=start_date, end_date=end_date)
+    counts = match_counts(session, start_date=start_date, end_date=end_date)
+    total_events, multi_sensor_events = event_stats(
+        session, start_date=start_date, end_date=end_date
+    )
+    synthetic_stmt = select(func.count()).select_from(FireObservation).where(
+        FireObservation.is_synthetic.is_(True)
+    )
+    start, end = day_window(start_date, end_date)
+    if start is not None:
+        synthetic_stmt = synthetic_stmt.where(FireObservation.acquired_at >= start)
+    if end is not None:
+        synthetic_stmt = synthetic_stmt.where(FireObservation.acquired_at < end)
+    synthetic = session.scalar(synthetic_stmt) or 0
     last_run = session.scalars(
         select(AlgorithmRun)
         .where(AlgorithmRun.kind == "harmonization")
@@ -152,6 +185,8 @@ def summary(session: Session = Depends(get_session)) -> HarmonizationSummary:
         parameters=(last_run.parameters if last_run else {}),
         last_run_scope=(last_run.parameters or {}).get("scope") if last_run else None,
         algorithm_version=harmonization_service.ALGORITHM_VERSION,
+        period_start=start_date,
+        period_end=end_date,
     )
 
 
@@ -175,15 +210,19 @@ def coverage(
 def list_matches(
     status: str | None = Query(None, pattern="^(probable|possible|rejected)$"),
     min_score: float | None = Query(None, ge=0, le=1),
+    start_date: date | None = Query(None, description="First day (UTC), inclusive"),
+    end_date: date | None = Query(None, description="Last day (UTC), inclusive"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     session: Session = Depends(get_session),
 ) -> MatchPage:
+    _check_period(start_date, end_date)
     stmt = select(ObservationMatch)
     if status:
         stmt = stmt.where(ObservationMatch.match_status == status)
     if min_score is not None:
         stmt = stmt.where(ObservationMatch.association_score >= min_score)
+    stmt = _scope_matches(stmt, start_date, end_date)
 
     total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     rows = session.scalars(
@@ -230,6 +269,8 @@ CSV_COLUMNS = [
 def export_matches(
     status: str | None = Query(None, pattern="^(probable|possible|rejected)$"),
     min_score: float | None = Query(None, ge=0, le=1),
+    start_date: date | None = Query(None, description="First day (UTC), inclusive"),
+    end_date: date | None = Query(None, description="Last day (UTC), inclusive"),
     limit: int = Query(50000, ge=1, le=200000),
     session: Session = Depends(get_session),
 ) -> StreamingResponse:
@@ -238,7 +279,8 @@ def export_matches(
     always the same set the screen shows; every row carries both observations'
     provenance so the file is self-describing.
     """
-    stmt = select(ObservationMatch)
+    _check_period(start_date, end_date)
+    stmt = _scope_matches(select(ObservationMatch), start_date, end_date)
     if status:
         stmt = stmt.where(ObservationMatch.match_status == status)
     if min_score is not None:
@@ -316,13 +358,21 @@ def get_match(match_id: str, session: Session = Depends(get_session)) -> MatchOu
 def list_events(
     limit: int = Query(50, ge=1, le=500),
     min_observations: int = Query(1, ge=1),
+    start_date: date | None = Query(None, description="First day (UTC), inclusive"),
+    end_date: date | None = Query(None, description="Last day (UTC), inclusive"),
     session: Session = Depends(get_session),
 ) -> list[EventOut]:
+    _check_period(start_date, end_date)
+    stmt = select(FireEvent).where(FireEvent.observation_count >= min_observations)
+    start, end = day_window(start_date, end_date)
+    if start is not None:
+        stmt = stmt.where(FireEvent.last_detected_at >= start)
+    if end is not None:
+        stmt = stmt.where(FireEvent.first_detected_at < end)
     rows = session.scalars(
-        select(FireEvent)
-        .where(FireEvent.observation_count >= min_observations)
-        .order_by(FireEvent.observation_count.desc(), FireEvent.first_detected_at.desc())
-        .limit(limit)
+        stmt.order_by(FireEvent.observation_count.desc(), FireEvent.first_detected_at.desc()).limit(
+            limit
+        )
     ).all()
     return [
         EventOut(

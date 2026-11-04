@@ -182,7 +182,12 @@ A second working block on the same day, after the Amazon teardown.
   and a rejected pass returns **409** with *"A harmonization run is already in
   progress"*. Reproduced with two concurrent requests (500 + 200), verified
   after the fix (409 + 200).
-- **Tests:** backend **231**, frontend **73**; ruff and mypy clean; production
+- **Sensor Intelligence period scoping.** The page used to show whole-store detection totals
+  beside matches from the last run. `/harmonization/summary`, `/matches`, `/matches.csv` and
+  `/events` now accept `start_date`/`end_date`; the page passes the header period and says so,
+  and the CSV export inherits it. Reversed periods return 422. Verified live for 2026-10-29 ?
+  2026-11-04: **808,966** detections, **87,271** stored match rows, **3,088** events.
+- **Tests:** backend **232**, frontend **73**; ruff and mypy clean; production
   frontend build succeeded. Two pre-existing test issues were repaired along the
   way: the harmonization scope test now waits for the scope payload instead of
   matching the header date twice, and jsdom's canvas stub no longer produces an

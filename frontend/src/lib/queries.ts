@@ -64,10 +64,17 @@ export function useDashboardOverview() {
   });
 }
 
-export function useHarmonizationSummary() {
+export function useHarmonizationSummary(start?: string, end?: string) {
+  const params = new URLSearchParams();
+  if (start) params.set("start_date", start);
+  if (end) params.set("end_date", end);
+  const query = params.toString();
   return useQuery({
-    queryKey: queryKeys.harmonization,
-    queryFn: () => apiFetch<HarmonizationSummary>("/api/v1/harmonization/summary"),
+    queryKey: [...queryKeys.harmonization, start ?? "", end ?? ""],
+    queryFn: () =>
+      apiFetch<HarmonizationSummary>(
+        `/api/v1/harmonization/summary${query ? `?${query}` : ""}`,
+      ),
     staleTime: 30_000,
   });
 }
@@ -81,21 +88,25 @@ export function useHarmonizedSeries(start: string, end: string) {
   });
 }
 
-export function useMatches(status?: string) {
+export function useMatches(status?: string, start?: string, end?: string) {
+  const params = new URLSearchParams({ limit: "50" });
+  if (status) params.set("status", status);
+  if (start) params.set("start_date", start);
+  if (end) params.set("end_date", end);
   return useQuery({
-    queryKey: queryKeys.matches(status),
-    queryFn: () =>
-      apiFetch<MatchPage>(
-        `/api/v1/harmonization/matches?limit=50${status ? `&status=${status}` : ""}`,
-      ),
+    queryKey: [...queryKeys.matches(status), start ?? "", end ?? ""],
+    queryFn: () => apiFetch<MatchPage>(`/api/v1/harmonization/matches?${params.toString()}`),
     staleTime: 30_000,
   });
 }
 
-export function useEvents() {
+export function useEvents(start?: string, end?: string) {
+  const params = new URLSearchParams({ limit: "25" });
+  if (start) params.set("start_date", start);
+  if (end) params.set("end_date", end);
   return useQuery({
-    queryKey: queryKeys.events,
-    queryFn: () => apiFetch<FireEventOut[]>("/api/v1/harmonization/events?limit=25"),
+    queryKey: [...queryKeys.events, start ?? "", end ?? ""],
+    queryFn: () => apiFetch<FireEventOut[]>(`/api/v1/harmonization/events?${params}`),
     staleTime: 30_000,
   });
 }

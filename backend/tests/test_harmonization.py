@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 from sqlalchemy import func, select
 
-from app.db.models import FireObservation, ObservationMatch
+from app.db.models import DataSource, FireObservation, ObservationMatch
 from app.db.session import session_scope
 from app.services import harmonization as harmonization_service
 from app.services.harmonization import (
@@ -205,3 +205,84 @@ def test_overlapping_runs_are_rejected_instead_of_colliding(client, loaded_fixtu
         assert "already in progress" in response.json()["error"]["message"]
     finally:
         harmonization_service._RUN_LOCK.release()
+
+
+def test_summary_and_matches_are_scoped_to_the_requested_period(client) -> None:
+    """The Sensor Intelligence page asks for its header period, not the store."""
+
+    def add_observation(session, code: str, record: str, sensor: str, day: date):
+        source = session.scalars(
+            select(DataSource).where(DataSource.source_code == code)
+        ).first()
+        assert source is not None
+        row = FireObservation(
+            source_id=source.id,
+            source_code=source.source_code,
+            source_record_id=record,
+            sensor=sensor,
+            satellite="Terra" if sensor == "MODIS" else "SNPP",
+            latitude=-3.1,
+            longitude=-60.2,
+            acquired_at=datetime(day.year, day.month, day.day, 13, 45, tzinfo=UTC),
+            source_product=code,
+            source_payload={},
+            quality_flags={},
+        )
+        session.add(row)
+        session.flush()
+        return row
+
+    with session_scope() as session:
+        modis_a = add_observation(session, "MODIS_NRT", "period-modis-a", "MODIS", date(2026, 5, 1))
+        viirs_a = add_observation(
+            session, "VIIRS_SNPP_NRT", "period-viirs-a", "VIIRS", date(2026, 5, 1)
+        )
+        add_observation(session, "MODIS_NRT", "period-modis-b", "MODIS", date(2026, 5, 2))
+        add_observation(session, "VIIRS_SNPP_NRT", "period-viirs-b", "VIIRS", date(2026, 5, 2))
+        session.add(
+            ObservationMatch(
+                observation_a_id=modis_a.id,
+                observation_b_id=viirs_a.id,
+                temporal_delta_seconds=120,
+                spatial_distance_m=900.0,
+                association_score=0.91,
+                match_status="probable",
+                components={},
+                algorithm_version="test",
+            )
+        )
+        session.commit()
+
+    scoped = client.get(
+        "/api/v1/harmonization/summary",
+        params={"start_date": "2026-05-01", "end_date": "2026-05-01"},
+    )
+    assert scoped.status_code == 200, scoped.text
+    body = scoped.json()
+    assert body["observations"] == 2
+    assert body["matches_total"] == 1
+    assert body["period_start"] == "2026-05-01"
+
+    whole = client.get("/api/v1/harmonization/summary")
+    assert whole.status_code == 200
+    assert whole.json()["observations"] == 4
+    assert whole.json()["period_start"] is None
+
+    empty_day = client.get(
+        "/api/v1/harmonization/matches",
+        params={"start_date": "2026-05-02", "end_date": "2026-05-02"},
+    )
+    assert empty_day.status_code == 200
+    assert empty_day.json()["total"] == 0
+
+    scoped_matches = client.get(
+        "/api/v1/harmonization/matches",
+        params={"start_date": "2026-05-01", "end_date": "2026-05-01"},
+    )
+    assert scoped_matches.json()["total"] == 1
+
+    reversed_period = client.get(
+        "/api/v1/harmonization/summary",
+        params={"start_date": "2026-05-02", "end_date": "2026-05-01"},
+    )
+    assert reversed_period.status_code == 422

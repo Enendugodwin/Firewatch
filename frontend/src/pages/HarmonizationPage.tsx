@@ -161,14 +161,18 @@ export function HarmonizationPage() {
   const { data: modules } = useModules();
   const module = modules?.find((item) => item.key === "harmonization");
 
-  const summary = useHarmonizationSummary();
+  const dateRange = useUiStore((state) => state.dateRange);
+  const summary = useHarmonizationSummary(dateRange.start, dateRange.end);
   const [statusFilter, setStatusFilter] = useState<MatchStatus | "all">("all");
-  const matches = useMatches(statusFilter === "all" ? undefined : statusFilter);
-  const events = useEvents();
+  const matches = useMatches(
+    statusFilter === "all" ? undefined : statusFilter,
+    dateRange.start,
+    dateRange.end,
+  );
+  const events = useEvents(dateRange.start, dateRange.end);
   const sources = useSources();
   const runs = useAlgorithmRuns();
   const runHarmonization = useRunHarmonization();
-  const dateRange = useUiStore((state) => state.dateRange);
   const harmonized = useHarmonizedSeries(dateRange.start, dateRange.end);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -288,10 +292,13 @@ export function HarmonizationPage() {
       </div>
 
       <p className="mb-[12px] text-2xs font-light leading-relaxed text-faint">
-        Detection totals cover the whole store. Association and event results cover the last
-        analysis scope
+        Detection, association and event totals cover the selected period
+        {data?.period_start
+          ? ` (${data.period_start} → ${data.period_end ?? data.period_start})`
+          : " (whole store)"}
+        . The last analysis run was scoped to
         {data?.last_run_scope?.start_date
-          ? ` (${data.last_run_scope.start_date} → ${data.last_run_scope.end_date ?? "…"}${
+          ? ` (${data.last_run_scope.start_date} → ${data.last_run_scope.end_date ?? "?"}${
               data.last_run_scope.bbox
                 ? `, bbox ${data.last_run_scope.bbox.join(", ")}`
                 : ""
@@ -302,8 +309,16 @@ export function HarmonizationPage() {
 
       {!hasData && !summary.isLoading ? (
         <EmptyState
-          title="No observations to harmonize"
-          description="Ingestion and harmonization are implemented, but this database holds no observations. Load the labelled fixture for a pipeline demo, or configure FIRMS_MAP_KEY and run an ingestion window from Settings."
+          title={
+            summary.data?.period_start && summary.data.observations === 0
+              ? "No observations in this period"
+              : "No observations to harmonize"
+          }
+          description={
+            summary.data?.period_start
+              ? "The selected period has no stored detections. Widen the header range or ingest the missing days; nothing is inferred for an unobserved period."
+              : "Ingestion and harmonization are implemented, but this database holds no observations. Load the labelled fixture for a pipeline demo, or configure FIRMS_MAP_KEY and run an ingestion window from Settings."
+          }
         />
       ) : (
         <>
@@ -331,8 +346,8 @@ export function HarmonizationPage() {
                   ))}
                 </div>
                 <a
-                  href={`/api/v1/harmonization/matches.csv${
-                    statusFilter === "all" ? "" : `?status=${statusFilter}`
+                  href={`/api/v1/harmonization/matches.csv?start_date=${dateRange.start}&end_date=${dateRange.end}${
+                    statusFilter === "all" ? "" : `&status=${statusFilter}`
                   }`}
                   download
                   className="btn-glass inline-flex items-center gap-1.5 px-2.5 py-[4px] text-3xs"
