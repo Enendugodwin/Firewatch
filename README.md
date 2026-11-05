@@ -12,9 +12,10 @@ exposes all of it through a dark analytical console.
 > calendar, analytics, anomalies, query, reports, assistant, regional, exposure and the admin
 > portal are delivered. Nothing on the platform is a placeholder.
 >
-> - **13,272,809** canonical detections in PostgreSQL (**24 GB**): NRT coverage 2026-09-02 ?
->   2026-11-03, 2026-08-01 ? 08-05 (MODIS 1?5, VIIRS 1?4), and two fixture months.
-> - **13,033,856** raw payloads on hand under a **90-day** policy; older payloads are exported
+> - **5,206,277** canonical detections in PostgreSQL (**8.5 GB**): the retained 30-day
+>   window 2026-10-06 ? 2026-11-05. Older data was removed at the owner's request on
+>   2026-11-05; it can be re-ingested with a historical backfill.
+> - **5,206,277** raw payloads on hand under a **90-day** policy; older payloads are exported
 >   with a SHA-256 receipt, then deleted without touching canonical analysis.
 > - **CI** runs ruff, mypy, pytest, vitest and the production build; backend **241** / frontend
 >   **76** tests. Backups are dumped with a SHA-256 sidecar and a full restore drill has been
@@ -142,10 +143,10 @@ Long-running historical work is started through one function, CLI or durable job
 
 ## Database
 
-Nearly 13.3 million detections occupy 24 GB in PostgreSQL; day- and cell-level rollups keep the
+About 5.2 million detections occupy 8.5 GB in PostgreSQL; day- and cell-level rollups keep the
 dashboard interactive (analytics 0.24 s, calendar 0.05 s, report 0.17 s).
 
-The live workstation runs **PostgreSQL 16** (24 GB for 13.27 M detections); SQLite remains the
+The live workstation runs **PostgreSQL 16** (8.5 GB for 5.2 M detections); SQLite remains the
 zero-setup option for tests and CI. See [docs/operations.md](docs/operations.md) for starting
 the local cluster, migrating, copying SQLite data across, backups and the 30-day storage
 estimate (~7.1 GB for a full four-product day, ~3.7 GB at the observed rate).

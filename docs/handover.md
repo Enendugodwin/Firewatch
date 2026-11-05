@@ -17,9 +17,9 @@ Current store on the original workstation:
 
 | Item | Value |
 | --- | --- |
-| Canonical detections | ~13.3 M |
-| Raw payloads | ~13.0 M (90-day retention policy) |
-| Database size | ~24 GB (PostgreSQL 16) |
+| Canonical detections | 5,206,277 |
+| Raw payloads | 5,206,277 (same 30-day window) |
+| Database size | ~8.5 GB (PostgreSQL 16) |
 | Coverage | 2026-08-01 → 08-05 (partial) and 2026-09-02 → 2026-11-03 NRT, plus two fixture months |
 | Tests | 241 backend / 76 frontend |
 | CI | GitHub Actions: backend, frontend, compose validation |
@@ -170,6 +170,7 @@ All commands run from `backend/` with `$env:PYTHONPATH='.'` on PowerShell.
 | Clear caches | Admin → Analysis maintenance → Clear caches |
 | Delete one run | Admin → Ingested data → Delete data (preview first) |
 | Raw retention | `python -m scripts.retention --apply` (dry run without `--apply`) |
+| Delete before a cutoff | `python -m scripts.cleanup_before --before YYYY-MM-DD --apply --vacuum` |
 | Export raw range | Admin → Export a range (CSV.GZ + SHA-256 receipt) |
 | FIRMS key | Admin → NASA FIRMS MAP_KEY |
 | Users/roles | Admin → Operator accounts |

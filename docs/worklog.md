@@ -259,6 +259,12 @@ A second working block on the same day, after the Amazon teardown.
   harmonized cell colours are usually identical. Cells that lost duplicates now get an amber
   outline and the status strip reports the removed count; the aggregate response carries
   `matched_viirs` per cell.
+- **30-day retention cleanup (owner request).** Removed everything before
+  2026-10-06: **8,216,540** canonical detections, **7,977,587** raw payloads,
+  **1,662,060** matches, 73 partitions, 333 availability rows, 34 coverage days
+  and rollup rows for the removed days, then `VACUUM FULL`. Database **25 GB ?
+  8.5 GB**; store now **5,206,277** detections covering 2026-10-06 ? 11-05.
+  `scripts/cleanup_before.py` makes this repeatable and dry-run by default.
 - **Tests:** backend **241**, frontend **76**; auth, report formats and deletion
   covered, plus frontend login and ingestion-run deletion preview.
 
