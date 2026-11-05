@@ -51,6 +51,39 @@ def test_report_exports_markdown_and_json(client: TestClient, loaded_fixture: di
     assert as_json.json()["version"] == "report-v1"
 
 
+def test_report_exports_csv_geojson_and_pdf(client: TestClient, loaded_fixture: dict) -> None:
+    params = {
+        "start_date": "2026-10-27",
+        "end_date": "2026-10-31",
+        "synthetic": "true",
+    }
+    csv_export = client.get("/api/v1/reports/export", params={**params, "format": "csv"})
+    assert csv_export.status_code == 200
+    assert csv_export.headers["content-type"].startswith("text/csv")
+    assert "# methodology," in csv_export.text
+    assert "date,detections,modis,viirs" in csv_export.text
+
+    geojson = client.get(
+        "/api/v1/reports/export", params={**params, "format": "geojson"}
+    )
+    assert geojson.status_code == 200
+    payload = geojson.json()
+    assert payload["type"] == "FeatureCollection"
+    assert payload["properties"]["methodology"]
+    assert all(feature["geometry"]["type"] == "Point" for feature in payload["features"])
+
+    pdf = client.get("/api/v1/reports/export", params={**params, "format": "pdf"})
+    assert pdf.status_code == 200
+    assert pdf.headers["content-type"] == "application/pdf"
+    assert pdf.content.startswith(b"%PDF")
+    assert len(pdf.content) > 2000
+
+    markdown = client.get(
+        "/api/v1/reports/export", params={**params, "format": "markdown"}
+    )
+    assert "## Methodology" in markdown.text
+
+
 def test_report_rejects_inverted_ranges(client: TestClient) -> None:
     response = client.get(
         "/api/v1/reports/summary",

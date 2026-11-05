@@ -9,6 +9,7 @@ import { CloudReadinessPage } from "@/pages/CloudReadinessPage";
 import { ExposurePage } from "@/pages/ExposurePage";
 import { FireMapPage } from "@/pages/FireMapPage";
 import { HarmonizationPage } from "@/pages/HarmonizationPage";
+import { LoginPage } from "@/pages/LoginPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { OverviewPage } from "@/pages/OverviewPage";
 import { QueryPage } from "@/pages/QueryPage";
@@ -34,6 +35,7 @@ export function App() {
         <Route path="assistant" element={<AssistantPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="admin" element={<RawArchivePage />} />
+        <Route path="login" element={<LoginPage />} />
         <Route path="infrastructure" element={<CloudReadinessPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

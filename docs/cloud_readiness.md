@@ -12,7 +12,8 @@ detections).
 
 | Gate | State | Evidence |
 | --- | --- | --- |
-| Administrative writes protected | **Done** | `ADMIN_TOKEN` + `X-Admin-Token` (`app/core/security.py`). Production with no token returns `503` and refuses writes. Tests in `tests/test_admin_auth.py`. |
+| Authentication & RBAC | **Done** | Argon2id accounts, admin/analyst/viewer roles, server-side sessions (`app/services/auth.py`, `tests/test_auth.py`). Admin Portal has an operator sign-in page. |
+| Administrative writes protected | **Done** | Session role **or** `ADMIN_TOKEN` (`app/core/security.py`); production with neither returns `503`. Tests in `tests/test_admin_auth.py`. |
 | Secrets stay server-side | **Done** | FIRMS key stored in `app_settings`, returned masked only. `ADMIN_TOKEN` never sent to the browser by the API; archive downloads send it as a header. |
 | Raw payloads excluded from cloud export | **Done** | Parquet exports use `EXPORT_COLUMNS` (no `source_payload`); `tests/test_cloud_infra.py` pins it. Retention keeps raw local. |
 | Database migrations | **Done** | `backend/docker/entrypoint.sh` runs `alembic upgrade head` before serving, with retries. |
@@ -21,7 +22,9 @@ detections).
 | Backup | **Done** | `scripts/backup_database.py` (custom-format dump + SHA-256 sidecar). |
 | Restore drill | **Passed** | 2.77 GB dump restored into a scratch database; row counts matched exactly (observations, raw, matches, cells, daily rollup, events). |
 | Health checks | **Done** | `/health`, `/ready` (database aware); compose health checks for db, redis, api, web. |
-| Rate limiting | Available | `RATE_LIMIT_PER_MINUTE` (off by default). Enable on the public deployment. |
+| Rate limiting | **Done** | Per-client token bucket with `Retry-After`/`X-RateLimit-*`; enable with `RATE_LIMIT_PER_MINUTE=120`. |
+| Reports & exports | **Done** | PDF, CSV, GeoJSON, JSON, Markdown; methodology and limitations in every format. |
+| AI assistant | **Done** | Deterministic tool-style answers over stored data; no invented measurements. |
 | HTTPS / domain | **Operator** | Terminate TLS at the load balancer or reverse proxy; set `CORS_ORIGINS` to the exact origin. |
 | Cloudflare R2 | **Operator** | Code path implemented (`app/storage/s3.py`); credentials absent on this workstation, so a live upload has not been exercised. |
 
@@ -30,7 +33,7 @@ detections).
 1. **Set secrets.** In the cloud environment (not in git):
    ```env
    ENVIRONMENT=production
-   ADMIN_TOKEN=<long random value>
+   ADMIN_TOKEN=<long random value>   # or create an admin account below
    DATABASE_URL=postgresql+psycopg://...
    CORS_ORIGINS=https://console.example.com
    FIRMS_MAP_KEY=<key>
@@ -38,21 +41,27 @@ detections).
    `ENVIRONMENT=production` with an empty `ADMIN_TOKEN` disables every
    administrative write, by design.
 
-2. **Configure R2.** `STORAGE_MODE=r2`, `R2_ACCOUNT_ID`,
+2. **Create an administrator.** Either keep `ADMIN_TOKEN` as the break-glass credential or, preferably, bootstrap an account:
+   ```bash
+   python -m scripts.create_admin --email admin@example.com
+   ```
+   Then add analyst/viewer accounts from `POST /api/v1/auth/users`.
+
+3. **Configure R2.** `STORAGE_MODE=r2`, `R2_ACCOUNT_ID`,
    `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`,
    `R2_ENDPOINT_URL`. Then run one sync from the Cloud Readiness page (or
    `POST /api/v1/infrastructure/sync`) and verify the manifest checksum in the
    bucket. Only Parquet analysis datasets are uploaded.
 
-3. **TLS and origin.** Point the console at the API (same origin through the
+4. **TLS and origin.** Point the console at the API (same origin through the
    reverse proxy is simplest), set `CORS_ORIGINS`, and enable
    `RATE_LIMIT_PER_MINUTE` (e.g. 120).
 
-4. **Schedule backups.** Run `python -m scripts.backup_database` nightly, copy
+5. **Schedule backups.** Run `python -m scripts.backup_database` nightly, copy
    the `.dump` and `.sha256` pair off the host, and restore into a scratch
    database weekly with `scripts/restore_database.py`.
 
-5. **Migrate.** `docker compose up --build` runs migrations automatically. For a
+6. **Migrate.** `docker compose up --build` runs migrations automatically. For a
    managed database, run `alembic upgrade head` as a release step.
 
 ## What is deliberately local-only

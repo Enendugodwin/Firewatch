@@ -97,7 +97,7 @@ export function fetchReport(start: string, end: string, signal?: AbortSignal) {
   return apiFetch<ReportResponse>(`/api/v1/reports/summary?${range(start, end)}`, { signal });
 }
 
-export function reportExportUrl(start: string, end: string, format: "markdown" | "json") {
+export function reportExportUrl(start: string, end: string, format: "markdown" | "json" | "csv" | "geojson" | "pdf") {
   return `/api/v1/reports/export?${range(start, end)}&format=${format}`;
 }
 

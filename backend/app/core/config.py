@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     #: Required for mutating admin endpoints when ENVIRONMENT=production.
     #: Sent as ``X-Admin-Token``; unset keeps local development frictionless.
     admin_token: str | None = None
+    #: Browser session lifetime for operator accounts.
+    session_ttl_hours: int = 12
     #: Bulk ingestion legitimately exceeds the interactive 60 s statement cap.
     #: Applied as SET LOCAL for the ingest transaction; 0 disables the limit.
     ingestion_statement_timeout_ms: int = 900_000

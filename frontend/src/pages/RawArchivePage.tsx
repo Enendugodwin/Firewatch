@@ -8,8 +8,11 @@ import { PageHeader } from "@/components/ui/ModuleStatus";
 import { DataRow, Panel, StatTile } from "@/components/ui/Panel";
 import { API_BASE_URL, getAdminToken, saveAdminToken } from "@/lib/api";
 import {
+  previewRunDelete,
   useClearFirmsKey,
+  useDeleteRun,
   useFirmsKey,
+  useIngestionRuns,
   useSaveFirmsKey,
   useTestFirmsKey,
 } from "@/lib/adminApi";
@@ -45,6 +48,8 @@ export function RawArchivePage() {
   const saveKey = useSaveFirmsKey();
   const clearKey = useClearFirmsKey();
   const testKey = useTestFirmsKey();
+  const runs = useIngestionRuns();
+  const deleteRun = useDeleteRun();
 
   const [startDate, setStartDate] = useState(shiftDays(DEFAULT_DAYS));
   const [endDate, setEndDate] = useState(shiftDays(10));
@@ -135,6 +140,28 @@ export function RawArchivePage() {
       setNotice((error as Error).message);
     } finally {
       setDownloading(null);
+    }
+  };
+
+  const previewAndDeleteRun = async (runId: string, label: string) => {
+    setNotice(null);
+    try {
+      const preview = await previewRunDelete(runId);
+      const confirmed = window.confirm(
+        `Delete the ingested data for ${label}?\n\n` +
+          `${formatCount(preview.observations)} canonical detections, ` +
+          `${formatCount(preview.raw_observations)} raw payloads, ` +
+          `${formatCount(preview.matches)} matches and ` +
+          `${formatCount(preview.partitions)} partitions will be removed. ` +
+          `Rollups are rebuilt. This cannot be undone.`,
+      );
+      if (!confirmed) return;
+      const result = await deleteRun.mutateAsync(runId);
+      setNotice(
+        `Removed ${formatCount(result.observations)} detections from ${label}. The window can be ingested again.`,
+      );
+    } catch (error) {
+      setNotice((error as Error).message);
     }
   };
 
@@ -235,7 +262,11 @@ export function RawArchivePage() {
         </div>
         <p className="mt-2 text-2xs leading-relaxed text-faint">
           In local development the API allows writes without a token. A production
-          deployment with <code>ADMIN_TOKEN</code> unset disables them.
+          deployment with <code>ADMIN_TOKEN</code> unset disables them.{" "}
+          <a href="/login" className="text-azure underline decoration-azure/30 underline-offset-2">
+            Sign in as an operator
+          </a>{" "}
+          to use a role-based session instead.
         </p>
       </Panel>
 
@@ -400,6 +431,65 @@ export function RawArchivePage() {
             </div>
           </div>
         </div>
+      </Panel>
+
+      <Panel
+        className="mt-3"
+        title="Ingested data"
+        subtitle="Each ingestion run is one reversible unit. Deleting it removes the run's canonical and raw rows, matches, event memberships, coverage and partitions, then rebuilds the affected rollups."
+      >
+        {runs.isLoading ? (
+          <p className="text-xs text-faint">Loading ingestion runs?</p>
+        ) : (runs.data ?? []).length === 0 ? (
+          <EmptyState
+            title="No ingestion runs"
+            description="Trigger an ingestion from Settings; runs appear here with their provenance."
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-line/10 text-2xs uppercase tracking-wide text-faint">
+                  <th className="py-2 pr-4 font-normal">Source</th>
+                  <th className="py-2 pr-4 font-normal">Window</th>
+                  <th className="py-2 pr-4 font-normal">Inserted</th>
+                  <th className="py-2 pr-4 font-normal">Status</th>
+                  <th className="py-2 font-normal">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(runs.data ?? []).map((run) => {
+                  const start = run.query_parameters?.start_date ?? "?";
+                  const end = run.query_parameters?.end_date ?? start;
+                  const label = `${run.source_code ?? "unknown"} ${start} ? ${end}`;
+                  return (
+                    <tr key={run.id} className="border-b border-line/[0.06] last:border-0">
+                      <td className="py-2 pr-4 text-muted">{run.source_code ?? "?"}</td>
+                      <td className="py-2 pr-4 text-muted">
+                        {start} ? {end}
+                      </td>
+                      <td className="py-2 pr-4 text-muted">
+                        {formatCount(run.records_inserted)}
+                      </td>
+                      <td className="py-2 pr-4 text-faint">{run.status}</td>
+                      <td className="py-2">
+                        <button
+                          type="button"
+                          onClick={() => void previewAndDeleteRun(run.id, label)}
+                          disabled={run.status === "deleted" || deleteRun.isPending}
+                          className="inline-flex items-center gap-1 rounded-full border border-danger/30 px-2 py-1 text-2xs text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Trash2 className="size-3" aria-hidden />
+                          Delete data
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Panel>
 
       <Panel

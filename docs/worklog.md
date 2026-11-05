@@ -223,6 +223,27 @@ A second working block on the same day, after the Amazon teardown.
   matching the header date twice, and jsdom's canvas stub no longer produces an
   unhandled error.
 
+## Day 8 ? 2026-11-05: auth, rate limiting, report formats, data deletion
+
+- **Authentication & RBAC.** `users` + `auth_sessions`; Argon2id hashes, roles
+  `admin` / `analyst` / `viewer`, HttpOnly session cookies, login/logout/me and
+  user administration. The Admin Portal has an operator sign-in page; the
+  break-glass `X-Admin-Token` still works. Capability reports now say
+  `authentication: true`.
+- **Rate limiting** was already implemented; the capability flag is now honest
+  and the cloud runbook enables it (`RATE_LIMIT_PER_MINUTE=120`).
+- **Reports & exports.** PDF (reportlab), CSV (daily series with methodology
+  comments), GeoJSON (top cells with methodology in the collection properties),
+  JSON and Markdown. Every format carries the methodology and limitations.
+- **Assistant.** The deterministic, database-backed assistant is reported as
+  available; it never invents measurements.
+- **Admin data deletion.** `/admin/ingestion/runs/{id}/preview` shows what a run
+  owns; `.../delete` removes canonical + raw rows, matches, event memberships,
+  availability, coverage and partitions, rebuilds rollups, and keeps the run row
+  marked `deleted` for audit. The Admin Portal lists runs with this action.
+- **Tests:** backend **241**, frontend **76**; auth, report formats and deletion
+  covered, plus frontend login and ingestion-run deletion preview.
+
 ## Where the evidence lives
 
 | Claim | Evidence |

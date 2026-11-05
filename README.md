@@ -16,12 +16,15 @@ exposes all of it through a dark analytical console.
 >   2026-11-03, 2026-08-01 ? 08-05 (MODIS 1?5, VIIRS 1?4), and two fixture months.
 > - **13,033,856** raw payloads on hand under a **90-day** policy; older payloads are exported
 >   with a SHA-256 receipt, then deleted without touching canonical analysis.
-> - **CI** runs ruff, mypy, pytest, vitest and the production build; backend **236** / frontend
->   **74** tests. Backups are dumped with a SHA-256 sidecar and a full restore drill has been
+> - **CI** runs ruff, mypy, pytest, vitest and the production build; backend **241** / frontend
+>   **76** tests. Backups are dumped with a SHA-256 sidecar and a full restore drill has been
 >   verified against the live store.
 > - **Cloud gate:** administrative writes require `ADMIN_TOKEN` in production; raw payloads are
 >   never uploaded. Remaining operator steps are R2 credentials and TLS/domain (see
 >   [`docs/cloud_readiness.md`](docs/cloud_readiness.md)).
+> - **Security:** Argon2id accounts with admin/analyst/viewer roles and server-side sessions;
+>   administrative writes require a role or `ADMIN_TOKEN`. Rate limiting is configurable per
+>   client. Reports export to PDF, CSV, GeoJSON, JSON and Markdown.
 > - **Known gaps:** live Cloudflare R2 upload is unexercised (no credentials here), burned-area
 >   agreement is not measured, and 2026-08-06 ? 08-31 is still unobserved.
 >
@@ -90,6 +93,10 @@ These are live captures of the console on the workstation (PostgreSQL store, 202
 | APIs: `/fires`, `/fires/aggregate`, `/calendar`, `/analytics/summary`, `/anomalies` | Working |
 | Console: overview aggregates, sensor-intelligence workspace, ingestion console | Working |
 | Design system, shell, command palette, freshness, synthetic-data labelling | Working |
+| Authentication & RBAC: Argon2id, admin/analyst/viewer roles, server-side sessions | Working |
+| Rate limiting: per-client token bucket with `Retry-After` and `X-RateLimit-*` | Working |
+| Reports: PDF, CSV, GeoJSON, JSON and Markdown with methodology and limitations | Working |
+| Admin data lifecycle: inspect ingestion runs, preview and safely delete their data | Working |
 | Admin portal: FIRMS key (write-only, masked), raw-payload inventory, export and retention | Working |
 | Raw payloads: 90-day retention, CSV.GZ export with SHA-256 gate before deletion | Working |
 | Regions, exposure, reports, AI assistant, auth | Phase 6–8 |
@@ -211,8 +218,8 @@ Request a free key: <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 ## Tests
 
 ```bash
-cd backend  && uv run pytest       # 234 tests
-cd frontend && npm test            # 73 tests
+cd backend  && uv run pytest       # 241 tests
+cd frontend && npm test            # 76 tests
 
 cd backend  && uv run ruff check . && uv run mypy app
 cd frontend && npm run typecheck

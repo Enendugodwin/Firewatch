@@ -240,6 +240,22 @@ GET /api/v1/fires?bbox=-5,4,15,14&start_date=2026-01-01&end_date=2026-01-31&sens
 GET /api/v1/calendar/yearly?region_id=NG&year=2026&metric=raw_detections
 ```
 
+## Authentication
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/v1/auth/login` | Sign in; sets the HttpOnly `firewatch_session` cookie |
+| `POST /api/v1/auth/logout` | Revoke the session |
+| `GET /api/v1/auth/me` | Current operator |
+| `GET /api/v1/auth/status` | Whether sign-in is available and who is signed in |
+| `GET /api/v1/auth/users` | List accounts (admin) |
+| `POST /api/v1/auth/users` | Create an account (admin) |
+| `PATCH /api/v1/auth/users/{id}` | Change role or deactivate (admin) |
+
+Passwords are Argon2id hashes. Roles: `admin` (all writes), `analyst` (ingestion,
+harmonization, history, regions), `viewer` (read-only). `X-Admin-Token` remains a
+break-glass admin credential.
+
 ## Administration endpoints
 
 | Endpoint | Purpose |
@@ -253,8 +269,12 @@ GET /api/v1/calendar/yearly?region_id=NG&year=2026&metric=raw_detections
 | `GET /api/v1/admin/raw/exports` | Export receipts |
 | `GET /api/v1/admin/raw/exports/{id}/download` | Download the archive |
 | `POST /api/v1/admin/raw/exports/{id}/delete` | Delete that range's payloads (checksum required) |
+| `GET /api/v1/admin/ingestion/runs/{id}/preview` | What deleting one run would remove |
+| `POST /api/v1/admin/ingestion/runs/{id}/delete` | Delete that run's data and rebuild rollups |
 | `GET /api/v1/admin/raw/retention/preview` | What retention would remove |
 | `POST /api/v1/admin/raw/retention` | Apply retention (`confirm: true`) |
+
+Reports export as `json`, `markdown`, `csv`, `geojson` or `pdf`; each includes the methodology, limitations and provenance.
 
 ## Access control
 

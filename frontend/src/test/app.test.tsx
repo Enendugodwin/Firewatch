@@ -62,11 +62,11 @@ describe("settings module", () => {
     expect(screen.getAllByText(/^FIRMS_MAP_KEY$/).length).toBeGreaterThan(0);
   });
 
-  it("marks unbuilt capabilities as not built", async () => {
+  it("reports the security, reports and assistant capabilities as available", async () => {
     renderApp("/settings");
 
     expect(await screen.findByText(/authentication & rbac/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/not built/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/available/i).length).toBeGreaterThan(0);
   });
 
   it("disables live ingestion when no FIRMS key is configured", async () => {

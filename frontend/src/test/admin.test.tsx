@@ -1,5 +1,5 @@
-﻿import { describe, expect, it } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+﻿import { describe, expect, it, vi } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { renderApp } from "@/test/render";
 import { installFetchMock } from "@/test/fixtures";
@@ -35,6 +35,17 @@ describe("admin portal", () => {
     fireEvent.click(screen.getByRole("button", { name: /save token/i }));
 
     expect(window.sessionStorage.getItem("firewatch-admin-token")).toBe("tab-token");
+  });
+
+  it("lists ingestion runs and previews a safe delete", async () => {
+    installFetchMock();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderApp("/admin");
+
+    expect(await screen.findByText("MODIS_SP")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: /delete data/i }));
+    await waitFor(() => expect(confirm).toHaveBeenCalled());
+    expect(confirm.mock.calls[0]?.[0]).toMatch(/2 canonical detections/i);
   });
 
   it("shows the raw inventory and its retention policy", async () => {

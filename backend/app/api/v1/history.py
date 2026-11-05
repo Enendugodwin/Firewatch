@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
-from app.core.security import require_admin
+from app.core.security import require_analyst
 from app.db.models import HistoryJob
 from app.db.session import get_session
 from app.schemas.history import (
@@ -86,7 +86,7 @@ def regions() -> list[HistoryRegionOut]:
 
 @router.post(
     "/plan",
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_analyst)],
     response_model=HistoryPlanOut,
     summary="Preview the windows a request would fetch",
 )
@@ -105,7 +105,7 @@ def plan(
 
 @router.post(
     "/jobs",
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_analyst)],
     response_model=HistoryJobOut,
     status_code=202,
     summary="Start a historical run",
@@ -171,7 +171,7 @@ def get_job(job_id: str, session: Session = Depends(get_session)) -> HistoryJobO
 
 @router.post(
     "/jobs/{job_id}/cancel",
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_analyst)],
     response_model=HistoryJobOut,
     summary="Ask a running job to stop between windows",
 )
@@ -191,7 +191,7 @@ def cancel_job(job_id: str, session: Session = Depends(get_session)) -> HistoryJ
 
 @router.post(
     "/jobs/{job_id}/resume",
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_analyst)],
     response_model=HistoryJobOut,
     status_code=202,
     summary="Resume a failed or cancelled job (completed work is skipped)",

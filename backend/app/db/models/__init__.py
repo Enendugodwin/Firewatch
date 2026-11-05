@@ -1,6 +1,7 @@
 ﻿"""ORM models."""
 
 from app.db.models.app_setting import AppSetting
+from app.db.models.auth import AuthSession, User
 from app.db.models.data_source import DataSource
 from app.db.models.exposure import WatchedAsset
 from app.db.models.harmonization import (
@@ -28,6 +29,7 @@ from app.db.models.regions import (
 __all__ = [
     "AlgorithmRun",
     "AppSetting",
+    "AuthSession",
     "DataSource",
     "EventObservation",
     "FireEvent",
@@ -43,6 +45,7 @@ __all__ = [
     "RegionalCellStatistic",
     "RegionalDailyStatistic",
     "SourceAvailability",
+    "User",
     "WatchedAsset",
 ]
 

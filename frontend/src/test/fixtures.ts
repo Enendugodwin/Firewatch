@@ -79,10 +79,10 @@ export function makeStatus(overrides: Partial<SystemStatus["data"]> = {}): Syste
       ...overrides,
     },
     capabilities: {
-      authentication: false,
-      rate_limiting: false,
-      ai_assistant: false,
-      reports: false,
+      authentication: true,
+      rate_limiting: true,
+      ai_assistant: true,
+      reports: true,
       ingestion: false,
       spatial: false,
     },
@@ -871,6 +871,39 @@ export function installFetchMock(options: MockOptions = {}) {
         },
         rollups: { available: true, rows: 1646, dialect: "postgresql" },
       });
+    }
+    if (url.includes("/api/v1/admin/ingestion/jobs")) {
+      return json([
+        {
+          id: "run-1",
+          source_code: "MODIS_SP",
+          status: "succeeded",
+          started_at: "2026-11-04T10:00:00Z",
+          completed_at: "2026-11-04T10:05:00Z",
+          records_received: 2,
+          records_inserted: 2,
+          records_rejected: 0,
+          is_synthetic: true,
+          error_message: null,
+          query_parameters: { start_date: "2026-10-28", end_date: "2026-10-28" },
+        },
+      ]);
+    }
+    if (url.includes("/api/v1/admin/ingestion/runs/") && url.includes("/preview")) {
+      return json({
+        run_id: "run-1",
+        source_code: "MODIS_SP",
+        start_date: "2026-10-28",
+        end_date: "2026-10-28",
+        observations: 2,
+        raw_observations: 2,
+        matches: 0,
+        partitions: 1,
+        already_deleted: false,
+      });
+    }
+    if (url.includes("/api/v1/auth/login")) {
+      return json({ user: { id: "u1", email: "ops@example.com", role: "admin" } });
     }
     if (url.includes("/api/v1/admin/settings/firms")) {
       if (init?.method === "PUT") firmsConfigured = true;

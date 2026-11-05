@@ -20,7 +20,9 @@ def test_status_exposes_phase_and_capabilities(client: TestClient) -> None:
 
     assert body["phase"] == "9"
     assert body["phase_name"] == "Production Ready"
-    assert body["capabilities"]["authentication"] is False
+    assert body["capabilities"]["authentication"] is True
+    assert body["capabilities"]["reports"] is True
+    assert body["capabilities"]["rate_limiting"] is True
     # Ingestion is implemented; it reports unavailable until a MAP_KEY exists.
     assert body["capabilities"]["ingestion"] is False
     # SQLite has no spatial extension, so spatial capability is honestly false.

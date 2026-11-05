@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.core.errors import AppError
-from app.core.security import require_admin
+from app.core.security import require_analyst
 from app.db.models import (
     AlgorithmRun,
     FireEvent,
@@ -401,7 +401,7 @@ def list_events(
 async def run_matching(
     request: MatchRunRequest | None = None,
     session: Session = Depends(get_session),
-    _: None = Depends(require_admin),
+    _: None = Depends(require_analyst),
 ) -> MatchRunResponse:
     request = request or MatchRunRequest()
     if not (request.probable_threshold > request.possible_threshold >= request.store_threshold):

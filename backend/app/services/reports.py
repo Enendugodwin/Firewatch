@@ -8,8 +8,12 @@ use, so a report cannot disagree with the UI.
 
 from __future__ import annotations
 
+import csv
+import io
+import json
 from datetime import date, timedelta
 from typing import Any
+from xml.sax.saxutils import escape
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -21,6 +25,21 @@ from app.services.calendar import daily_metrics
 from app.services.observation_queries import ObservationFilters
 
 REPORT_VERSION = "report-v1"
+
+METHODOLOGY = (
+    "Counts are NASA FIRMS thermal detections, not confirmed wildfires; a detection "
+    "may be agricultural, industrial or a false positive.",
+    "Days are UTC calendar days. A day with no stored detections is shown as zero "
+    "only when source availability says it was observed; otherwise it is a gap.",
+    "FRP is the summed Fire Radiative Power of the stored detections, in megawatts.",
+    "Top cells use a fixed geographic grid, not administrative boundaries.",
+    "MODIS and VIIRS counts are never interchangeable and are reported separately.",
+    "Cross-sensor matches and estimated events cover the last stored association "
+    "scope; the report states that scope rather than implying full coverage.",
+    "Anomalies are relative to the period's own baseline; insufficient history is "
+    "reported instead of guessed.",
+    "This document is generated from the database; no narrative is model-written.",
+)
 
 
 def build_report(
@@ -116,6 +135,7 @@ def build_report(
             "range_days": totals["days"],
             "synthetic_rows": int(synthetic),
         },
+        "methodology": list(METHODOLOGY),
         "notes": [
             "Counts are thermal detections, not confirmed fires.",
             "Rankings use a fixed geographic grid, not administrative boundaries.",
@@ -174,6 +194,225 @@ def report_markdown(report: dict[str, Any]) -> str:
                 f"({item['severity']}, z={item['robust_z']})"
             )
 
+    lines += ["", "## Methodology"]
+    lines += [f"- {item}" for item in report.get("methodology", [])]
+
     lines += ["", "## Notes"]
     lines += [f"- {note}" for note in report["notes"]]
     return "\n".join(lines) + "\n"
+
+
+def report_csv(report: dict[str, Any]) -> str:
+    """Daily series as CSV, with the methodology as ``#`` comment lines."""
+    buffer = io.StringIO()
+    buffer.write(f"# FIREWATCH X report {report['start_date']} to {report['end_date']}\n")
+    buffer.write(f"# report_version,{report['version']}\n")
+    for item in report.get("methodology", []):
+        buffer.write(f"# methodology,{item.replace(',', ';')}\n")
+    writer = csv.writer(buffer)
+    writer.writerow(
+        ["date", "detections", "modis", "viirs", "frp_sum_mw", "frp_max_mw", "high_confidence"]
+    )
+    for point in report["series"]:
+        writer.writerow(
+            [
+                point["date"],
+                point["detections"],
+                point.get("modis", 0),
+                point.get("viirs", 0),
+                point.get("frp_sum_mw", 0),
+                point.get("frp_max_mw"),
+                point.get("high_confidence", 0),
+            ]
+        )
+    return buffer.getvalue()
+
+
+def report_geojson(report: dict[str, Any]) -> str:
+    """Top activity cells as GeoJSON points with the report's method attached."""
+    features = [
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [cell["longitude"], cell["latitude"]],
+            },
+            "properties": {
+                "detections": cell["detections"],
+                "frp_sum_mw": cell["frp_sum_mw"],
+                "frp_max_mw": cell.get("frp_max_mw"),
+                "cell_degrees": report["cell_degrees"],
+            },
+        }
+        for cell in report["top_cells"]
+    ]
+    payload = {
+        "type": "FeatureCollection",
+        "features": features,
+        "properties": {
+            "report_version": report["version"],
+            "start_date": str(report["start_date"]),
+            "end_date": str(report["end_date"]),
+            "headline": report["headline"],
+            "harmonization": report["harmonization"],
+            "methodology": report.get("methodology", []),
+            "notes": report["notes"],
+        },
+    }
+    return json.dumps(payload, indent=2, default=str)
+
+
+def report_pdf(report: dict[str, Any]) -> bytes:
+    """A paginated briefing PDF built with reportlab (no browser required)."""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        PageBreak,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+
+    buffer = io.BytesIO()
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=16 * mm,
+        bottomMargin=16 * mm,
+        title=f"FIREWATCH X report {report['start_date']} to {report['end_date']}",
+        author="FIREWATCH X",
+    )
+    styles = getSampleStyleSheet()
+    body = ParagraphStyle("body", parent=styles["BodyText"], fontSize=9, leading=12)
+    small = ParagraphStyle("small", parent=body, fontSize=8, leading=10, textColor=colors.grey)
+    heading = ParagraphStyle("heading", parent=styles["Heading2"], fontSize=12, spaceBefore=8)
+    title_style = ParagraphStyle("title", parent=styles["Title"], fontSize=20, spaceAfter=4)
+    story: list[Any] = [
+        Paragraph("FIREWATCH X", title_style),
+        Paragraph(
+            f"Fire intelligence report ? {report['start_date']} ? {report['end_date']}",
+            heading,
+        ),
+        Paragraph(
+            "Satellite thermal detections are not confirmed wildfires. "
+            "Read the methodology before quoting any figure.",
+            small,
+        ),
+        Spacer(1, 6),
+    ]
+
+    headline = report["headline"]
+    rows = [
+        ["Detections", f"{headline['detections']:,}"],
+        ["Active days", f"{headline['active_days']}/{headline['days']}"],
+        ["MODIS / VIIRS", f"{headline['modis']:,} / {headline['viirs']:,}"],
+        ["FRP sum", f"{headline['frp_sum_mw']:,.1f} MW"],
+        ["Peak FRP", f"{(headline['frp_max_mw'] or 0):,.1f} MW"],
+        ["High confidence", f"{headline['high_confidence']:,}"],
+    ]
+    table = Table(rows, colWidths=[55 * mm, 80 * mm])
+    table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("TEXTCOLOR", (0, 0), (0, -1), colors.grey),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LINEBELOW", (0, 0), (-1, -2), 0.25, colors.lightgrey),
+            ]
+        )
+    )
+    story += [table, Spacer(1, 6), Paragraph("Methodology", heading)]
+    story += [Paragraph(f"? {escape(item)}", body) for item in report.get("methodology", [])]
+
+    story += [Paragraph("Daily detections", heading)]
+    series = report["series"]
+    daily_rows = [["Date", "Detections", "MODIS", "VIIRS", "FRP sum (MW)"]]
+    for point in series[:400]:
+        daily_rows.append(
+            [
+                str(point["date"]),
+                f"{point['detections']:,}",
+                f"{point.get('modis', 0):,}",
+                f"{point.get('viirs', 0):,}",
+                f"{point.get('frp_sum_mw', 0):,.1f}",
+            ]
+        )
+    daily = Table(daily_rows, repeatRows=1)
+    daily.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
+                ("LINEBELOW", (0, 0), (-1, -1), 0.2, colors.lightgrey),
+                ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+            ]
+        )
+    )
+    story.append(daily)
+    if len(series) > 400:
+        story.append(Paragraph("Table truncated to the first 400 days.", small))
+
+    story += [Paragraph(f"Top cells ({report['cell_degrees']}? grid)", heading)]
+    cell_rows = [["Latitude", "Longitude", "Detections", "FRP sum (MW)"]]
+    for cell in report["top_cells"]:
+        cell_rows.append(
+            [
+                f"{cell['latitude']:.2f}",
+                f"{cell['longitude']:.2f}",
+                f"{cell['detections']:,}",
+                f"{cell['frp_sum_mw']:,.1f}",
+            ]
+        )
+    cells = Table(cell_rows, repeatRows=1)
+    cells.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
+                ("LINEBELOW", (0, 0), (-1, -1), 0.2, colors.lightgrey),
+                ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
+            ]
+        )
+    )
+    story.append(cells)
+
+    story += [PageBreak(), Paragraph("Harmonization, anomalies and notes", heading)]
+    harmonization = report["harmonization"]
+    story.append(
+        Paragraph(
+            f"{harmonization['matches_total']:,} matches "
+            f"({harmonization['probable']:,} probable) ? "
+            f"{harmonization['events']:,} estimated events "
+            f"({harmonization['multi_sensor_events']:,} multi-sensor). "
+            f"{harmonization['note']}",
+            body,
+        )
+    )
+    anomalies = report["anomalies"]
+    if anomalies["status"] == "insufficient_history":
+        story.append(Paragraph("Anomalies: insufficient observed history; no claims made.", body))
+    elif not anomalies["flagged"]:
+        story.append(Paragraph(f"Anomalies: none flagged ({anomalies['method']}).", body))
+    else:
+        for item in anomalies["flagged"]:
+            story.append(
+                Paragraph(
+                    f"Anomaly {item['date']}: {item['observed']:,.0f} observed vs "
+                    f"{item['expected']:,.1f} expected ({item['severity']}).",
+                    body,
+                )
+            )
+    story.append(Paragraph("Notes", heading))
+    story += [Paragraph(f"? {escape(note)}", body) for note in report["notes"]]
+
+    document.build(story)
+    return buffer.getvalue()

@@ -13,7 +13,13 @@ from app.core.errors import AppError
 from app.db.session import get_session
 from app.services.calendar import validate_span
 from app.services.observation_queries import BBox, ObservationFilters
-from app.services.reports import build_report, report_markdown
+from app.services.reports import (
+    build_report,
+    report_csv,
+    report_geojson,
+    report_markdown,
+    report_pdf,
+)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -42,10 +48,10 @@ def _filters(
 @router.get("", summary="Report capabilities and formats")
 def reports_index() -> dict[str, object]:
     return {
-        "formats": ["json", "markdown"],
+        "formats": ["json", "markdown", "csv", "geojson", "pdf"],
         "endpoints": [
             "/api/v1/reports/summary?start_date=&end_date=",
-            "/api/v1/reports/export?format=markdown&start_date=&end_date=",
+            "/api/v1/reports/export?format=pdf&start_date=&end_date=",
         ],
         "note": "Reports are generated from the database; no narrative is model-written.",
     }
@@ -68,7 +74,7 @@ def report_summary(
 def report_export(
     start_date: date = Query(...),
     end_date: date = Query(...),
-    format: str = Query("markdown", pattern="^(markdown|json)$"),
+    format: str = Query("pdf", pattern="^(markdown|json|csv|geojson|pdf)$"),
     bbox: str | None = None,
     synthetic: bool | None = None,
     top: int = Query(10, ge=1, le=50),
@@ -77,14 +83,27 @@ def report_export(
     filters = _filters(bbox, start_date, end_date, synthetic)
     report = build_report(session, filters, start=start_date, end=end_date, top=top)
 
+    stem = f"firewatch-report-{start_date}-{end_date}"
     if format == "json":
-        body = json.dumps(report, indent=2, default=str)
+        body: str | bytes = json.dumps(report, indent=2, default=str)
         media = "application/json"
-        filename = f"firewatch-report-{start_date}-{end_date}.json"
+        filename = f"{stem}.json"
+    elif format == "csv":
+        body = report_csv(report)
+        media = "text/csv; charset=utf-8"
+        filename = f"{stem}.csv"
+    elif format == "geojson":
+        body = report_geojson(report)
+        media = "application/geo+json"
+        filename = f"{stem}.geojson"
+    elif format == "pdf":
+        body = report_pdf(report)
+        media = "application/pdf"
+        filename = f"{stem}.pdf"
     else:
         body = report_markdown(report)
         media = "text/markdown; charset=utf-8"
-        filename = f"firewatch-report-{start_date}-{end_date}.md"
+        filename = f"{stem}.md"
 
     return Response(
         content=body,

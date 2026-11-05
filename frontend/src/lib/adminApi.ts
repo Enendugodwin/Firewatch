@@ -55,3 +55,58 @@ export function useTestFirmsKey() {
       }>("/api/v1/admin/settings/firms/test", { method: "POST" }),
   });
 }
+
+
+export interface IngestionRun {
+  id: string;
+  source_code: string | null;
+  status: string;
+  started_at: string;
+  records_received: number;
+  records_inserted: number;
+  query_parameters: { start_date?: string; end_date?: string; tile?: string };
+}
+
+export interface RunDeletePreview {
+  run_id: string;
+  source_code: string | null;
+  start_date: string;
+  end_date: string;
+  observations: number;
+  raw_observations: number;
+  matches: number;
+  partitions: number;
+  already_deleted: boolean;
+}
+
+export function useIngestionRuns(limit = 20) {
+  return useQuery({
+    queryKey: ["admin", "ingestion-runs", limit],
+    queryFn: () =>
+      apiFetch<IngestionRun[]>(`/api/v1/admin/ingestion/jobs?limit=${limit}`),
+    staleTime: 15_000,
+  });
+}
+
+export async function previewRunDelete(runId: string): Promise<RunDeletePreview> {
+  return apiFetch<RunDeletePreview>(
+    `/api/v1/admin/ingestion/runs/${runId}/preview`,
+  );
+}
+
+export function useDeleteRun() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (runId: string) =>
+      apiFetch<RunDeletePreview & { deleted: boolean }>(
+        `/api/v1/admin/ingestion/runs/${runId}/delete`,
+        { method: "POST", body: JSON.stringify({ confirm: true }) },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["calendar"] });
+      void queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    },
+  });
+}

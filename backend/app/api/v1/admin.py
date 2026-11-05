@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
@@ -27,6 +29,7 @@ from app.schemas.ingestion import (
 )
 from app.services import events as events_service
 from app.services import harmonization as harmonization_service
+from app.services import ingestion_deletion
 from app.services.firms.tiles import WORLD, Tile, global_tiles
 from app.services.ingestion import ingest_range, sync_availability
 from app.services.observation_queries import BBox
@@ -43,6 +46,41 @@ def list_tiles() -> list[TileOut]:
     return [TileOut(key="world", bbox=WORLD.bbox)] + [
         TileOut(key=tile.key, bbox=tile.bbox) for tile in global_tiles()
     ]
+
+
+class RunDeleteRequest(BaseModel):
+    confirm: bool = False
+
+
+@router.get(
+    "/runs/{run_id}/preview",
+    summary="What deleting this ingestion run would remove",
+)
+def preview_run_delete(
+    run_id: uuid.UUID, session: Session = Depends(get_session)
+) -> dict[str, object]:
+    try:
+        return ingestion_deletion.preview(session, run_id)
+    except ingestion_deletion.RunNotFound as exc:
+        raise AppError("not_found", str(exc)) from exc
+    except ValueError as exc:
+        raise AppError("unprocessable", str(exc)) from exc
+
+
+@router.post("/runs/{run_id}/delete", summary="Delete one ingestion run's data")
+def delete_run_data(
+    run_id: uuid.UUID,
+    payload: RunDeleteRequest,
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    if not payload.confirm:
+        raise AppError("bad_request", "Set confirm=true to delete this run's data.")
+    try:
+        return ingestion_deletion.delete_run(session, run_id)
+    except ingestion_deletion.RunNotFound as exc:
+        raise AppError("not_found", str(exc)) from exc
+    except ValueError as exc:
+        raise AppError("conflict", str(exc)) from exc
 
 
 @router.get("/jobs", response_model=list[IngestionRunOut], summary="Ingestion job history")
