@@ -287,3 +287,11 @@ def test_summary_and_matches_are_scoped_to_the_requested_period(client) -> None:
         params={"start_date": "2026-05-02", "end_date": "2026-05-01"},
     )
     assert reversed_period.status_code == 422
+
+
+def test_every_match_records_its_utc_day(client, loaded_fixture) -> None:
+    """The denormalised match_day is required by the period-scoped queries."""
+    with session_scope() as session:
+        rows = session.scalars(select(ObservationMatch)).all()
+    assert rows
+    assert all(row.match_day is not None for row in rows)

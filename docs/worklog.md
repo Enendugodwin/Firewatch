@@ -251,6 +251,10 @@ A second working block on the same day, after the Amazon teardown.
   `scripts/create_admin`.
 - **Handover:** `docs/handover.md` records access, secrets policy, local/container setup,
   the code map, runbooks, verification, incidents and a first-day checklist.
+- **Incident: Re-run Associations 500.** Migration 0015 made `match_day` NOT NULL,
+  but the single-range harmonization path inserted matches without it. The range
+  path was fixed but this one was missed; both now set `match_day` and a test
+  asserts no match has a null day.
 - **Harmonized map legibility.** Because only ~3?4% of detections are duplicates, raw and
   harmonized cell colours are usually identical. Cells that lost duplicates now get an amber
   outline and the status strip reports the removed count; the aggregate response carries

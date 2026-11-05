@@ -239,6 +239,9 @@ CI runs the same checks on every push (`.github/workflows/ci.yml`) plus
   500 at insert.
 - Partitions are keyed by `(source, tile, date_start)`. Resume also checks
   `date_end`; a one-day run must not mark a four-day window complete.
+- `observation_matches.match_day` is NOT NULL. Every insert path (single range and
+  daily-range) must set it; the single-range path once missed it and Re-run
+  Associations returned 500.
 - Two simultaneous harmonization runs used to collide on the unique match pair
   index. Passes are serialized; the loser gets **409**.
 - Deleting observations with cascading FKs can re-scan unindexed
