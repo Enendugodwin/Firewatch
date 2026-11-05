@@ -46,6 +46,7 @@ interface Meta {
   cellDegrees: number | null;
   truncated: boolean;
   limit: number;
+  matched: number;
 }
 
 const EMPTY_META: Meta = {
@@ -55,6 +56,7 @@ const EMPTY_META: Meta = {
   cellDegrees: null,
   truncated: false,
   limit: POINT_LIMIT,
+  matched: 0,
 };
 
 export function FireMapPage() {
@@ -143,6 +145,7 @@ export function FireMapPage() {
               cellDegrees: payload.cell_degrees,
               truncated: payload.truncated,
               limit: 0,
+              matched: payload.matched_viirs ?? 0,
             });
           })
         : fetchFireFeatures(query, POINT_LIMIT, controller.signal).then((payload) => {
@@ -155,6 +158,7 @@ export function FireMapPage() {
               cellDegrees: null,
               truncated: payload.properties.truncated,
               limit: payload.properties.limit,
+              matched: 0,
             });
           });
 
@@ -216,7 +220,7 @@ export function FireMapPage() {
 
   const statusLine = query
     ? meta.aggregated
-      ? `${filters.harmonized ? "Harmonized · " : ""}${formatCount(meta.shown)} cells · ${formatCount(meta.total)} detections${meta.cellDegrees ? ` · ${meta.cellDegrees.toFixed(2)}° grid` : ""}`
+      ? `${filters.harmonized ? "Harmonized · " : ""}${formatCount(meta.shown)} cells · ${formatCount(meta.total)} detections${meta.cellDegrees ? ` · ${meta.cellDegrees.toFixed(2)}° grid` : ""}${filters.harmonized && meta.matched > 0 ? ` · ${formatCount(meta.matched)} duplicates removed` : ""}`
       : `${filters.harmonized ? "Harmonized · " : ""}${formatCount(meta.shown)} of ${formatCount(meta.total)} detections${meta.truncated ? " (truncated)" : ""}`
     : "No sensor selected";
 
@@ -307,6 +311,7 @@ export function FireMapPage() {
             heat={filters.heat}
             basemap={filters.basemap}
             theme={filters.theme}
+            harmonized={filters.harmonized}
             onMoveEnd={setView}
             onSelectPoint={setSelectedId}
             onSelectCell={(cell) =>

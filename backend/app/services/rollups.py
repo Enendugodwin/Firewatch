@@ -165,12 +165,13 @@ def map_cells(
                 {total_expr} AS detections,
                 sum(CASE WHEN sensor = 'MODIS' THEN detections ELSE 0 END) AS modis,
                 {viirs_expr} AS viirs,
+                sum(matched_viirs) AS matched_viirs,
                 max(frp_max_mw) AS max_frp_mw
             FROM {CELL_ROLLUP_NAME}
             WHERE {' AND '.join(clauses)}
             GROUP BY 1, 2
         )
-        SELECT lat_cell, lon_cell, detections, modis, viirs, max_frp_mw
+        SELECT lat_cell, lon_cell, detections, modis, viirs, matched_viirs, max_frp_mw
         FROM grouped
         ORDER BY detections DESC
         LIMIT :limit
@@ -184,6 +185,7 @@ def map_cells(
             "detections": int(row.detections),
             "modis": int(row.modis or 0),
             "viirs": int(row.viirs or 0),
+            "matched_viirs": int(row.matched_viirs or 0),
             "max_frp_mw": float(row.max_frp_mw) if row.max_frp_mw is not None else None,
         }
         for row in rows

@@ -7,6 +7,8 @@ import type { Bounds, FireCell, FireFeatureCollection } from "@/lib/mapApi";
 import {
   cellColorExpression,
   cellRadiusExpression,
+  cellStrokeExpression,
+  cellStrokeWidth,
   cellsToFeatureCollection,
   frpColorExpression,
   heatColorExpression,
@@ -24,7 +26,11 @@ import {
 } from "./mapStyle";
 
 /** Applies a theme's field, basemap and fire palettes to an initialised map. */
-export function applyMapTheme(map: MapLibreMap, theme: MapTheme): void {
+export function applyMapTheme(
+  map: MapLibreMap,
+  theme: MapTheme,
+  harmonized = false,
+): void {
   map.setPaintProperty("background", "background-color", theme.background);
 
   if (map.getLayer(BASEMAP_LAYER)) {
@@ -51,8 +57,16 @@ export function applyMapTheme(map: MapLibreMap, theme: MapTheme): void {
   if (map.getLayer("fire-cells")) {
     map.setPaintProperty("fire-cells", "circle-color", cellColorExpression(theme.fire));
     map.setPaintProperty("fire-cells", "circle-opacity", theme.cellOpacity);
-    map.setPaintProperty("fire-cells", "circle-stroke-color", theme.stroke);
-    map.setPaintProperty("fire-cells", "circle-stroke-width", theme.strokeWidth);
+    map.setPaintProperty(
+      "fire-cells",
+      "circle-stroke-color",
+      cellStrokeExpression(theme, harmonized),
+    );
+    map.setPaintProperty(
+      "fire-cells",
+      "circle-stroke-width",
+      cellStrokeWidth(harmonized),
+    );
   }
 
   if (map.getLayer("fires-points")) {
@@ -79,6 +93,7 @@ interface FireMapCanvasProps {
   heat: boolean;
   basemap: boolean;
   theme: MapThemeId;
+  harmonized: boolean;
   onMoveEnd: (view: { bbox: Bounds; zoom: number }) => void;
   onSelectPoint: (id: string) => void;
   onSelectCell: (cell: FireCell) => void;
@@ -91,6 +106,7 @@ export function FireMapCanvas({
   heat,
   basemap,
   theme,
+  harmonized,
   onMoveEnd,
   onSelectPoint,
   onSelectCell,
@@ -100,11 +116,11 @@ export function FireMapCanvas({
   const mapRef = useRef<MapLibreMap | null>(null);
   const loadedRef = useRef(false);
   const handlers = useRef({ onMoveEnd, onSelectPoint, onSelectCell });
-  const latest = useRef({ points, cells, heat, basemap, theme });
+  const latest = useRef({ points, cells, heat, basemap, theme, harmonized });
 
   useEffect(() => {
-    latest.current = { points, cells, heat, basemap, theme };
-  }, [points, cells, heat, basemap, theme]);
+    latest.current = { points, cells, heat, basemap, theme, harmonized };
+  }, [points, cells, heat, basemap, theme, harmonized]);
 
   // Keep latest callbacks without re-creating the map.
   useEffect(() => {
@@ -207,8 +223,8 @@ export function FireMapCanvas({
           "circle-radius": cellRadiusExpression() as never,
           "circle-color": cellColorExpression() as never,
           "circle-opacity": 0.4,
-          "circle-stroke-color": "rgba(255,255,255,0.5)",
-          "circle-stroke-width": 0.5,
+          "circle-stroke-color": cellStrokeExpression(MAP_THEMES[theme], harmonized) as never,
+          "circle-stroke-width": cellStrokeWidth(harmonized) as never,
           "circle-blur": 0.35,
         },
       });
@@ -273,7 +289,11 @@ export function FireMapCanvas({
       );
       map.setLayoutProperty("fire-heat", "visibility", latest.current.heat ? "visible" : "none");
       map.setLayoutProperty(BASEMAP_LAYER, "visibility", latest.current.basemap ? "visible" : "none");
-      applyMapTheme(map, MAP_THEMES[latest.current.theme]);
+      applyMapTheme(
+        map,
+        MAP_THEMES[latest.current.theme],
+        latest.current.harmonized,
+      );
 
       for (const layer of ["fire-hits", "fire-cells"]) {
         map.on("mouseenter", layer, () => {
@@ -333,8 +353,8 @@ export function FireMapCanvas({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
-    applyMapTheme(map, MAP_THEMES[theme]);
-  }, [theme]);
+    applyMapTheme(map, MAP_THEMES[theme], harmonized);
+  }, [theme, harmonized]);
 
   return (
     <div className="absolute inset-0">

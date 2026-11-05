@@ -86,7 +86,7 @@ These are live captures of the console on the workstation (PostgreSQL store, 202
 | Harmonization: `S = wₜT + wₛG + w_fF`, probable/possible/rejected with full evidence | Working |
 | Sensor Intelligence: MODIS/VIIRS totals, matches and events scoped to the header period, with evidence | Working |
 | Event grouping: spatiotemporal DBSCAN, per-event provenance and FRP aggregates | Working |
-| Map: MapLibre globe, four themes, rollup-backed viewport aggregation, FRP/confidence filters, harmonized toggle (`?harmonized=1`) | Working |
+| Map: MapLibre globe, rollup-backed aggregation, FRP/confidence filters, harmonized toggle (`?harmonized=1`) with amber duplicate outlines and removed-count | Working |
 | Calendar: day/week/month/year buckets, coverage states, drill-down to detections | Working |
 | Query (Intelligence): time window, region, sensor/satellite, FRP/confidence scope | Working |
 | Ingestion: single-source windows and one-click all-source runs | Working |

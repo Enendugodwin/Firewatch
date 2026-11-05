@@ -82,6 +82,20 @@ export function cellRadiusExpression(): unknown[] {
  * Cells are counts, so they are coloured by density rather than by a single
  * detection's FRP - otherwise one intense detection recolours an entire cell.
  */
+export function cellStrokeExpression(
+  colors: { stroke: string },
+  harmonized: boolean,
+): unknown {
+  if (!harmonized) return colors.stroke;
+  return ["case", [">", ["get", "matched_viirs"], 0], "#FBBF24", colors.stroke];
+}
+
+export function cellStrokeWidth(harmonized: boolean): unknown {
+  return harmonized
+    ? ["case", [">", ["get", "matched_viirs"], 0], 1.8, 0.5]
+    : 0.5;
+}
+
 export function cellColorExpression(colors: FireColors = FIRE_COLORS): unknown[] {
   return ["step", ["get", "count"], colors.low, 250, colors.medium, 1500, colors.high];
 }
@@ -127,6 +141,7 @@ export function cellsToFeatureCollection(cells: FireCell[]): {
         count: cell.count,
         modis: cell.modis,
         viirs: cell.viirs,
+        matched_viirs: cell.matched_viirs,
         max_frp_mw: cell.max_frp_mw,
       },
     })),

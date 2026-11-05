@@ -10,6 +10,7 @@ export interface FireCell {
   count: number;
   modis: number;
   viirs: number;
+  matched_viirs?: number;
   max_frp_mw: number | null;
   latest_acquired_at: string | null;
 }
@@ -22,6 +23,7 @@ export interface AggregateResponse {
   note?: string | null;
   zoom: number;
   total_detections: number;
+  matched_viirs?: number;
   returned_cells: number;
   truncated: boolean;
   bbox: number[];

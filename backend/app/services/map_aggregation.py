@@ -70,8 +70,10 @@ def aggregate_observations(
             rollup_rows = rollup_rows[:limit]
             cells = []
             total = 0
+            total_matched = 0
             for row in rollup_rows:
                 total += row["detections"]
+                total_matched += int(row.get("matched_viirs") or 0)
                 cells.append(
                     {
                         "longitude": round(
@@ -83,6 +85,7 @@ def aggregate_observations(
                         "count": row["detections"],
                         "modis": row["modis"],
                         "viirs": row["viirs"],
+                        "matched_viirs": int(row.get("matched_viirs") or 0),
                         "max_frp_mw": row["max_frp_mw"],
                         # The rollup has no per-detection timestamps.
                         "latest_acquired_at": None,
@@ -94,6 +97,7 @@ def aggregate_observations(
                 "requested_cell_degrees": cell,
                 "zoom": int(zoom),
                 "total_detections": total,
+                "matched_viirs": total_matched,
                 "returned_cells": len(cells),
                 "truncated": truncated,
                 "bbox": bbox.as_list(),
@@ -143,6 +147,7 @@ def aggregate_observations(
                 "count": int(count),
                 "modis": int(modis or 0),
                 "viirs": int(viirs or 0),
+                "matched_viirs": 0,
                 "max_frp_mw": float(max_frp) if max_frp is not None else None,
                 "latest_acquired_at": latest,
             }
@@ -154,6 +159,7 @@ def aggregate_observations(
         "requested_cell_degrees": cell,
         "zoom": int(zoom),
         "total_detections": total,
+        "matched_viirs": 0,
         "returned_cells": len(cells),
         "truncated": truncated,
         "bbox": bbox.as_list(),

@@ -108,6 +108,9 @@ The map is the Phase 4 workspace.
   every mode.
 - **Filters**: MODIS/VIIRS toggles, minimum FRP, confidence floor, day/night, optional density
   heatmap, optional basemap.
+- **Harmonized view**: the toggle (or `?harmonized=1`) subtracts VIIRS detections already seen
+  by MODIS. The reduction is usually small, so cells that lost duplicates get an amber outline
+  and the status strip reports how many were removed; colours alone rarely change.
 - **Search**: type a country, a city or `lat,lon` and press Enter to fly there. The list offers
   alternative matches.
 - **Inspect**: click any detection to open the panel with coordinates, UTC acquisition time,

@@ -15,6 +15,7 @@ class FireCell(BaseModel):
     count: int
     modis: int
     viirs: int
+    matched_viirs: int = 0
     max_frp_mw: float | None = None
     latest_acquired_at: datetime | None = None
 
@@ -25,6 +26,7 @@ class AggregateResponse(BaseModel):
     requested_cell_degrees: float | None = None
     zoom: int
     total_detections: int
+    matched_viirs: int = 0
     returned_cells: int
     truncated: bool
     bbox: list[float]

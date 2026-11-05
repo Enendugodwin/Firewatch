@@ -251,6 +251,10 @@ A second working block on the same day, after the Amazon teardown.
   `scripts/create_admin`.
 - **Handover:** `docs/handover.md` records access, secrets policy, local/container setup,
   the code map, runbooks, verification, incidents and a first-day checklist.
+- **Harmonized map legibility.** Because only ~3?4% of detections are duplicates, raw and
+  harmonized cell colours are usually identical. Cells that lost duplicates now get an amber
+  outline and the status strip reports the removed count; the aggregate response carries
+  `matched_viirs` per cell.
 - **Tests:** backend **241**, frontend **76**; auth, report formats and deletion
   covered, plus frontend login and ingestion-run deletion preview.
 
