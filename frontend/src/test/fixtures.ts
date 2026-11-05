@@ -872,6 +872,34 @@ export function installFetchMock(options: MockOptions = {}) {
         rollups: { available: true, rows: 1646, dialect: "postgresql" },
       });
     }
+    if (url.includes("/api/v1/auth/status")) {
+      return json({
+        authentication: true,
+        authenticated: true,
+        required: false,
+        open_access: false,
+        user: {
+          id: "u1",
+          email: "ops@example.com",
+          display_name: "Operator",
+          role: "admin",
+          is_active: true,
+        },
+        roles: ["admin", "analyst", "viewer"],
+        method: "argon2id + server-side session cookie",
+      });
+    }
+    if (url.includes("/api/v1/auth/users")) return json([]);
+    if (url.includes("/api/v1/admin/ingestion/sources")) {
+      return json([
+        { code: "MODIS_NRT", sensor: "MODIS", satellite: "Aqua", registered: true, observations: 0 },
+      ]);
+    }
+    if (url.includes("/api/v1/admin/ingestion/tiles")) {
+      return json([{ key: "world", bbox: "-180,-90,180,90" }]);
+    }
+    if (url.includes("/api/v1/history/datasets")) return json([]);
+    if (url.includes("/api/v1/history/jobs")) return json([]);
     if (url.includes("/api/v1/admin/ingestion/jobs")) {
       return json([
         {

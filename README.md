@@ -23,8 +23,9 @@ exposes all of it through a dark analytical console.
 >   never uploaded. Remaining operator steps are R2 credentials and TLS/domain (see
 >   [`docs/cloud_readiness.md`](docs/cloud_readiness.md)).
 > - **Security:** Argon2id accounts with admin/analyst/viewer roles and server-side sessions;
->   administrative writes require a role or `ADMIN_TOKEN`. Rate limiting is configurable per
->   client. Reports export to PDF, CSV, GeoJSON, JSON and Markdown.
+>   the Admin Portal is hidden from unauthenticated visitors and administrative writes require
+>   a role or `ADMIN_TOKEN`. Rate limiting is configurable per client. Reports export to PDF,
+>   CSV, GeoJSON, JSON and Markdown.
 > - **Known gaps:** live Cloudflare R2 upload is unexercised (no credentials here), burned-area
 >   agreement is not measured, and 2026-08-06 ? 08-31 is still unobserved.
 >
@@ -97,7 +98,7 @@ These are live captures of the console on the workstation (PostgreSQL store, 202
 | Rate limiting: per-client token bucket with `Retry-After` and `X-RateLimit-*` | Working |
 | Reports: PDF, CSV, GeoJSON, JSON and Markdown with methodology and limitations | Working |
 | Admin data lifecycle: inspect ingestion runs, preview and safely delete their data | Working |
-| Admin portal: FIRMS key (write-only, masked), raw-payload inventory, export and retention | Working |
+| Admin console: sign-in, accounts/roles, ingestion, backfills, harmonization, rollups, caches, deletion, FIRMS key, retention | Working |
 | Raw payloads: 90-day retention, CSV.GZ export with SHA-256 gate before deletion | Working |
 | Regions, exposure, reports, AI assistant, auth | Phase 6–8 |
 

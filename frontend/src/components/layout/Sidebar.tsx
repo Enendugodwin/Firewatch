@@ -3,7 +3,8 @@ import { ChevronsLeft, ChevronsRight, Flame, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { NAV_SECTIONS } from "@/config/nav";
-import { useModules, useSystemStatus } from "@/lib/queries";
+import { useAuthStatus } from "@/lib/authApi";
+import { useModules } from "@/lib/queries";
 import { useUiStore } from "@/store/ui";
 import type { ModuleStatus } from "@/types/api";
 import { StatusDot } from "@/components/ui/StatusDot";
@@ -46,50 +47,14 @@ function Wordmark({ compact }: { compact: boolean }) {
   );
 }
 
-function DeliveryMeter() {
-  const { data } = useModules();
-  const { data: status } = useSystemStatus();
-  const modules = data ?? [];
-  const total = modules.length || 11;
-  const ready = modules.filter((module) => module.status === "ready").length;
-  const progress = Math.max(Math.round((ready / total) * 100), 3);
-
-  return (
-    <div className="mx-[10px] mb-[10px] rounded-card border border-line/[0.07] bg-line/[0.02] px-[14px] py-[12px]">
-      <div className="flex items-baseline justify-between">
-        <span className="label">Delivery</span>
-        <span className="font-mono text-3xs text-muted">
-          Phase {status?.phase ?? "1"} / 9
-        </span>
-      </div>
-      <div className="mt-[9px] h-[2px] w-full overflow-hidden rounded-full bg-line/10">
-        <div
-          className="h-full rounded-full bg-accent/80 transition-[width] duration-1000 ease-orbital"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-      <p className="mt-[9px] text-3xs font-light leading-relaxed text-faint">
-        {ready} of {total} modules operational.{" "}
-        {status?.phase === "6"
-          ? "Ingestion, harmonization, the map, the calendar, analytics and anomalies are live."
-          : status?.phase === "5"
-            ? "Ingestion, harmonization, the map and the calendar are live; analytics is next."
-          : status?.phase === "4"
-            ? "Ingestion, harmonization and the map are live; the calendar is next."
-            : status?.phase === "3"
-            ? "Ingestion and harmonization are live; the map is next."
-            : ""}
-      </p>
-    </div>
-  );
-}
-
 export function Sidebar() {
   const drawerOpen = useUiStore((state) => state.sidebarOpen);
   const collapsedPref = useUiStore((state) => state.sidebarCollapsed);
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen);
   const toggleCollapsed = useUiStore((state) => state.toggleSidebarCollapsed);
   const { data } = useModules();
+  const { data: auth } = useAuthStatus();
+  const canAdmin = auth?.user?.role === "admin";
 
   const statusFor = (key: string): ModuleStatus =>
     data?.find((module) => module.key === key)?.status ??
@@ -161,7 +126,9 @@ export function Sidebar() {
                 <span className="label">{section.title}</span>
               </div>
               <ul className="space-y-[1px]">
-                {section.items.map((item) => {
+                {section.items
+                  .filter((item) => item.key !== "admin" || canAdmin)
+                  .map((item) => {
                   const Icon = item.icon;
                   const status = statusFor(item.key);
                   return (
@@ -221,10 +188,6 @@ export function Sidebar() {
             </div>
           ))}
         </nav>
-
-        <div className={clsx(collapsedPref && "lg:hidden")}>
-          <DeliveryMeter />
-        </div>
 
         <div
           className={clsx(

@@ -32,7 +32,7 @@ MODULES: tuple[ModuleInfo, ...] = (
         "label": "Overview",
         "route": "/",
         "phase": "Phase 4",
-        "status": "in_progress",
+        "status": "ready",
         "summary": "Global fire activity and intelligence summary.",
         "planned": [
             "Total detections for the selected period, split by sensor",
@@ -190,7 +190,7 @@ MODULES: tuple[ModuleInfo, ...] = (
         "label": "Settings",
         "route": "/settings",
         "phase": "Phase 1",
-        "status": "in_progress",
+        "status": "ready",
         "summary": "System health, data sources and administration.",
         "planned": [
             "Data source registry and freshness",

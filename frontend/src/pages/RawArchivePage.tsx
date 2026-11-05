@@ -2,6 +2,7 @@ import { Archive, Download, KeyRound, ShieldAlert, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { ServiceControls } from "@/components/admin/ServiceControls";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/ModuleStatus";
@@ -350,6 +351,8 @@ export function RawArchivePage() {
           </p>
         </Panel>
       </div>
+
+      <ServiceControls />
 
       <Panel
         className="mt-3"

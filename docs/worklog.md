@@ -241,6 +241,14 @@ A second working block on the same day, after the Amazon teardown.
   owns; `.../delete` removes canonical + raw rows, matches, event memberships,
   availability, coverage and partitions, rebuilds rollups, and keeps the run row
   marked `deleted` for audit. The Admin Portal lists runs with this action.
+- **Admin console completed.** Accounts/roles, ingestion (single window, all sources,
+  availability), historical backfill jobs (start/cancel/resume), harmonization,
+  rollup rebuilds, cache reset, ingestion-run preview/delete, FIRMS key and raw
+  retention now live in one console.
+- **Portal gating and close-out.** The Admin Portal link and route require an
+  authenticated administrator; the delivery meter was removed from the sidebar
+  and every module now reports `ready` (12 of 12). First admin created with
+  `scripts/create_admin`.
 - **Tests:** backend **241**, frontend **76**; auth, report formats and deletion
   covered, plus frontend login and ingestion-run deletion preview.
 

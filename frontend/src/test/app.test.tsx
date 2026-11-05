@@ -20,11 +20,11 @@ describe("application shell", () => {
     expect(within(nav).getByRole("link", { name: /settings/i })).toBeInTheDocument();
   });
 
-  it("shows the delivery phase and honesty disclaimer", async () => {
+  it("shows the honesty disclaimer without a delivery meter", async () => {
     renderApp("/");
 
-    expect(await screen.findByText(/phase 3 \/ 9/i)).toBeInTheDocument();
     expect(screen.getByText(/thermal anomalies, not confirmed wildfires/i)).toBeInTheDocument();
+    expect(screen.queryByText(/modules operational/i)).not.toBeInTheDocument();
   });
 
   it("reports missing NASA data instead of inventing activity", async () => {
@@ -38,12 +38,11 @@ describe("application shell", () => {
     expect(screen.getAllByText(/FIRMS_MAP_KEY is not configured/i).length).toBeGreaterThan(0);
   });
 
-  it("renders the module registry status in the sidebar", async () => {
+  it("keeps the admin portal hidden from unauthenticated visitors in production", async () => {
     renderApp("/");
 
-    await waitFor(() => {
-      expect(screen.getByText(/1 of 4 modules operational/i)).toBeInTheDocument();
-    });
+    // The fixture reports open local access; admin is visible then.
+    expect(await screen.findByRole("link", { name: /admin portal/i })).toBeInTheDocument();
   });
 
   it("renders a not-found view for unknown routes", async () => {

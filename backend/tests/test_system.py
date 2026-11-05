@@ -65,8 +65,10 @@ def test_only_delivered_modules_claim_readiness(client: TestClient) -> None:
     assert modules["anomalies"]["status"] == "ready"
     for key in ("regions", "exposure", "reports", "assistant"):
         assert modules[key]["status"] == "ready", key
-    # Settings is the only module that stays in progress by design.
-    assert modules["settings"]["status"] == "in_progress"
+    # Delivery is closed: every product module reports ready.
+    assert modules["overview"]["status"] == "ready"
+    assert modules["settings"]["status"] == "ready"
+    assert all(module["status"] == "ready" for module in modules.values())
 
 
 def test_sources_are_registered_but_empty(client: TestClient) -> None:

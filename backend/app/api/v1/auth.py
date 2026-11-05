@@ -36,6 +36,7 @@ class UserPatch(BaseModel):
     role: str | None = Field(default=None, pattern="^(admin|analyst|viewer)$")
     is_active: bool | None = None
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
+    password: str | None = Field(default=None, min_length=10, max_length=256)
 
 
 def _set_cookie(response: Response, token: str) -> None:
@@ -61,6 +62,7 @@ def auth_status(
         "authentication": True,
         "authenticated": user is not None,
         "required": bool(settings.is_production and not settings.admin_token),
+        "open_access": bool(not settings.admin_token and not settings.is_production),
         "user": auth_service.user_out(user) if user else None,
         "roles": list(auth_service.ROLES),
         "method": "argon2id + server-side session cookie",
@@ -156,6 +158,9 @@ def patch_user(
             auth_service.revoke_all_for_user(session, user.id)
     if payload.display_name is not None:
         user.display_name = payload.display_name
+    if payload.password is not None:
+        user.password_hash = auth_service.hash_password(payload.password)
+        auth_service.revoke_all_for_user(session, user.id)
     session.commit()
     session.refresh(user)
     return auth_service.user_out(user)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -33,7 +33,7 @@ from app.services import ingestion_deletion
 from app.services.firms.tiles import WORLD, Tile, global_tiles
 from app.services.ingestion import ingest_range, sync_availability
 from app.services.observation_queries import BBox
-from app.services.rollups import refresh_rollup
+from app.services.rollups import refresh_rollup, refresh_rollup_range
 from app.services.sources import FIRMS_SOURCES, get_source
 
 router = APIRouter(
@@ -50,6 +50,33 @@ def list_tiles() -> list[TileOut]:
 
 class RunDeleteRequest(BaseModel):
     confirm: bool = False
+
+
+class RollupRequest(BaseModel):
+    start_date: date
+    end_date: date
+
+
+@router.post("/maintenance/rollups", summary="Rebuild rollups for a date range")
+def rebuild_rollups(
+    payload: RollupRequest,
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    if payload.end_date < payload.start_date:
+        raise AppError("unprocessable", "end_date must not be before start_date.")
+    ok = refresh_rollup_range(session, payload.start_date, payload.end_date)
+    return {
+        "ok": ok,
+        "start_date": payload.start_date.isoformat(),
+        "end_date": payload.end_date.isoformat(),
+        "note": "Rollups rebuilt for the exact range; analysis is unchanged.",
+    }
+
+
+@router.post("/maintenance/cache/clear", summary="Clear in-process response caches")
+def clear_response_caches() -> dict[str, object]:
+    clear_caches()
+    return {"ok": True, "note": "Map, calendar and dashboard caches cleared."}
 
 
 @router.get(

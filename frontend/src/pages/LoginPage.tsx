@@ -1,5 +1,6 @@
 import { KeyRound } from "lucide-react";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/Button";
@@ -8,6 +9,7 @@ import { Panel } from "@/components/ui/Panel";
 import { apiFetch } from "@/lib/api";
 
 export function LoginPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,6 +25,7 @@ export function LoginPage() {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
+      await queryClient.invalidateQueries();
       navigate("/admin");
     } catch (cause) {
       setError((cause as Error).message);
