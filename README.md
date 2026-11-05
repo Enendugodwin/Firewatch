@@ -35,6 +35,8 @@ exposes all of it through a dark analytical console.
 
 ---
 
+> **Taking over?** Start with **[docs/handover.md](docs/handover.md)** ? credentials handling, local setup, runbooks, backup/restore and the first-day checklist.
+
 ## Screenshots
 
 These are live captures of the console on the workstation (PostgreSQL store, 2026-11-04).
@@ -111,6 +113,7 @@ candidate pairs (29 probable, 157 possible) and 587 estimated events (158 seen b
 
 ## Documentation
 
+- **[docs/handover.md](docs/handover.md)** ? run, operate and hand over the platform (accounts, secrets, runbooks, known gaps).
 - [docs/worklog.md](docs/worklog.md) — day-by-day record from day 1, with commits,
   measurements, incidents and known gaps.
 - [docs/architecture.md](docs/architecture.md) — shape, layers, non-negotiables.

@@ -249,6 +249,8 @@ A second working block on the same day, after the Amazon teardown.
   authenticated administrator; the delivery meter was removed from the sidebar
   and every module now reports `ready` (12 of 12). First admin created with
   `scripts/create_admin`.
+- **Handover:** `docs/handover.md` records access, secrets policy, local/container setup,
+  the code map, runbooks, verification, incidents and a first-day checklist.
 - **Tests:** backend **241**, frontend **76**; auth, report formats and deletion
   covered, plus frontend login and ingestion-run deletion preview.
 
